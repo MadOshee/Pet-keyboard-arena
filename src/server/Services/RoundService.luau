@@ -17,6 +17,7 @@ local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local LocalMatchSource = require(script.Parent.Parent.Match.LocalMatchSource)
 local ArenaService = require(script.Parent.ArenaService)
+local StatsService = require(script.Parent.StatsService)
 
 export type RoundResult = {
 	RoundId: number,
@@ -72,7 +73,7 @@ local function placeOnArena(player: Player)
 		return
 	end
 	teleport(player, ArenaService:GetTeamSpawn(team :: Types.TeamId))
-	setWalkSpeed(player, if phase == "Countdown" then 0 else ArenaConfig.BaseWalkSpeed)
+	setWalkSpeed(player, if phase == "Countdown" then 0 else StatsService:GetWalkSpeed(player))
 end
 
 local function pruneLeftPlayers()
@@ -92,8 +93,11 @@ local function assignTeams(groups: { { Player } }): boolean
 			byUserId[player.UserId] = player
 			table.insert(members, player.UserId)
 		end
-		-- Power stays 0 until pets give in-round bonuses (stage 2).
-		table.insert(balancerGroups, { Members = members, Power = 0 })
+		local power = 0
+		for _, player in group do
+			power += StatsService:GetPower(player)
+		end
+		table.insert(balancerGroups, { Members = members, Power = power })
 	end
 
 	local assignment = TeamBalancer.Assign(balancerGroups, RoundConfig)
@@ -131,7 +135,7 @@ local function runRound()
 	ArenaService:BeginRound(teams)
 	setPhase("Playing", RoundConfig.PlayingSeconds)
 	for player in teams do
-		setWalkSpeed(player, ArenaConfig.BaseWalkSpeed)
+		setWalkSpeed(player, StatsService:GetWalkSpeed(player))
 	end
 	task.wait(RoundConfig.PlayingSeconds)
 
@@ -151,6 +155,8 @@ local function runRound()
 
 	for player in teams do
 		player:SetAttribute("Team", nil)
+		-- Pet Speed only applies in the round.
+		setWalkSpeed(player, ArenaConfig.BaseWalkSpeed)
 		teleport(player, lobbyCFrame())
 	end
 	table.clear(teams)

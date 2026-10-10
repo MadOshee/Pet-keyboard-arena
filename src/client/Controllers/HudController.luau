@@ -1,6 +1,6 @@
 --!strict
 -- Stage 1 HUD built in code: phase + timer, team score bar, coins, the
--- play/ready toggle and a round result banner. Uses Scale sizes so it fits
+-- play/ready toggle and a banner for round results and refused requests. Uses Scale sizes so it fits
 -- phones, tablets and PC. Art from the asset packs replaces it in stage 7.
 
 local Players = game:GetService("Players")
@@ -31,6 +31,8 @@ type Refs = {
 
 local refs: Refs
 local bannerToken = 0
+
+local ERROR_SECONDS = 2.5
 
 local function corner(parent: GuiObject, radius: number)
 	local uiCorner = Instance.new("UICorner")
@@ -219,6 +221,12 @@ function HudController:Start()
 	player:GetAttributeChangedSignal("Ready"):Connect(updateReady)
 	DataController.Changed:Connect(updateCoins)
 	ClientNet.On("RoundResult", onRoundResult)
+	ClientNet.On("ActionResult", function(_action: string, reason: string)
+		local text = (Strings.Errors :: any)[reason]
+		if text then
+			showBanner(text, ERROR_SECONDS)
+		end
+	end)
 
 	local elapsed = 0
 	RunService.Heartbeat:Connect(function(dt)

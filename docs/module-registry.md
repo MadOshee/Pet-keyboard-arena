@@ -9,45 +9,58 @@
 |---|---|---|---|
 | Util/Loader | 0 | `Run(entries)`; типы `Entry`, `Lifecycle` | — |
 | Util/Signal | 1 | `Signal.new()`, `:Connect(fn) -> Connection`, `:Fire(...)`, `:DisconnectAll()` | — |
-| Types | 0–1 | `Rarity`, `TeamId`, `Winner`, `Outcome`, `RoundPhase`, `Profile`, `RoundResultPayload` | — |
+| Types | 0–2 | `Rarity`, `TeamId`, `Winner`, `Outcome`, `RoundPhase`, `Stat`, `Stats`, `PetInstance`, `EggInstance`, `OfferContext`, `EggOffer`, `Profile`, `RoundResultPayload`, `PetHatchedPayload`, `ActionError` | — |
 | Config/RoundConfig | 1 | тайминги фаз, размеры команд, `MinKeysForReward`, `Coins` | — |
 | Config/ArenaConfig | 1 | размеры клавиш, частоты тиков, радиус кисти, скорость, точка лобби | — |
 | Config/TeamColors | 1 | `Red`, `Blue`, `Neutral`, `KeyLabel`, `ForTeam(team)` | Types |
-| Config/Strings | 1 | тексты интерфейса | — |
+| Config/Strings | 1–2 | тексты интерфейса (раунд, яйца, питомцы, ошибки) | — |
+| Config/PetConfig | 2 | `Rarities`, `Themes` (тема → один стат), `Pets` (ключ → имя, тема, редкость, модель из Assets.Pets), `Bonus[stat][rarity]`, `Caps`, `MaxEquipped`, `StartCapacity`, `SellValue` | — |
+| Config/EggConfig | 2 | `OfferThemes`, `EggsPerOffer`, `BaseWeights`, `OutcomeBonus`, `ContributionBonus`, `RerollCosts`, `OfferSeconds`, `ModelName(theme)` | — |
+| Config/PetStyle | 2 | цвета `Rarity[rarity]`, `Theme[theme]` | — |
 | Net/RemoteNames | 1 | `ClientToServer`, `ServerToClient` | — |
 | Logic/ArenaGrid | 1 | `KeyboardLayout(unit, gap)`, `ForEachKeyInRadius(keys, x, z, r, visit)`, `BuildIndex(keys, cellSize)`, `ForEachKeyInRadiusIndexed(index, x, z, r, visit)` | — |
 | Logic/TeamBalancer | 1 | `TeamSize(humans, limits)`, `Assign(groups, limits) -> Assignment` | — |
-| Logic/Reward | 1 | `DecideWinner(red, blue)`, `OutcomeFor(team, winner)`, `Coins(outcome, keys, multiplier, config)` | — |
+| Logic/Reward | 1–2 | `DecideWinner(red, blue)`, `OutcomeFor(team, winner)`, `Coins(outcome, keys, multiplier, config)`, `ContributionPct(keys, bestOnTeam)` | — |
+| Logic/EggRoller | 2 | `Bonus(ctx, cfg)`, `Weights(ctx, cfg)`, `Odds(weights)`, `PickIndex(weights, rng)`, `RollOffer(ctx, themes, rarities, cfg, rng)`, `KindsFor(pets, theme, rarity)`, `RollPet(pets, theme, rarity, rng)`, `BestSlot(eggs, rarities)` | — |
+| Logic/StatCalculator | 2 | `Zero()`, `PetBonus(pet, cfg) -> (stat?, value)`, `Totals(pets, cfg) -> Stats` (с потолками), `Power(stats)` | — |
 
 ## Сервер (ServerScriptService/Server)
 
-Порядок загрузки: NetService → PlayerDataService → ReadyService → ArenaService → RoundService → RewardService.
+Порядок загрузки: NetService → PlayerDataService → ReadyService → PetService → StatsService → ArenaService → RoundService → EggService → RewardService.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
 | Bootstrap | 0 | точка входа, `SERVICE_ORDER` | Loader |
 | Util/RateLimiter | 1 | `new(rate, burst, clock?)`, `:Allow(key)`, `:Forget(key)` | — |
 | Util/Guard | 1 | `Boolean(v)`, `Integer(v, min, max)`, `String(v, maxLen)` | — |
-| Data/ProfileTemplate | 1 | `Template`, `CurrentSchemaVersion` | Types |
+| Data/ProfileTemplate | 1–2 | `Template` (этап 2: `Pets`, `Equipped`, `PetCapacity`; `PendingOffer` пустое), `CurrentSchemaVersion` = 1 (новые поля добавляет Reconcile, миграция не нужна) | Types, PetConfig |
 | Data/Migrations | 1 | `Apply(data, currentVersion, steps?)` | — |
 | Services/NetService | 1 | `On(name, limit, handler)`, `FireClient(name, player, ...)`, `FireAllClients(name, ...)` | RemoteNames, RateLimiter |
 | Services/PlayerDataService | 1 | `IsLoaded(p)`, `Get(p)`, `Update(p, mutator)`; сигналы `ProfileLoaded(p, data)`, `ProfileReleasing(p)` | ProfileStore, NetService, Migrations, ProfileTemplate |
 | Services/ReadyService | 1 | `IsReady(p)`, `SetReady(p, value)`; сигнал `ReadyChanged(p, value)`; атрибут игрока `Ready` | NetService, PlayerDataService, Guard |
-| Services/ArenaService | 1 | клавиши: BasePart с тегом `ArenaKey` под Workspace.Arena, цвет между раундами из атрибута `BaseColor`; `BeginRound(teams)`, `EndRound() -> RoundScore`, `GetTeamSpawn(team)`; атрибуты `ScoreRed`, `ScoreBlue` | ArenaGrid, ArenaConfig, TeamColors |
+| Services/PetService | 2 | `Count(data)`, `AddToProfile(data, kind, rarity) -> petId?` (внутри чужого `Update`), `GetEquipped(p)`; сигнал `EquippedChanged(p)`; атрибут игрока `EquippedPets` (ключи через запятую); remotes `PetEquip`, `PetSell` | PlayerDataService, NetService, Guard, PetConfig |
+| Services/StatsService | 2 | `GetStats(p)`, `GetWalkSpeed(p)`, `GetPaintRadius(p)`, `GetLuck(p)`, `GetCoinMultiplier(p)`, `GetPower(p)`; сигнал `StatsChanged(p, stats)` | PetService, StatCalculator, PetConfig, ArenaConfig |
+| Services/ArenaService | 1–2 | клавиши: BasePart с тегом `ArenaKey` под Workspace.Arena, цвет между раундами из атрибута `BaseColor`; `BeginRound(teams)` (радиус кисти каждого участника из StatsService), `EndRound() -> RoundScore`, `GetTeamSpawn(team)`; атрибуты `ScoreRed`, `ScoreBlue` | ArenaGrid, ArenaConfig, TeamColors, StatsService |
 | Match/LocalMatchSource | 1 | `CollectParticipants() -> { { Player } }` | ReadyService, PlayerDataService |
-| Services/RoundService | 1 | `GetPhase()`; сигналы `PhaseChanged(phase)`, `RoundEnded(result)`; атрибуты `RoundPhase`, `PhaseEndsAt`, `Winner`, атрибут игрока `Team` | ArenaService, LocalMatchSource, TeamBalancer, Reward |
-| Services/RewardService | 1 | слушает `RoundEnded`, шлёт `RoundResult` | PlayerDataService, ReadyService, RoundService, NetService, Reward |
+| Services/RoundService | 1–2 | `GetPhase()`; сигналы `PhaseChanged(phase)`, `RoundEnded(result)`; атрибуты `RoundPhase`, `PhaseEndsAt`, `Winner`, атрибут игрока `Team`; скорость в раунде и сила для баланса команд из StatsService, после раунда скорость сбрасывается | ArenaService, StatsService, LocalMatchSource, TeamBalancer, Reward |
+| Services/EggService | 2 | `CreateOffer(p, ctx)` (старое невыбранное предложение сначала выбирается автоматически), `GetOffer(p)`; сигнал `PetHatched(p, payload)`; remotes `EggPick`, `EggReroll`; автовыбор самого редкого яйца после `OfferSeconds` | PlayerDataService, PetService, NetService, Guard, EggRoller, EggConfig, PetConfig |
+| Services/RewardService | 1–2 | слушает `RoundEnded`: монеты с множителем Coins, предложение яиц (исход, вклад, удача), шлёт `RoundResult` | PlayerDataService, ReadyService, RoundService, StatsService, EggService, NetService, Reward |
 
 ## Клиент (StarterPlayerScripts/Client)
 
-Порядок загрузки: DataController → HudController.
+Порядок загрузки: DataController → HudController → EggOfferController → InventoryController → PetFollowController.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
 | Bootstrap | 0 | точка входа, `CONTROLLER_ORDER` | Loader |
 | Util/ClientNet | 1 | `Fire(name, ...)`, `On(name, handler)` | — |
 | Controllers/DataController | 1 | `Get() -> Profile?`; сигнал `Changed(profile)` | ClientNet |
-| Controllers/HudController | 1 | интерфейс: фаза и таймер, счёт, команда, монеты, кнопка «Играть», баннер итогов | DataController, ClientNet |
+| UI/Widgets | 2 | `Corner`, `Stroke`, `AspectRatio`, `Label`, `Button`, `Panel`, `ScreenGui` | — |
+| UI/AssetModels | 2 | `Pet(kind)`, `Egg(theme)` (копии из ReplicatedStorage.Assets или nil), `LocalFront(model)`, `FrontCorrection(model)`, `FitHeight(model, h)`, `Viewport(parent, model?, color)` | PetConfig, EggConfig |
+| Controllers/HudController | 1–2 | интерфейс: фаза и таймер, счёт, команда, монеты, кнопка «Играть», баннер итогов и отказов (`ActionResult`) | DataController, ClientNet |
+| Controllers/EggOfferController | 2 | окно «выбери 1 из 4» из `PendingOffer`, реролл, шансы, таймер, окно «тебе выпал…» (`PetHatched`) | DataController, ClientNet, AssetModels, Widgets, EggRoller |
+| Controllers/InventoryController | 2 | кнопка PETS, список питомцев, надеть/снять, продажа с подтверждением, сумма бонусов | DataController, ClientNet, AssetModels, Widgets, StatCalculator |
+| Controllers/PetFollowController | 2 | питомцы всех игроков бегут за ними (по атрибуту `EquippedPets`), шары-заглушки без ассетов | AssetModels, PetConfig |
 
 ## Remotes
 
@@ -56,3 +69,16 @@
 | SetReady | клиент → сервер | `(ready: boolean)` | 2/с, всплеск 4 |
 | DataSync | сервер → клиент | `(profile: Profile)` | — |
 | RoundResult | сервер → клиент | `(result: RoundResultPayload)` | — |
+| EggPick | клиент → сервер | `(offerId: string, slot: 1..4)` | 2/с, всплеск 4 |
+| EggReroll | клиент → сервер | `(offerId: string)` | 2/с, всплеск 4 |
+| PetEquip | клиент → сервер | `(petId: string, equip: boolean)` | 4/с, всплеск 8 |
+| PetSell | клиент → сервер | `(petId: string)` | 4/с, всплеск 8 |
+| PetHatched | сервер → клиент | `(result: PetHatchedPayload)` | — |
+| ActionResult | сервер → клиент | `(action: string, reason: ActionError)`, только отказы | — |
+
+## Решения этапа 2 (уточнения к design.md)
+
+- Каждая тема яйца даёт один стат: Basic → Coins, Forest → Speed, Arctic → PaintRadius, Volcanic → Luck. В предложении 4 яйца, по одному каждой темы, редкость у каждого своя. Питомец той же редкости, что яйцо, вид случайный внутри темы и редкости.
+- Шансы: базовые веса 50/28/15/6/1, вес редкости ранга r умножается на (1 + бонус)^r, бонус = победа 0,35 / ничья 0,15 + вклад × 0,3 + удача питомцев.
+- Предложение передаётся в профиле (`PendingOffer` в DataSync), отдельного remote `EggOffer` нет. Ответы на успешные действия тоже приходят через DataSync, `ActionResult` шлёт только отказы.
+- Инвентарь полон: питомец из яйца сразу превращается в монеты по цене продажи (5/10/25/60/150), окно выбора предупреждает заранее.

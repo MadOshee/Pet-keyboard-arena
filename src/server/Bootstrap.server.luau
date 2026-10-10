@@ -11,8 +11,11 @@ local SERVICE_ORDER: { string } = {
 	"NetService",
 	"PlayerDataService",
 	"ReadyService",
+	"PetService",
+	"StatsService",
 	"ArenaService",
 	"RoundService",
+	"EggService",
 	"RewardService",
 }
 
