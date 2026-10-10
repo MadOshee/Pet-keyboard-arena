@@ -40,7 +40,7 @@
 
 ## Клиент (StarterPlayerScripts/Client)
 
-Порядок загрузки: DataController → HudController.
+Порядок загрузки: DataController → HudController → KeyPressController.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
@@ -48,6 +48,7 @@
 | Util/ClientNet | 1 | `Fire(name, ...)`, `On(name, handler)` | — |
 | Controllers/DataController | 1 | `Get() -> Profile?`; сигнал `Changed(profile)` | ClientNet |
 | Controllers/HudController | 1 | интерфейс: фаза и таймер, счёт, команда, монеты, кнопка «Играть», баннер итогов | DataController, ClientNet |
+| Controllers/KeyPressController | 1 | только визуал: клавиши проседают под любым персонажем и играют `KeySound`; пол целиком из клавиш: `arena/Arena.rbxm` (Keys с тегом ArenaKey, Decor, Floor), генерирует `lune run tools/build-arena` | — |
 
 ## Remotes
 

@@ -5,6 +5,9 @@
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
+      },
+      "Assets": {
+        "$path": "assets"
       }
     },
     "ServerScriptService": {
@@ -23,31 +26,6 @@
       }
     },
     "Workspace": {
-      "Baseplate": {
-        "$className": "Part",
-        "$properties": {
-          "Anchored": true,
-          "Locked": true,
-          "Size": [
-            512,
-            20,
-            512
-          ],
-          "Position": [
-            0,
-            -10,
-            0
-          ],
-          "Color": [
-            0.388,
-            0.372,
-            0.384
-          ],
-          "Material": "Plastic",
-          "TopSurface": "Smooth",
-          "BottomSurface": "Smooth"
-        }
-      },
       "SpawnLocation": {
         "$className": "SpawnLocation",
         "$properties": {
@@ -62,8 +40,13 @@
             0.5,
             70
           ],
-          "Neutral": true
+          "Neutral": true,
+          "Transparency": 1,
+          "CanCollide": false
         }
+      },
+      "Arena": {
+        "$path": "arena/Arena.rbxm"
       }
     }
   }
