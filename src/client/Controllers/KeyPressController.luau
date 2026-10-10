@@ -66,10 +66,11 @@ end
 local function run()
 	local arena = workspace:WaitForChild("Arena")
 	local keysFolder = arena:WaitForChild("Keys")
+	local decorFolder = arena:WaitForChild("Decor")
 
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { keysFolder }
+	params.FilterDescendantsInstances = { keysFolder, decorFolder }
 
 	RunService.Heartbeat:Connect(function()
 		for _, player in Players:GetPlayers() do

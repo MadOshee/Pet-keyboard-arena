@@ -26,31 +26,6 @@
       }
     },
     "Workspace": {
-      "Baseplate": {
-        "$className": "Part",
-        "$properties": {
-          "Anchored": true,
-          "Locked": true,
-          "Size": [
-            512,
-            20,
-            512
-          ],
-          "Position": [
-            0,
-            -10,
-            0
-          ],
-          "Color": [
-            0.42,
-            0.66,
-            0.38
-          ],
-          "Material": "Grass",
-          "TopSurface": "Smooth",
-          "BottomSurface": "Smooth"
-        }
-      },
       "SpawnLocation": {
         "$className": "SpawnLocation",
         "$properties": {
@@ -62,10 +37,12 @@
           ],
           "Position": [
             0,
-            0.5,
+            2.5,
             70
           ],
-          "Neutral": true
+          "Neutral": true,
+          "Transparency": 1,
+          "CanCollide": false
         }
       },
       "Arena": {

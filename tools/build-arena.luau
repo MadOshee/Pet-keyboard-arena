@@ -1,18 +1,18 @@
 --!strict
--- Regenerates arena/Arena.rbxm: the keyboard arena built from the asset-pack
--- key model (assets/Key.rbxm) and the key layout in ArenaGrid/ArenaConfig.
--- Run after changing either: `lune run tools/build-arena`
+-- Regenerates arena/Arena.rbxm: a floor made entirely of keyboard keys
+-- (the Free Ocean Keyboard key model, assets/Key.rbxm), like the reference
+-- Ivan picked. Run after changing the numbers below: `lune run tools/build-arena`
 --
--- ArenaService picks up any BasePart tagged "ArenaKey" under Workspace.Arena,
--- so this file needs no server changes. The mesh keys do not collide; players
--- walk on the invisible Arena.Floor at key-top height, and the client sinks
--- keys under characters (KeyPressController).
+-- Workspace.Arena.Keys  - the playable keys, tagged "ArenaKey"; ArenaService
+--                         paints them and resets them to TeamColors.Neutral.
+-- Workspace.Arena.Decor - the same keys around the arena and under the lobby,
+--                         in the pack's warm colors; never painted.
+-- Workspace.Arena.Floor - one invisible slab at key-top height that players
+--                         walk on. Keys do not collide, so they can sink
+--                         under characters (KeyPressController).
 
 local fs = require("@lune/fs")
 local roblox = require("@lune/roblox") :: any
-
-local ArenaConfig = require("../src/shared/Config/ArenaConfig")
-local ArenaGrid = require("../src/shared/Logic/ArenaGrid")
 
 local Instance = roblox.Instance
 local Vector3 = roblox.Vector3
@@ -20,26 +20,41 @@ local CFrame = roblox.CFrame
 local Color3 = roblox.Color3
 local Enum = roblox.Enum
 
+local KEY_SIZE = 3.3 -- studs, square keycap
+local KEY_HEIGHT = 2
+local PITCH = 3.5 -- key size + gap
+-- Playable area in keys, centered on the origin (ArenaConfig.CenterX/Z = 0).
+local ARENA_COLS = 36
+local ARENA_ROWS = 22
+-- The decorative floor covers this rectangle (studs), lobby (z = 70) included.
+local FLOOR_MIN_X, FLOOR_MAX_X = -84, 84
+local FLOOR_MIN_Z, FLOOR_MAX_Z = -56, 98
+
+local LETTERS = string.split("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "")
+local WARM = {
+	Color3.fromRGB(238, 214, 175),
+	Color3.fromRGB(240, 230, 140),
+	Color3.fromRGB(255, 190, 100),
+	Color3.fromRGB(255, 245, 180),
+	Color3.fromRGB(248, 217, 109),
+	Color3.fromRGB(255, 170, 80),
+	Color3.fromRGB(255, 230, 150),
+	Color3.fromRGB(240, 210, 120),
+}
+local NEUTRAL = Color3.fromRGB(255, 232, 178)
+local LABEL = Color3.fromRGB(40, 40, 48)
+
+math.randomseed(20261010)
 local template = roblox.deserializeModel(fs.readFile("assets/Key.rbxm"))[1]
 
-local arena = Instance.new("Folder")
-arena.Name = "Arena"
-local keysFolder = Instance.new("Folder")
-keysFolder.Name = "Keys"
-keysFolder.Parent = arena
-
-local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
-for index, spec in ArenaGrid.KeyboardLayout(ArenaConfig.KeyUnit, ArenaConfig.KeyGap) do
+local function makeKey(name: string, x: number, z: number, color: any): any
 	local key = template:Clone()
-	key.Name = `Key{index}_{spec.Label}`
+	key.Name = name
 	key.Anchored = true
 	key.CanCollide = false
-	key.Color = Color3.fromRGB(248, 240, 222)
-	key.Size = Vector3.new(spec.SizeX, ArenaConfig.KeyHeight, spec.SizeZ)
-	local x = ArenaConfig.CenterX + spec.CenterX
-	local z = ArenaConfig.CenterZ + spec.CenterZ
-	key.CFrame = CFrame.new(x, ArenaConfig.KeyHeight / 2, z)
-
+	key.Color = color
+	key.Size = Vector3.new(KEY_SIZE, KEY_HEIGHT, KEY_SIZE)
+	key.CFrame = CFrame.new(x, KEY_HEIGHT / 2, z)
 	local gui = key.Top
 	gui.Face = Enum.NormalId.Top
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -47,31 +62,59 @@ for index, spec in ArenaGrid.KeyboardLayout(ArenaConfig.KeyUnit, ArenaConfig.Key
 	local letter = gui.Letter
 	letter.BackgroundTransparency = 1
 	letter.Size = roblox.UDim2.fromScale(1, 1)
-	letter.Text = spec.Label
+	letter.Text = LETTERS[math.random(1, #LETTERS)]
 	letter.TextScaled = true
 	letter.TextTransparency = 0
 	letter.Visible = true
-	letter.TextColor3 = Color3.fromRGB(40, 40, 48)
-
-	key:AddTag("ArenaKey")
-	key.Parent = keysFolder
-
-	minX = math.min(minX, x - spec.SizeX / 2)
-	maxX = math.max(maxX, x + spec.SizeX / 2)
-	minZ = math.min(minZ, z - spec.SizeZ / 2)
-	maxZ = math.max(maxZ, z + spec.SizeZ / 2)
+	letter.TextColor3 = LABEL
+	return key
 end
 
-local margin = ArenaConfig.KeyGap
+local arena = Instance.new("Folder")
+arena.Name = "Arena"
+local keys = Instance.new("Folder")
+keys.Name = "Keys"
+keys.Parent = arena
+local decor = Instance.new("Folder")
+decor.Name = "Decor"
+decor.Parent = arena
+
+-- The playable grid sits on the same lattice as the decorative floor.
+local arenaMinX = -(ARENA_COLS - 1) / 2 * PITCH
+local arenaMinZ = -(ARENA_ROWS - 1) / 2 * PITCH
+local arenaCount, decorCount = 0, 0
+
+local z = arenaMinZ - math.floor((arenaMinZ - FLOOR_MIN_Z) / PITCH) * PITCH
+while z <= FLOOR_MAX_Z do
+	local x = arenaMinX - math.floor((arenaMinX - FLOOR_MIN_X) / PITCH) * PITCH
+	while x <= FLOOR_MAX_X do
+		local inArena = x >= arenaMinX - 0.01
+			and x <= -arenaMinX + 0.01
+			and z >= arenaMinZ - 0.01
+			and z <= -arenaMinZ + 0.01
+		if inArena then
+			arenaCount += 1
+			local key = makeKey(`Key{arenaCount}`, x, z, NEUTRAL)
+			key:AddTag("ArenaKey")
+			key.Parent = keys
+		else
+			decorCount += 1
+			makeKey(`Decor{decorCount}`, x, z, WARM[math.random(1, #WARM)]).Parent = decor
+		end
+		x += PITCH
+	end
+	z += PITCH
+end
+
 local floor = Instance.new("Part")
 floor.Name = "Floor"
 floor.Anchored = true
 floor.Transparency = 1
 floor.CanQuery = false
 floor.CanTouch = false
-floor.Size = Vector3.new(maxX - minX + margin * 2, 1, maxZ - minZ + margin * 2)
-floor.CFrame = CFrame.new((minX + maxX) / 2, ArenaConfig.KeyHeight - 0.5, (minZ + maxZ) / 2)
+floor.Size = Vector3.new(FLOOR_MAX_X - FLOOR_MIN_X + PITCH, 1, FLOOR_MAX_Z - FLOOR_MIN_Z + PITCH)
+floor.CFrame = CFrame.new((FLOOR_MIN_X + FLOOR_MAX_X) / 2, KEY_HEIGHT - 0.5, (FLOOR_MIN_Z + FLOOR_MAX_Z) / 2)
 floor.Parent = arena
 
 fs.writeFile("arena/Arena.rbxm", roblox.serializeModel({ arena }))
-print(`arena/Arena.rbxm: {#keysFolder:GetChildren()} keys`)
+print(`arena/Arena.rbxm: {arenaCount} arena keys, {decorCount} decor keys`)
