@@ -30,6 +30,8 @@ local ArenaService = {}
 
 local keyParts: { BasePart } = {}
 local keyRects: { ArenaGrid.KeyRect } = {}
+local keyBaseColors: { Color3 } = {}
+local keyIndex: ArenaGrid.KeyIndex
 local keyTeams: { [number]: Types.TeamId } = {}
 local keyTopY = 0
 local bounds = { MinX = 0, MaxX = 0, CenterZ = 0 }
@@ -96,6 +98,12 @@ local function collectKeys()
 			local position = instance.Position
 			local half = instance.Size / 2
 			table.insert(keyParts, instance)
+			-- Art keys keep their own color between rounds via a "BaseColor" attribute.
+			local baseColor = instance:GetAttribute("BaseColor")
+			table.insert(
+				keyBaseColors,
+				if typeof(baseColor) == "Color3" then baseColor else TeamColors.Neutral
+			)
 			table.insert(keyRects, {
 				CenterX = position.X,
 				CenterZ = position.Z,
@@ -114,12 +122,13 @@ local function collectKeys()
 		error("ArenaService: no ArenaKey parts found under Workspace.Arena")
 	end
 	bounds = { MinX = minX, MaxX = maxX, CenterZ = (minZ + maxZ) / 2 }
+	keyIndex = ArenaGrid.BuildIndex(keyRects, ArenaConfig.IndexCellSize)
 end
 
 local function resetKeys()
 	table.clear(keyTeams)
-	for _, part in keyParts do
-		part.Color = TeamColors.Neutral
+	for index, part in keyParts do
+		part.Color = keyBaseColors[index]
 	end
 	scoreRed, scoreBlue = 0, 0
 	scoreDirty = true
@@ -142,26 +151,32 @@ local function paintTick()
 			continue
 		end
 
-		ArenaGrid.ForEachKeyInRadius(keyRects, position.X, position.Z, radius, function(index)
-			local previous = keyTeams[index]
-			if previous == team then
-				return
+		ArenaGrid.ForEachKeyInRadiusIndexed(
+			keyIndex,
+			position.X,
+			position.Z,
+			radius,
+			function(index)
+				local previous = keyTeams[index]
+				if previous == team then
+					return
+				end
+				if previous == "Red" then
+					scoreRed -= 1
+				elseif previous == "Blue" then
+					scoreBlue -= 1
+				end
+				if team == "Red" then
+					scoreRed += 1
+				else
+					scoreBlue += 1
+				end
+				keyTeams[index] = team
+				keyParts[index].Color = TeamColors.ForTeam(team)
+				keysPainted[player] = (keysPainted[player] or 0) + 1
+				scoreDirty = true
 			end
-			if previous == "Red" then
-				scoreRed -= 1
-			elseif previous == "Blue" then
-				scoreBlue -= 1
-			end
-			if team == "Red" then
-				scoreRed += 1
-			else
-				scoreBlue += 1
-			end
-			keyTeams[index] = team
-			keyParts[index].Color = TeamColors.ForTeam(team)
-			keysPainted[player] = (keysPainted[player] or 0) + 1
-			scoreDirty = true
-		end)
+		)
 	end
 end
 
