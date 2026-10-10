@@ -23,7 +23,11 @@ jobs:
         run: stylua --check src tests
 
       - name: Lint
-        run: selene src
+        # Each finding is also printed as a GitHub annotation, so it shows on
+        # the PR without opening the job log.
+        run: |
+          set -o pipefail
+          selene --display-style=Quiet src | tee /dev/stderr | sed -n 's/^\([^:]*\):\([0-9]*\):[0-9]*: \(.*\)$/::error file=\1,line=\2::\3/p'
 
       - name: Unit tests (pure logic)
         run: lune run tests/run
