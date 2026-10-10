@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        uses: CompeyDev/setup-rokit@v0.1.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check formatting
+        run: stylua --check src tests
+
+      - name: Lint
+        run: selene src
+
+      - name: Unit tests (pure logic)
+        run: lune run tests/run
+
+      - name: Type check (strict Luau)
+        run: |
+          rojo sourcemap default.project.json -o sourcemap.json
+          curl -sSLf -o globalTypes.d.luau https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/1.32.1/scripts/globalTypes.d.luau
+          luau-lsp analyze --sourcemap=sourcemap.json --definitions=globalTypes.d.luau --base-luaurc=.luaurc src
+
+      - name: Build place file
+        run: rojo build default.project.json -o PetKeyboardArena.rbxl
+
+      - name: Upload place file
+        uses: actions/upload-artifact@v4
+        with:
+          name: PetKeyboardArena-${{ github.sha }}
+          path: PetKeyboardArena.rbxl
+          retention-days: 30
