@@ -22,7 +22,8 @@ local random = Random.new()
 
 local restY: { [BasePart]: number } = {}
 local pressCount: { [BasePart]: number } = {}
-local keysUnder: { [Player]: { [BasePart]: true } } = {}
+-- Keyed by character model, so bots press keys too.
+local keysUnder: { [Model]: { [BasePart]: true } } = {}
 local tweens: { [BasePart]: Tween } = {}
 
 local function moveKey(key: BasePart, y: number)
@@ -80,11 +81,30 @@ local function run()
 	overlap.FilterDescendantsInstances = { keysFolder, decorFolder }
 
 	local direction = Vector3.new(0, -RAY_LENGTH, 0)
-	RunService.Heartbeat:Connect(function()
+	local function characters(): { Model }
+		local list = {}
 		for _, player in Players:GetPlayers() do
+			if player.Character then
+				table.insert(list, player.Character)
+			end
+		end
+		local bots = workspace:FindFirstChild("Bots")
+		if bots then
+			for _, bot in bots:GetChildren() do
+				if bot:IsA("Model") then
+					table.insert(list, bot)
+				end
+			end
+		end
+		return list
+	end
+
+	RunService.Heartbeat:Connect(function()
+		local seen: { [Model]: true } = {}
+		for _, character in characters() do
+			seen[character] = true
 			local now: { [BasePart]: true } = {}
-			local character = player.Character
-			local root = character and character:FindFirstChild("HumanoidRootPart")
+			local root = character:FindFirstChild("HumanoidRootPart")
 			if root and root:IsA("BasePart") then
 				local hit = workspace:Raycast(root.Position, direction, params)
 				if hit then
@@ -96,7 +116,7 @@ local function run()
 				end
 			end
 
-			local before: { [BasePart]: true } = keysUnder[player] or {}
+			local before: { [BasePart]: true } = keysUnder[character] or {}
 			for key in now do
 				if not before[key] then
 					press(key)
@@ -107,18 +127,18 @@ local function run()
 					release(key)
 				end
 			end
-			keysUnder[player] = now
+			keysUnder[character] = now
 		end
-	end)
 
-	Players.PlayerRemoving:Connect(function(player)
-		local keys = keysUnder[player]
-		if keys then
-			for key in keys do
-				release(key)
+		-- Characters that left (respawn, bot removed, player gone) let go.
+		for character, keys in keysUnder do
+			if not seen[character] then
+				for key in keys do
+					release(key)
+				end
+				keysUnder[character] = nil
 			end
 		end
-		keysUnder[player] = nil
 	end)
 end
 

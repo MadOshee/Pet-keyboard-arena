@@ -193,7 +193,16 @@ local function autoPickExpired()
 	for _, player in Players:GetPlayers() do
 		local offer = EggService:GetOffer(player)
 		if offer and now >= offer.ExpiresAt then
-			pick(player, EggRoller.BestSlot(offer.Eggs :: any, PetConfig.Rarities), true)
+			-- One broken saved offer must not stop expiry for everyone.
+			local ok, err = pcall(function()
+				pick(player, EggRoller.BestSlot(offer.Eggs :: any, PetConfig.Rarities), true)
+			end)
+			if not ok then
+				warn(`[EggService] auto-pick failed for {player.UserId}: {err}`)
+				PlayerDataService:Update(player, function(profile)
+					profile.PendingOffer = nil
+				end)
+			end
 		end
 	end
 end
