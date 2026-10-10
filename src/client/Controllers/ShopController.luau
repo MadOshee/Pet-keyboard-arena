@@ -26,6 +26,8 @@ type Row = {
 }
 
 local window: Frame
+local lastIncubators: number? = nil
+local lastCapacity: number? = nil
 local incubatorRow: Row
 local slotsRow: Row
 
@@ -74,6 +76,14 @@ local function refresh(profile: Types.Profile?)
 	end
 	local data = profile :: Types.Profile
 	local owned = #data.Incubators
+	-- A purchase went through: more incubators or pet slots than before.
+	if
+		(lastIncubators ~= nil and owned > (lastIncubators :: number))
+		or (lastCapacity ~= nil and data.PetCapacity > (lastCapacity :: number))
+	then
+		Widgets.PlaySound("Purchase")
+	end
+	lastIncubators, lastCapacity = owned, data.PetCapacity
 	local incubatorPrice = Incubation.NextIncubatorPrice(owned, EggConfig :: any)
 	incubatorRow.Label.Text = if incubatorPrice
 		then string.format(Strings.ShopIncubator, owned + 1, EggConfig.MaxIncubators)
