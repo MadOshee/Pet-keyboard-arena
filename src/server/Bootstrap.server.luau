@@ -22,6 +22,7 @@ local SERVICE_ORDER: { string } = {
 	"RoundService",
 	"EggService",
 	"PlotService",
+	"TutorialService",
 	"RewardService",
 }
 

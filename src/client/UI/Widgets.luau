@@ -2,9 +2,23 @@
 -- Small builders for code-made UI. Sizes use Scale so the same layout fits
 -- phones, tablets and PC. Stage 7 restyles these with art from the packs.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
+
 local Widgets = {}
 
 local FONT = Enum.Font.FredokaOne
+
+-- Plays a UI sound from Assets.Sounds (Click, Success, Error, ...) if the
+-- asset pack is present.
+function Widgets.PlaySound(name: string)
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local sounds = assets and assets:FindFirstChild("Sounds")
+	local sound = sounds and sounds:FindFirstChild(name)
+	if sound and sound:IsA("Sound") then
+		SoundService:PlayLocalSound(sound)
+	end
+end
 
 function Widgets.Corner(parent: GuiObject, radius: number)
 	local corner = Instance.new("UICorner")
@@ -62,6 +76,9 @@ function Widgets.Button(
 	button.Text = ""
 	button.Parent = parent
 	Widgets.Corner(button, 0.25)
+	button.Activated:Connect(function()
+		Widgets.PlaySound("Click")
+	end)
 	return button
 end
 

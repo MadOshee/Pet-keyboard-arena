@@ -18,6 +18,8 @@ local CONTROLLER_ORDER: { string } = {
 	"EffectsController",
 	"PlotController",
 	"PartyController",
+	"ShopController",
+	"TutorialController",
 }
 
 local controllersFolder = script.Parent:FindFirstChild("Controllers")
