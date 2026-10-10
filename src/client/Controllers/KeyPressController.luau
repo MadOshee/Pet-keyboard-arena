@@ -4,18 +4,16 @@
 -- scoring are unaffected (keys are visual; players walk on Arena.Floor).
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
-local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
-
 local RAY_LENGTH = 8
+local PRESS_DEPTH = 0.8 -- studs a key sinks under a character
+local PRESS_TIME = 0.15 -- seconds
 
 local KeyPressController = {}
 
-local tweenInfo =
-	TweenInfo.new(ArenaConfig.KeyPressTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local tweenInfo = TweenInfo.new(PRESS_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local random = Random.new()
 
 local restY: { [BasePart]: number } = {}
@@ -44,7 +42,7 @@ local function press(key: BasePart)
 	if restY[key] == nil then
 		restY[key] = key.Position.Y
 	end
-	moveKey(key, restY[key] - ArenaConfig.KeyPressDepth)
+	moveKey(key, restY[key] - PRESS_DEPTH)
 	local sound = key:FindFirstChild("KeySound")
 	if sound and sound:IsA("Sound") then
 		sound.PlaybackSpeed = random:NextNumber(0.95, 1.05)

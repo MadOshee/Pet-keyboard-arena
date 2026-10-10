@@ -5,8 +5,8 @@
 -- paints the keys within the brush radius.
 --
 -- Keys are any BaseParts tagged "ArenaKey" under Workspace.Arena. If none
--- exist, the keyboard is generated from the key model in
--- ReplicatedStorage.Assets (plain parts if the model is missing).
+-- exist, a placeholder keyboard is generated, so an art model from the asset
+-- packs can replace it later just by tagging its keys.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -40,99 +40,37 @@ local scoreRed, scoreBlue = 0, 0
 local active = false
 local scoreDirty = false
 
--- The key model from the asset pack (assets/Key.rbxm). Without it the arena
--- falls back to plain parts.
-local function findKeyTemplate(): BasePart?
-	local assets = ReplicatedStorage:FindFirstChild("Assets")
-	local template = assets and assets:FindFirstChild("Key")
-	if template and template:IsA("BasePart") then
-		return template
-	end
-	return nil
-end
-
-local function makeKeyPart(template: BasePart?): BasePart
-	if template then
-		local part = template:Clone()
-		-- The mesh key is visual only and sinks when pressed (client side);
-		-- players stand on the invisible floor built under the keys.
-		part.CanCollide = false
-		return part
-	end
-	local part = Instance.new("Part")
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-	return part
-end
-
-local function setKeyLabel(part: BasePart, text: string)
-	local surface: SurfaceGui
-	local existingGui = part:FindFirstChild("Top")
-	if existingGui and existingGui:IsA("SurfaceGui") then
-		surface = existingGui
-	else
-		surface = Instance.new("SurfaceGui")
-		surface.Name = "Top"
-		surface.Parent = part
-	end
-	surface.Face = Enum.NormalId.Top
-	surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	surface.PixelsPerStud = 20
-
-	local letter: TextLabel
-	local existingLabel = surface:FindFirstChild("Letter")
-	if existingLabel and existingLabel:IsA("TextLabel") then
-		letter = existingLabel
-	else
-		letter = Instance.new("TextLabel")
-		letter.Name = "Letter"
-		letter.Parent = surface
-	end
-	letter.BackgroundTransparency = 1
-	letter.Size = UDim2.fromScale(1, 1)
-	letter.Text = text
-	letter.TextScaled = true
-	letter.TextTransparency = 0
-	letter.Visible = true
-	letter.Font = Enum.Font.FredokaOne
-	letter.TextColor3 = TeamColors.KeyLabel
-end
-
-local function buildKeyboard(folder: Folder)
-	local template = findKeyTemplate()
+local function buildPlaceholderKeyboard(folder: Folder)
 	local keys = ArenaGrid.KeyboardLayout(ArenaConfig.KeyUnit, ArenaConfig.KeyGap)
-	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
 	for index, spec in keys do
-		local part = makeKeyPart(template)
+		local part = Instance.new("Part")
 		part.Name = `Key{index}_{spec.Label}`
 		part.Anchored = true
+		part.TopSurface = Enum.SurfaceType.Smooth
+		part.BottomSurface = Enum.SurfaceType.Smooth
 		part.Size = Vector3.new(spec.SizeX, ArenaConfig.KeyHeight, spec.SizeZ)
-		local x = ArenaConfig.CenterX + spec.CenterX
-		local z = ArenaConfig.CenterZ + spec.CenterZ
-		part.CFrame = CFrame.new(x, ArenaConfig.KeyHeight / 2, z)
-		setKeyLabel(part, spec.Label)
+		part.Position = Vector3.new(
+			ArenaConfig.CenterX + spec.CenterX,
+			ArenaConfig.KeyHeight / 2,
+			ArenaConfig.CenterZ + spec.CenterZ
+		)
 
-		minX = math.min(minX, x - spec.SizeX / 2)
-		maxX = math.max(maxX, x + spec.SizeX / 2)
-		minZ = math.min(minZ, z - spec.SizeZ / 2)
-		maxZ = math.max(maxZ, z + spec.SizeZ / 2)
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Top
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 20
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.fromScale(1, 1)
+		label.Text = spec.Label
+		label.TextScaled = true
+		label.Font = Enum.Font.FredokaOne
+		label.TextColor3 = TeamColors.KeyLabel
+		label.Parent = gui
+		gui.Parent = part
 
 		CollectionService:AddTag(part, KEY_TAG)
 		part.Parent = folder
-	end
-
-	if template then
-		-- One invisible slab at key-top height that players walk on.
-		local margin = ArenaConfig.KeyGap
-		local floor = Instance.new("Part")
-		floor.Name = "Floor"
-		floor.Anchored = true
-		floor.Transparency = 1
-		floor.CanQuery = false
-		floor.CanTouch = false
-		floor.Size = Vector3.new(maxX - minX + margin * 2, 1, maxZ - minZ + margin * 2)
-		floor.CFrame = CFrame.new((minX + maxX) / 2, ArenaConfig.KeyHeight - 0.5, (minZ + maxZ) / 2)
-		floor.Parent = folder.Parent
 	end
 end
 
@@ -148,7 +86,7 @@ local function collectKeys()
 		local folder = Instance.new("Folder")
 		folder.Name = "Keys"
 		folder.Parent = arena
-		buildKeyboard(folder)
+		buildPlaceholderKeyboard(folder)
 		keysFolder = folder
 	end
 

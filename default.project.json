@@ -67,6 +67,9 @@
           ],
           "Neutral": true
         }
+      },
+      "Arena": {
+        "$path": "arena/Arena.rbxm"
       }
     }
   }
