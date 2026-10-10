@@ -6,19 +6,34 @@
 local Players = game:GetService("Players")
 
 local Services = script.Parent.Parent.Services
+local PartyService = require(Services.PartyService)
 local PlayerDataService = require(Services.PlayerDataService)
 local ReadyService = require(Services.ReadyService)
 
 local LocalMatchSource = {}
 
--- Each inner list is one group (party) that must stay on one team.
--- Stage 6 adds parties; until then every player is their own group.
+local function isEligible(player: Player): boolean
+	return ReadyService:IsReady(player) and PlayerDataService:IsLoaded(player)
+end
+
+-- Each inner list is one group that must stay on one team: the ready
+-- members of a party, or a solo ready player.
 function LocalMatchSource.CollectParticipants(): { { Player } }
 	local groups: { { Player } } = {}
+	local placed: { [Player]: boolean } = {}
 	for _, player in Players:GetPlayers() do
-		if ReadyService:IsReady(player) and PlayerDataService:IsLoaded(player) then
-			table.insert(groups, { player })
+		if placed[player] or not isEligible(player) then
+			continue
 		end
+		local group = {}
+		for _, userId in PartyService:GetMemberIds(player) do
+			local member = Players:GetPlayerByUserId(userId)
+			if member and not placed[member] and isEligible(member) then
+				placed[member] = true
+				table.insert(group, member)
+			end
+		end
+		table.insert(groups, group)
 	end
 	return groups
 end
