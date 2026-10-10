@@ -7,7 +7,10 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
-local RAY_LENGTH = 8
+local RAY_LENGTH = 8 -- a character higher than this above the keys presses nothing
+-- Every key within this distance of the spot under the character sinks, so
+-- a character stands on a small patch of pressed keys, not on one.
+local FOOT_RADIUS = 1.2
 -- Same as the Free Ocean Keyboard key script.
 local PRESS_DEPTH = 1.35 -- studs a key sinks under a character
 local PRESS_TIME = 0.3 -- seconds
@@ -19,7 +22,7 @@ local random = Random.new()
 
 local restY: { [BasePart]: number } = {}
 local pressCount: { [BasePart]: number } = {}
-local keyUnder: { [Player]: BasePart } = {}
+local keysUnder: { [Player]: { [BasePart]: true } } = {}
 local tweens: { [BasePart]: Tween } = {}
 
 local function moveKey(key: BasePart, y: number)
@@ -72,41 +75,50 @@ local function run()
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { keysFolder, decorFolder }
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Include
+	overlap.FilterDescendantsInstances = { keysFolder, decorFolder }
 
+	local direction = Vector3.new(0, -RAY_LENGTH, 0)
 	RunService.Heartbeat:Connect(function()
 		for _, player in Players:GetPlayers() do
+			local now: { [BasePart]: true } = {}
 			local character = player.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart")
-			local key: BasePart? = nil
 			if root and root:IsA("BasePart") then
-				local result =
-					workspace:Raycast(root.Position, Vector3.new(0, -RAY_LENGTH, 0), params)
-				if result then
-					key = result.Instance :: BasePart
+				local hit = workspace:Raycast(root.Position, direction, params)
+				if hit then
+					for _, part in
+						workspace:GetPartBoundsInRadius(hit.Position, FOOT_RADIUS, overlap)
+					do
+						now[part] = true
+					end
 				end
 			end
 
-			local previous = keyUnder[player]
-			if key ~= previous then
-				if previous then
-					release(previous)
-				end
-				if key then
+			local before: { [BasePart]: true } = keysUnder[player] or {}
+			for key in now do
+				if not before[key] then
 					press(key)
-					keyUnder[player] = key
-				else
-					keyUnder[player] = nil
 				end
 			end
+			for key in before do
+				if not now[key] then
+					release(key)
+				end
+			end
+			keysUnder[player] = now
 		end
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
-		local key = keyUnder[player]
-		if key then
-			release(key)
-			keyUnder[player] = nil
+		local keys = keysUnder[player]
+		if keys then
+			for key in keys do
+				release(key)
+			end
 		end
+		keysUnder[player] = nil
 	end)
 end
 

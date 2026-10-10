@@ -8,9 +8,11 @@
 --                         "BaseColor" attribute.
 -- Workspace.Arena.Decor - the same keys around the arena and under the lobby;
 --                         never painted.
--- Workspace.Arena.Floor - one invisible slab at key-top height that players
---                         walk on. Keys do not collide, so they can sink
---                         under characters (KeyPressController).
+-- Workspace.Arena.Floor - one invisible slab at key-bottom height that
+--                         players walk on, as in the pack. Keys do not collide;
+--                         the keys under a character sink to the floor
+--                         (KeyPressController), so players walk "in" the
+--                         keyboard with the other keys raised around them.
 
 local fs = require("@lune/fs")
 local roblox = require("@lune/roblox") :: any
@@ -107,7 +109,7 @@ floor.Transparency = 1
 floor.CanQuery = false
 floor.CanTouch = false
 floor.Size = Vector3.new(FLOOR_MAX_X - FLOOR_MIN_X + PITCH, 1, FLOOR_MAX_Z - FLOOR_MIN_Z + PITCH)
-floor.CFrame = CFrame.new((FLOOR_MIN_X + FLOOR_MAX_X) / 2, KEY_HEIGHT - 0.5, (FLOOR_MIN_Z + FLOOR_MAX_Z) / 2)
+floor.CFrame = CFrame.new((FLOOR_MIN_X + FLOOR_MAX_X) / 2, -0.5, (FLOOR_MIN_Z + FLOOR_MAX_Z) / 2)
 floor.Parent = arena
 
 fs.writeFile("arena/Arena.rbxm", roblox.serializeModel({ arena }))
