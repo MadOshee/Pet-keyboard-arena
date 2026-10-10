@@ -52,6 +52,16 @@ return table.freeze({
 	Unequip = "UNEQUIP",
 	Sell = "SELL %d",
 	ConfirmSell = "SURE?",
+	-- Bat and power-ups (stage 3)
+	BatButton = "BAT",
+	BatHint = "Click or press F to swing the bat",
+	KnockedOut = "Knocked out!",
+	YouKnocked = "Hit!",
+	PowerUpPicked = table.freeze({
+		Speed = "Speed boost!",
+		PaintBomb = "Paint bomb!",
+		Lock = "Your keys are locked!",
+	}),
 	Errors = table.freeze({
 		NoOffer = "That egg offer is gone",
 		BadSlot = "Pick one of the four eggs",

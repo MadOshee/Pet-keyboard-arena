@@ -18,6 +18,7 @@ local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local ArenaGrid = require(ReplicatedStorage.Shared.Logic.ArenaGrid)
 local Types = require(ReplicatedStorage.Shared.Types)
+local MovementGuard = require(script.Parent.MovementGuard)
 local StatsService = require(script.Parent.StatsService)
 
 local KEY_TAG = "ArenaKey"
@@ -35,11 +36,14 @@ local keyRects: { ArenaGrid.KeyRect } = {}
 local keyBaseColors: { Color3 } = {}
 local keyIndex: ArenaGrid.KeyIndex
 local keyTeams: { [number]: Types.TeamId } = {}
+local keyMaterials: { Enum.Material } = {}
+local keyLockedUntil: { [number]: number } = {} -- locked keys keep their team
 local keyTopY = 0
 local bounds = { MinX = 0, MaxX = 0, CenterZ = 0 }
 
 local participants: { [Player]: Types.TeamId } = {}
 local paintRadius: { [Player]: number } = {}
+local paintBlockedUntil: { [Player]: number } = {}
 local keysPainted: { [Player]: number } = {}
 local scoreRed, scoreBlue = 0, 0
 local active = false
@@ -101,6 +105,7 @@ local function collectKeys()
 			local position = instance.Position
 			local half = instance.Size / 2
 			table.insert(keyParts, instance)
+			table.insert(keyMaterials, instance.Material)
 			-- Art keys keep their own color between rounds via a "BaseColor" attribute.
 			local baseColor = instance:GetAttribute("BaseColor")
 			table.insert(
@@ -128,8 +133,16 @@ local function collectKeys()
 	keyIndex = ArenaGrid.BuildIndex(keyRects, ArenaConfig.IndexCellSize)
 end
 
+local function unlockKey(index: number)
+	keyLockedUntil[index] = nil
+	keyParts[index].Material = keyMaterials[index]
+end
+
 local function resetKeys()
 	table.clear(keyTeams)
+	for index in keyLockedUntil do
+		unlockKey(index)
+	end
 	for index, part in keyParts do
 		part.Color = keyBaseColors[index]
 	end
@@ -137,47 +150,90 @@ local function resetKeys()
 	scoreDirty = true
 end
 
+-- Paints one key for `team`. Locked keys of the other team stay as they
+-- are. Returns true when the key changed hands.
+local function paintKey(index: number, team: Types.TeamId, player: Player?): boolean
+	local previous = keyTeams[index]
+	if previous == team then
+		return false
+	end
+	if previous ~= nil and keyLockedUntil[index] then
+		return false
+	end
+	if previous == "Red" then
+		scoreRed -= 1
+	elseif previous == "Blue" then
+		scoreBlue -= 1
+	end
+	if team == "Red" then
+		scoreRed += 1
+	else
+		scoreBlue += 1
+	end
+	keyTeams[index] = team
+	keyParts[index].Color = TeamColors.ForTeam(team)
+	if player then
+		keysPainted[player] = (keysPainted[player] or 0) + 1
+	end
+	scoreDirty = true
+	return true
+end
+
+local function getRoot(player: Player): BasePart?
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if root == nil or not root:IsA("BasePart") or humanoid == nil or humanoid.Health <= 0 then
+		return nil
+	end
+	return root :: BasePart
+end
+
+local function returnToSpawn(player: Player, team: Types.TeamId)
+	local character = player.Character
+	if character then
+		character:PivotTo(ArenaService:GetTeamSpawn(team))
+		MovementGuard:Reset(player)
+	end
+end
+
 local function paintTick()
+	local now = os.clock()
+	for index, untilTime in keyLockedUntil do
+		if now >= untilTime then
+			unlockKey(index)
+		end
+	end
+
 	-- Loop variables are annotated: the type checker widens singleton
 	-- string types read from tables otherwise.
 	for player: Player, team: Types.TeamId in participants do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root == nil or not root:IsA("BasePart") or humanoid == nil or humanoid.Health <= 0 then
+		local root = getRoot(player)
+		if root == nil or now < (paintBlockedUntil[player] or 0) then
 			continue
 		end
-
-		local radius = paintRadius[player] or ArenaConfig.BasePaintRadius
-		local position = (root :: BasePart).Position
+		local rootPart = root :: BasePart
+		local position = rootPart.Position
+		local humanoid = (player.Character :: Model):FindFirstChildOfClass("Humanoid") :: Humanoid
+		local verdict = MovementGuard:Check(player, position, humanoid.WalkSpeed)
+		if verdict == "Return" then
+			returnToSpawn(player, team)
+			continue
+		elseif verdict == "Skip" then
+			continue
+		end
 		if position.Y - keyTopY > ArenaConfig.MaxPaintHeight then
 			continue
 		end
 
+		local radius = paintRadius[player] or ArenaConfig.BasePaintRadius
 		ArenaGrid.ForEachKeyInRadiusIndexed(
 			keyIndex,
 			position.X,
 			position.Z,
 			radius,
 			function(index)
-				local previous = keyTeams[index]
-				if previous == team then
-					return
-				end
-				if previous == "Red" then
-					scoreRed -= 1
-				elseif previous == "Blue" then
-					scoreBlue -= 1
-				end
-				if team == "Red" then
-					scoreRed += 1
-				else
-					scoreBlue += 1
-				end
-				keyTeams[index] = team
-				keyParts[index].Color = TeamColors.ForTeam(team)
-				keysPainted[player] = (keysPainted[player] or 0) + 1
-				scoreDirty = true
+				paintKey(index, team, player)
 			end
 		)
 	end
@@ -219,6 +275,7 @@ function ArenaService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		participants[player] = nil
 		paintRadius[player] = nil
+		paintBlockedUntil[player] = nil
 	end)
 end
 
@@ -229,10 +286,12 @@ function ArenaService:BeginRound(teams: { [Player]: Types.TeamId })
 	table.clear(participants)
 	table.clear(keysPainted)
 	table.clear(paintRadius)
+	table.clear(paintBlockedUntil)
 	for player: Player, team: Types.TeamId in teams do
 		participants[player] = team
 		-- Pets cannot change during a round, so the radius is fixed here.
 		paintRadius[player] = StatsService:GetPaintRadius(player)
+		MovementGuard:Reset(player)
 	end
 	active = true
 end
@@ -241,6 +300,9 @@ end
 -- colors until the next round so players can see the result.
 function ArenaService:EndRound(): RoundScore
 	active = false
+	for index in keyLockedUntil do
+		unlockKey(index)
+	end
 	syncScore()
 	local result: RoundScore = {
 		Red = scoreRed,
@@ -249,6 +311,59 @@ function ArenaService:EndRound(): RoundScore
 	}
 	table.clear(participants)
 	return result
+end
+
+-- Paints every key within `radius` of (x, z) for `team` (paint bomb).
+-- Keys count toward `player`'s contribution when given.
+function ArenaService:PaintArea(
+	team: Types.TeamId,
+	x: number,
+	z: number,
+	radius: number,
+	player: Player?
+)
+	if not active then
+		return
+	end
+	ArenaGrid.ForEachKeyInRadiusIndexed(keyIndex, x, z, radius, function(index)
+		paintKey(index, team, player)
+	end)
+end
+
+-- Locks `team`'s keys within `radius` of (x, z): the other team cannot
+-- repaint them for `seconds`. Locked keys glow.
+function ArenaService:LockArea(
+	team: Types.TeamId,
+	x: number,
+	z: number,
+	radius: number,
+	seconds: number
+)
+	if not active then
+		return
+	end
+	local untilTime = os.clock() + seconds
+	ArenaGrid.ForEachKeyInRadiusIndexed(keyIndex, x, z, radius, function(index)
+		if keyTeams[index] == team then
+			keyLockedUntil[index] = math.max(keyLockedUntil[index] or 0, untilTime)
+			keyParts[index].Material = Enum.Material.Neon
+		end
+	end)
+end
+
+-- A blocked participant (knocked out by a bat) paints nothing until then.
+function ArenaService:BlockPainting(player: Player, untilTime: number)
+	paintBlockedUntil[player] = untilTime
+end
+
+function ArenaService:IsPaintBlocked(player: Player): boolean
+	return os.clock() < (paintBlockedUntil[player] or 0)
+end
+
+-- Top of a random key, for spawning power-ups.
+function ArenaService:GetRandomKeyTop(random: Random): Vector3
+	local part = keyParts[random:NextInteger(1, #keyParts)]
+	return Vector3.new(part.Position.X, keyTopY, part.Position.Z)
 end
 
 function ArenaService:GetTeamSpawn(team: Types.TeamId): CFrame

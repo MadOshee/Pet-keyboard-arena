@@ -17,6 +17,9 @@ local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local LocalMatchSource = require(script.Parent.Parent.Match.LocalMatchSource)
 local ArenaService = require(script.Parent.ArenaService)
+local BatService = require(script.Parent.BatService)
+local MovementGuard = require(script.Parent.MovementGuard)
+local PowerUpService = require(script.Parent.PowerUpService)
 local StatsService = require(script.Parent.StatsService)
 
 export type RoundResult = {
@@ -60,6 +63,7 @@ local function teleport(player: Player, cframe: CFrame)
 		-- Spread players a little so they do not stack on one point.
 		local offset = Vector3.new(0, 0, (math.random() - 0.5) * 12)
 		character:PivotTo(cframe + offset)
+		MovementGuard:Reset(player)
 	end
 end
 
@@ -133,6 +137,8 @@ local function runRound()
 
 	pruneLeftPlayers()
 	ArenaService:BeginRound(teams)
+	PowerUpService:BeginRound(teams)
+	BatService:BeginRound(teams)
 	setPhase("Playing", RoundConfig.PlayingSeconds)
 	for player in teams do
 		setWalkSpeed(player, StatsService:GetWalkSpeed(player))
@@ -140,6 +146,8 @@ local function runRound()
 	task.wait(RoundConfig.PlayingSeconds)
 
 	local score = ArenaService:EndRound()
+	PowerUpService:EndRound()
+	BatService:EndRound()
 	pruneLeftPlayers()
 	roundId += 1
 	local winner: Types.Winner = Reward.DecideWinner(score.Red, score.Blue)
@@ -174,6 +182,7 @@ function RoundService:Start()
 			character:WaitForChild("HumanoidRootPart", 5)
 			if teams[player] and character.Parent then
 				placeOnArena(player)
+				BatService:Equip(player)
 			end
 		end
 	end
