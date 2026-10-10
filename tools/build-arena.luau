@@ -4,9 +4,10 @@
 -- Ivan picked. Run after changing the numbers below: `lune run tools/build-arena`
 --
 -- Workspace.Arena.Keys  - the playable keys, tagged "ArenaKey"; ArenaService
---                         paints them and resets them to TeamColors.Neutral.
--- Workspace.Arena.Decor - the same keys around the arena and under the lobby,
---                         in the pack's warm colors; never painted.
+--                         paints them. Each key keeps its pack color in the
+--                         "BaseColor" attribute.
+-- Workspace.Arena.Decor - the same keys around the arena and under the lobby;
+--                         never painted.
 -- Workspace.Arena.Floor - one invisible slab at key-top height that players
 --                         walk on. Keys do not collide, so they can sink
 --                         under characters (KeyPressController).
@@ -18,17 +19,17 @@ local Instance = roblox.Instance
 local Vector3 = roblox.Vector3
 local CFrame = roblox.CFrame
 local Color3 = roblox.Color3
-local Enum = roblox.Enum
 
-local KEY_SIZE = 3.3 -- studs, square keycap
-local KEY_HEIGHT = 2
-local PITCH = 3.5 -- key size + gap
+-- Same as the keys in Free Ocean Keyboard: 2.2 x 1.4 x 2.2, touching.
+local KEY_SIZE = 2.2
+local KEY_HEIGHT = 1.4
+local PITCH = 2.2
 -- Playable area in keys, centered on the origin (ArenaConfig.CenterX/Z = 0).
-local ARENA_COLS = 36
-local ARENA_ROWS = 22
+local ARENA_COLS = 57
+local ARENA_ROWS = 35
 -- The decorative floor covers this rectangle (studs), lobby (z = 70) included.
-local FLOOR_MIN_X, FLOOR_MAX_X = -84, 84
-local FLOOR_MIN_Z, FLOOR_MAX_Z = -56, 98
+local FLOOR_MIN_X, FLOOR_MAX_X = -80, 80
+local FLOOR_MIN_Z, FLOOR_MAX_Z = -50, 95
 
 local LETTERS = string.split("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "")
 local WARM = {
@@ -41,8 +42,6 @@ local WARM = {
 	Color3.fromRGB(255, 230, 150),
 	Color3.fromRGB(240, 210, 120),
 }
-local NEUTRAL = Color3.fromRGB(255, 232, 178)
-local LABEL = Color3.fromRGB(40, 40, 48)
 
 math.randomseed(20261010)
 local template = roblox.deserializeModel(fs.readFile("assets/Key.rbxm"))[1]
@@ -55,18 +54,13 @@ local function makeKey(name: string, x: number, z: number, color: any): any
 	key.Color = color
 	key.Size = Vector3.new(KEY_SIZE, KEY_HEIGHT, KEY_SIZE)
 	key.CFrame = CFrame.new(x, KEY_HEIGHT / 2, z)
-	local gui = key.Top
-	gui.Face = Enum.NormalId.Top
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 20
-	local letter = gui.Letter
-	letter.BackgroundTransparency = 1
-	letter.Size = roblox.UDim2.fromScale(1, 1)
+	-- The pack's SurfaceGui is kept as is; like its key script, pick a random
+	-- letter (solid black, as in Ivan's reference screenshot).
+	local letter = key.Top.Letter
 	letter.Text = LETTERS[math.random(1, #LETTERS)]
-	letter.TextScaled = true
 	letter.TextTransparency = 0
 	letter.Visible = true
-	letter.TextColor3 = LABEL
+	key:SetAttribute("BaseColor", color)
 	return key
 end
 
@@ -94,7 +88,7 @@ while z <= FLOOR_MAX_Z do
 			and z <= -arenaMinZ + 0.01
 		if inArena then
 			arenaCount += 1
-			local key = makeKey(`Key{arenaCount}`, x, z, NEUTRAL)
+			local key = makeKey(`Key{arenaCount}`, x, z, WARM[math.random(1, #WARM)])
 			key:AddTag("ArenaKey")
 			key.Parent = keys
 		else

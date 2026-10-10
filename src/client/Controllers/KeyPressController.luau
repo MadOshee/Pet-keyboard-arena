@@ -8,8 +8,9 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local RAY_LENGTH = 8
-local PRESS_DEPTH = 0.8 -- studs a key sinks under a character
-local PRESS_TIME = 0.15 -- seconds
+-- Same as the Free Ocean Keyboard key script.
+local PRESS_DEPTH = 1.35 -- studs a key sinks under a character
+local PRESS_TIME = 0.3 -- seconds
 
 local KeyPressController = {}
 
