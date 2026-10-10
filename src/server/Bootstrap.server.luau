@@ -10,6 +10,7 @@ local Loader = require(ReplicatedStorage.Shared.Util.Loader)
 local SERVICE_ORDER: { string } = {
 	"NetService",
 	"PlayerDataService",
+	"GamePassService",
 	"ReadyService",
 	"PartyService",
 	"PetService",
@@ -23,6 +24,7 @@ local SERVICE_ORDER: { string } = {
 	"EggService",
 	"PlotService",
 	"TutorialService",
+	"MonetizationService",
 	"RewardService",
 }
 

@@ -18,6 +18,7 @@
 | Config/EggConfig | 2–5 | `OfferThemes`, `EggsPerOffer`, `BaseWeights`, `OutcomeBonus`, `ContributionBonus`, `RerollCosts`, `OfferSeconds`, `HatchSeconds[rarity]`, `SpeedUpCoinsPerSecond`, `StartEggCapacity`, `StartIncubators`, `MaxIncubators`, `IncubatorPrices`, `PetSlotsStep`, `PetSlotsBasePrice`, `ModelName(theme)` | — |
 | Config/PetStyle | 2 | цвета `Rarity[rarity]`, `Theme[theme]` | — |
 | Config/BatConfig | 3 | `Range`, `HalfAngle`, `Cooldown`, `KnockoutSeconds`, `ImmunitySeconds`, `KnockSpeed`, `KnockLift` | — |
+| Config/ShopConfig | 9 | `GamePasses` (VIP, FastHatch, DoubleCoins) и `Products` (SpeedUpEgg, Reroll, LuckPotion, Coins1000/5000/15000): `Id` (0 — ещё не создан), `Order`, `Coins`; множители пассов, бонус и длительность зелья, `PurchaseHistorySize` | — |
 | Config/PowerUpConfig | 3 | `Kinds` (Speed, PaintBomb, Lock), `SpawnInterval`, `MaxActive`, `PickupRadius`, `SpeedMultiplier`, `SpeedSeconds`, `BombRadius`, `LockRadius`, `LockSeconds`, `Colors`, `Labels` | — |
 | Net/RemoteNames | 1 | `ClientToServer`, `ServerToClient` | — |
 | Logic/ArenaGrid | 1 | `KeyboardLayout(unit, gap)`, `ForEachKeyInRadius(keys, x, z, r, visit)`, `BuildIndex(keys, cellSize)`, `ForEachKeyInRadiusIndexed(index, x, z, r, visit)` | — |
@@ -27,12 +28,13 @@
 | Logic/BatTargeting | 3 | `FindTarget(origin, look, candidates, range, halfAngle) -> Id?` (ближайший в конусе, по горизонтали) | — |
 | Logic/Incubation | 5 | `HatchSeconds(rarity, cfg)`, `SpeedUpCost(hatchAt, now, cfg)`, `NextIncubatorPrice(owned, cfg)`, `NextPetSlotsPrice(capacity, start, cfg)`, `RarestEgg(eggs, rarities)` | — |
 | Logic/Parties | 6 | `new(maxSize)`, `Get`, `MembersOf`, `Invite(state, from, to, now, ttl)`, `Respond(state, target, inviter, accept, now)`, `Leave`, `Remove`, `Expire`, `InvitesFor` (всё по user id) | — |
+| Logic/Purchases | 9 | `KeyForId(items, id)`, `Remember(history, purchaseId, size) -> boolean` (false — уже выдано), `Sorted(items)`, `LuckWithPotion(luck, bonus, cap)` | — |
 | Logic/MovementCheck | 3 | `IsSuspicious(fromX, fromZ, toX, toZ, dt, walkSpeed, settings)` | — |
 | Logic/StatCalculator | 2 | `Zero()`, `PetBonus(pet, cfg) -> (stat?, value)`, `Totals(pets, cfg) -> Stats` (с потолками), `Power(stats)` | — |
 
 ## Сервер (ServerScriptService/Server)
 
-Порядок загрузки: NetService → PlayerDataService → ReadyService → PartyService → PetService → StatsService → MovementGuard → ArenaService → PowerUpService → BatService → BotService → RoundService → EggService → PlotService → TutorialService → RewardService.
+Порядок загрузки: NetService → PlayerDataService → GamePassService → ReadyService → PartyService → PetService → StatsService → MovementGuard → ArenaService → PowerUpService → BatService → BotService → RoundService → EggService → PlotService → TutorialService → MonetizationService → RewardService.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
@@ -43,7 +45,7 @@
 | Data/ProfileTemplate | 1–5 | `Template` (этап 2: `Pets`, `Equipped`, `PetCapacity`; `PendingOffer` пустое; этап 5: `Eggs`, `EggCapacity`, `Incubators` — 3 пустых), `CurrentSchemaVersion` = 1 (новые поля добавляет Reconcile, миграция не нужна) | Types, PetConfig |
 | Data/Migrations | 1 | `Apply(data, currentVersion, steps?)` | — |
 | Services/NetService | 1 | `On(name, limit, handler)`, `FireClient(name, player, ...)`, `FireAllClients(name, ...)` | RemoteNames, RateLimiter |
-| Services/PlayerDataService | 1–5 | `IsLoaded(p)`, `Get(p)`, `Update(p, mutator)`; сигналы `ProfileLoaded(p, data)`, `ProfileReleasing(p)`, `Changed(p, data)` после каждого `Update` | ProfileStore, NetService, Migrations, ProfileTemplate |
+| Services/PlayerDataService | 1–5, 9 | `IsLoaded(p)`, `Get(p)`, `Update(p, mutator)`, `GrantPurchase(p, purchaseId, mutator) -> ProductPurchaseDecision` (ждёт сохранения); сигналы `ProfileLoaded(p, data)`, `ProfileReleasing(p)`, `Changed(p, data)` после каждого `Update` | ProfileStore, NetService, Migrations, ProfileTemplate, ShopConfig, Purchases |
 | Services/ReadyService | 1 | `IsReady(p)`, `SetReady(p, value)`; сигнал `ReadyChanged(p, value)`; атрибут игрока `Ready` | NetService, PlayerDataService, Guard |
 | Services/PetService | 2 | `Count(data)`, `AddToProfile(data, kind, rarity) -> petId?` (внутри чужого `Update`), `GetEquipped(p)`; сигнал `EquippedChanged(p)`; атрибут игрока `EquippedPets` (ключи через запятую); remotes `PetEquip`, `PetSell` | PlayerDataService, NetService, Guard, PetConfig |
 | Services/MovementGuard | 3 | `Check(p, position, walkSpeed) -> "Ok" \| "Skip" \| "Return"` (5 нарушений за 10 с → вернуть на спавн, запись в Output), `Reset(p)` после каждого серверного телепорта | MovementCheck |
@@ -55,10 +57,12 @@
 | Match/LocalMatchSource | 1–6 | `CollectParticipants() -> { { Player } }`: готовые члены одной группы идут одним списком | ReadyService, PlayerDataService, PartyService |
 | Services/PartyService | 6 | `GetMemberIds(p)`; сигнал `PartyChanged()`; атрибут игрока `PartyId` (0 — без группы); remotes `PartyInvite`, `PartyRespond`, `PartyLeave`, шлёт `PartyUpdate` | NetService, Guard, Parties |
 | Services/RoundService | 1–2 | `GetPhase()`; сигналы `PhaseChanged(phase)`, `RoundEnded(result)`; атрибуты `RoundPhase`, `PhaseEndsAt`, `Winner`, атрибут игрока `Team`; скорость в раунде и сила для баланса команд из StatsService, после раунда скорость сбрасывается | ArenaService, PowerUpService, BatService, BotService, MovementGuard, StatsService, LocalMatchSource, TeamBalancer, Reward |
-| Services/EggService | 2–5 | `CreateOffer(p, ctx)` (старое невыбранное предложение сначала выбирается автоматически), `GetOffer(p)`; выбранное яйцо → свободный инкубатор, иначе хранилище, иначе монеты (шлёт `EggPicked`); `Collect(p, i)` (питомец, шлёт `PetHatched`, затем следующее яйцо из хранилища), `PlaceStored(p, i)`, `SpeedUp(p, i)`, `BuyIncubator(p)`, `BuyPetSlots(p)`; сигнал `PetHatched(p, payload)`; remotes `EggPick`, `EggReroll`, `BuyUpgrade` | PlayerDataService, PetService, NetService, Guard, EggRoller, Incubation, EggConfig, PetConfig |
+| Services/EggService | 2–5, 9 | `NextIncubatorPrice(data)` (VIP-инкубатор не сдвигает цены), `GrantSpeedUp(data)`, `GrantVipIncubator(p)`; купленные рероллы и ускорения тратятся раньше монет; пасс FastHatch ускоряет инкубацию на 30%; `CreateOffer(p, ctx)` (старое невыбранное предложение сначала выбирается автоматически), `GetOffer(p)`; выбранное яйцо → свободный инкубатор, иначе хранилище, иначе монеты (шлёт `EggPicked`); `Collect(p, i)` (питомец, шлёт `PetHatched`, затем следующее яйцо из хранилища), `PlaceStored(p, i)`, `SpeedUp(p, i)`, `BuyIncubator(p)`, `BuyPetSlots(p)`; сигнал `PetHatched(p, payload)`; remotes `EggPick`, `EggReroll`, `BuyUpgrade` | PlayerDataService, PetService, NetService, Guard, EggRoller, Incubation, EggConfig, PetConfig |
 | Services/PlotService | 5 | 12 участков в Workspace.Plots (по 6 у западного и восточного края пола арены): табличка, 6 инкубаторов (атрибуты `State`, `HatchAt`, `Rarity`; подсказки `Main` и `SpeedUp` с атрибутом `Active`), витрина из 6 лучших питомцев; `Teleport(p)`; атрибут игрока `Plot`; remote `GoToPlot` | EggService, PlayerDataService, MovementGuard, NetService, Incubation |
+| Services/GamePassService | 9 | `Owns(p, name)`; сигнал `PassAdded(p, name)`; проверка пассов при входе и после покупки в игре; атрибуты игрока `Pass_<name>` | ShopConfig, Purchases |
+| Services/MonetizationService | 9 | `MarketplaceService.ProcessReceipt`: товар по id из ShopConfig, выдача через `PlayerDataService:GrantPurchase`; VIP: тег над головой и бесплатный инкубатор | PlayerDataService, EggService, GamePassService, ShopConfig, Purchases |
 | Services/TutorialService | 7 | remote `TutorialDone`: ставит в профиле `Tutorial.Done = true` (клиент сам не может менять данные) | NetService, PlayerDataService |
-| Services/RewardService | 1–2 | слушает `RoundEnded`: монеты с множителем Coins, предложение яиц (исход, вклад, удача), шлёт `RoundResult` | PlayerDataService, ReadyService, RoundService, StatsService, EggService, NetService, Reward |
+| Services/RewardService | 1–2, 9 | слушает `RoundEnded`: монеты с множителем Coins и пассом 2x, зелье удачи (+0,5 удачи до потолка на 5 предложений), предложение яиц (исход, вклад, удача), шлёт `RoundResult` | PlayerDataService, ReadyService, RoundService, StatsService, EggService, NetService, Reward |
 
 ## Клиент (StarterPlayerScripts/Client)
 
@@ -73,10 +77,10 @@
 | UI/AssetModels | 2 | `Pet(kind)`, `Egg(theme)` (копии из ReplicatedStorage.Assets или nil), `LocalFront(model)`, `FrontCorrection(model)`, `FitHeight(model, h)`, `Viewport(parent, model?, color)` | PetConfig, EggConfig |
 | Controllers/HudController | 1–2 | интерфейс: фаза и таймер, счёт, команда, монеты, кнопка «Играть», баннер итогов и отказов (`ActionResult`) | DataController, ClientNet |
 | Controllers/KeyPressController | 1 | только визуал: клавиши проседают под любым персонажем и играют `KeySound`; пол целиком из клавиш: `arena/Arena.rbxm` (Keys с тегом ArenaKey, Decor, Floor), генерирует `lune run tools/build-arena` | — |
-| Controllers/EggOfferController | 2–5 | окно «выбери 1 из 4» из `PendingOffer`, реролл, шансы, таймер, окно «куда ушло яйцо» (`EggPicked`) и «тебе выпал…» (`PetHatched`) | DataController, ClientNet, AssetModels, Widgets, EggRoller |
+| Controllers/EggOfferController | 2–5, 9 | окно «выбери 1 из 4» из `PendingOffer`, реролл (бесплатный, если куплен), кнопка R$ REROLL (если товар создан), шансы, таймер, окно «куда ушло яйцо» (`EggPicked`) и «тебе выпал…» (`PetHatched`) | DataController, ClientNet, AssetModels, Widgets, EggRoller |
 | Controllers/InventoryController | 2–5 | кнопка PETS, список питомцев, число яиц, покупка +25 мест, надеть/снять, продажа с подтверждением, сумма бонусов | DataController, ClientNet, AssetModels, Widgets, StatCalculator |
 | Controllers/PlotController | 5, 7 | таймеры над инкубаторами своего участка, подсказки только на своём участке, цена ускорения, кнопка MY PLOT (с «!», когда яйцо готово) | DataController, ClientNet, Widgets, Incubation |
-| Controllers/ShopController | 7 | кнопка SHOP (в лобби): следующий инкубатор и +25 мест для питомцев с ценами, кнопка серая, если монет не хватает, звук Purchase после покупки; заметка про Robux (этап 9) | DataController, ClientNet, Widgets, Incubation |
+| Controllers/ShopController | 7, 9 | кнопка SHOP (в лобби): следующий инкубатор и +25 мест за монеты (серая кнопка, если монет мало, звук Purchase); раздел Robux: пассы (OWNED, если куплен) и товары с ценой из Roblox, SOON при id 0 | DataController, ClientNet, Widgets, Incubation |
 | Controllers/TutorialController | 7 | 5 подсказок сверху, шаги идут по действиям игрока (Ready, раунд, выбор яйца, вылупление, надеть питомца), SKIP; показывается, пока в профиле нет `Tutorial.Done` | DataController, ClientNet, Widgets |
 | Controllers/PartyController | 6 | кнопка PARTY: список игроков (друзья первыми) с INVITE, состав группы и LEAVE, всплывающее приглашение ACCEPT / DECLINE | ClientNet, Widgets |
 | Controllers/BatController | 3 | удар: клик, F или круглая кнопка BAT (видна только в раунде), серая на время перезарядки | ClientNet, Widgets, BatConfig |
@@ -126,3 +130,12 @@
 
 - Большая часть контента уже пришла раньше: клавиши арены и пол (этап 1), 24 питомца в 4 темах, яйца и бита из паков (этапы 2–3). Этап 8 добавил звуки и конфетти для событий и выключение частиц питомцев на телефонах (риск из `docs/assets.md`).
 - Оформление лобби и участков (декор, таблички) не делал вслепую: его нужно смотреть в Studio вместе с Иваном.
+
+## Решения этапа 9 (уточнения к design.md)
+
+- В design.md был один `MonetizationService`. Его пришлось разделить на два: `GamePassService` (внизу, только «у кого какой пасс») и `MonetizationService` (вверху, ProcessReceipt). Иначе EggService и RewardService, которым нужно знать про пассы, зависели бы от сервиса выше себя.
+- Защита от двойной выдачи: id покупки записывается в `ProcessedPurchases` в том же изменении профиля, что и товар (`PlayerDataService:GrantPurchase`), а Roblox получает `PurchaseGranted` только после сохранения, где этот id уже есть. Повторный чек ничего не выдаёт.
+- VIP «+1 инкубатор» сделан как один бесплатный инкубатор в пределах 6 мест на участке (места под 7-й нет). Цены остальных не сдвигаются. Если все 6 уже куплены, игрок получает цену последнего (15 000 монет).
+- «Ускорить яйцо» за Robux заканчивает яйцо, которому осталось дольше всех. Если яиц нет, ускорение сохраняется и тратится на следующее нажатие «Hatch now».
+- Пасс «Цвета краски» и золотой след VIP отложены: нужен твой выбор оттенков в Studio.
+- Окно яиц показывает шансы до покупки реролла за Robux (правило Roblox о платных случайных наградах).

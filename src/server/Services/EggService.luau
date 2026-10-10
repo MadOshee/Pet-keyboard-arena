@@ -17,11 +17,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local EggRoller = require(ReplicatedStorage.Shared.Logic.EggRoller)
 local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Guard = require(script.Parent.Parent.Util.Guard)
+local GamePassService = require(script.Parent.GamePassService)
 local NetService = require(script.Parent.NetService)
 local PetService = require(script.Parent.PetService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
@@ -40,6 +42,15 @@ end
 
 local function refuse(player: Player, action: string, reason: Types.ActionError)
 	NetService:FireClient("ActionResult", player, action, reason)
+end
+
+-- Incubation time for this player; the FastHatch pass shortens it.
+local function hatchSeconds(player: Player, rarity: string): number
+	local seconds = Incubation.HatchSeconds(rarity, EggConfig)
+	if GamePassService:Owns(player, "FastHatch") then
+		seconds = math.ceil(seconds * ShopConfig.FastHatchMultiplier)
+	end
+	return seconds
 end
 
 local function newOffer(context: Types.OfferContext, rerollCount: number): Types.EggOffer
@@ -61,10 +72,14 @@ end
 
 -- Puts `egg` into the first empty incubator. Returns its HatchAt, or nil
 -- when every incubator is busy. Runs inside a profile Update.
-local function placeInFreeIncubator(data: Types.Profile, egg: Types.EggInstance): number?
+local function placeInFreeIncubator(
+	player: Player,
+	data: Types.Profile,
+	egg: Types.EggInstance
+): number?
 	for _, incubator in data.Incubators do
 		if incubator.Egg == nil then
-			local hatchAt = os.time() + Incubation.HatchSeconds(egg.Rarity, EggConfig)
+			local hatchAt = os.time() + hatchSeconds(player, egg.Rarity)
 			incubator.Egg = { Theme = egg.Theme, Rarity = egg.Rarity }
 			incubator.HatchAt = hatchAt
 			return hatchAt
@@ -95,7 +110,7 @@ local function pick(player: Player, slot: number, autoPicked: boolean)
 	local coins = 0
 	PlayerDataService:Update(player, function(profile)
 		profile.PendingOffer = nil
-		hatchAt = placeInFreeIncubator(profile, egg)
+		hatchAt = placeInFreeIncubator(player, profile, egg)
 		if hatchAt then
 			where = "Incubator"
 		elseif countEggs(profile) < profile.EggCapacity then
@@ -156,13 +171,19 @@ local function onReroll(player: Player, offerId: unknown)
 		refuse(player, "EggReroll", "RerollLimit")
 		return
 	end
-	if (data :: Types.Profile).Coins < cost then
+	-- A bought reroll is used before coins.
+	local free = (data :: Types.Profile).FreeRerolls > 0
+	if not free and (data :: Types.Profile).Coins < cost then
 		refuse(player, "EggReroll", "NotEnoughCoins")
 		return
 	end
 
 	PlayerDataService:Update(player, function(profile)
-		profile.Coins -= cost
+		if free then
+			profile.FreeRerolls -= 1
+		else
+			profile.Coins -= cost
+		end
 		profile.PendingOffer = newOffer(offer.Context, offer.RerollCount + 1)
 	end)
 end
@@ -253,7 +274,7 @@ function EggService:Collect(player: Player, index: number)
 			local nextEgg = profile.Eggs[nextId]
 			profile.Eggs[nextId] = nil
 			slot.Egg = nextEgg
-			slot.HatchAt = os.time() + Incubation.HatchSeconds(nextEgg.Rarity, EggConfig)
+			slot.HatchAt = os.time() + hatchSeconds(player, nextEgg.Rarity)
 		end
 	end)
 
@@ -285,7 +306,7 @@ function EggService:PlaceStored(player: Player, index: number)
 		profile.Eggs[eggId :: string] = nil
 		local slot = profile.Incubators[index]
 		slot.Egg = egg
-		slot.HatchAt = os.time() + Incubation.HatchSeconds(egg.Rarity, EggConfig)
+		slot.HatchAt = os.time() + hatchSeconds(player, egg.Rarity)
 	end)
 end
 
@@ -304,12 +325,18 @@ function EggService:SpeedUp(player: Player, index: number)
 	if cost <= 0 then
 		return
 	end
-	if (data :: Types.Profile).Coins < cost then
+	-- A bought speed-up that had no egg to finish is used before coins.
+	local free = (data :: Types.Profile).FreeSpeedUps > 0
+	if not free and (data :: Types.Profile).Coins < cost then
 		refuse(player, "IncubatorSpeedUp", "NotEnoughCoins")
 		return
 	end
 	PlayerDataService:Update(player, function(profile)
-		profile.Coins -= cost
+		if free then
+			profile.FreeSpeedUps -= 1
+		else
+			profile.Coins -= cost
+		end
 		profile.Incubators[index].HatchAt = os.time()
 	end)
 end
@@ -320,7 +347,7 @@ function EggService:BuyIncubator(player: Player)
 	if data == nil then
 		return
 	end
-	local price = Incubation.NextIncubatorPrice(#(data :: Types.Profile).Incubators, EggConfig)
+	local price = EggService:NextIncubatorPrice(data :: Types.Profile)
 	if price == nil then
 		refuse(player, "BuyUpgrade", "MaxLevel")
 		return
@@ -338,7 +365,7 @@ function EggService:BuyIncubator(player: Player)
 			local egg = profile.Eggs[eggId]
 			profile.Eggs[eggId] = nil
 			slot.Egg = egg
-			slot.HatchAt = os.time() + Incubation.HatchSeconds(egg.Rarity, EggConfig)
+			slot.HatchAt = os.time() + hatchSeconds(player, egg.Rarity)
 		end
 	end)
 end
@@ -360,6 +387,65 @@ function EggService:BuyPetSlots(player: Player)
 	PlayerDataService:Update(player, function(profile)
 		profile.Coins -= price
 		profile.PetCapacity += EggConfig.PetSlotsStep
+	end)
+end
+
+-- Price of the player's next incubator, or nil at the maximum. The VIP
+-- incubator is free, so it does not move the price list.
+function EggService:NextIncubatorPrice(data: Types.Profile): number?
+	local extra = if data.VipIncubator then ShopConfig.VipExtraIncubators else 0
+	if #data.Incubators >= EggConfig.MaxIncubators then
+		return nil
+	end
+	return Incubation.NextIncubatorPrice(#data.Incubators - extra, EggConfig)
+end
+
+-- Robux speed-up, run inside a GrantPurchase update: finishes the egg with
+-- the most time left, or keeps a credit for the next SpeedUp prompt.
+function EggService:GrantSpeedUp(data: Types.Profile)
+	local now = os.time()
+	local best: Types.Incubator? = nil
+	for _, slot in data.Incubators do
+		if slot.Egg ~= nil and slot.HatchAt ~= nil and (slot.HatchAt :: number) > now then
+			if
+				best == nil
+				or (slot.HatchAt :: number) > ((best :: Types.Incubator).HatchAt :: number)
+			then
+				best = slot
+			end
+		end
+	end
+	if best then
+		(best :: Types.Incubator).HatchAt = now
+	else
+		data.FreeSpeedUps += 1
+	end
+end
+
+-- VIP pass: one free incubator, given once. With every incubator already
+-- bought, the player gets the price of the last one in coins instead.
+function EggService:GrantVipIncubator(player: Player)
+	local data = PlayerDataService:Get(player)
+	if data == nil or (data :: Types.Profile).VipIncubator then
+		return
+	end
+	PlayerDataService:Update(player, function(profile)
+		profile.VipIncubator = true
+		for _ = 1, ShopConfig.VipExtraIncubators do
+			if #profile.Incubators < EggConfig.MaxIncubators then
+				local slot: Types.Incubator = {}
+				table.insert(profile.Incubators, slot)
+				local eggId = Incubation.RarestEgg(profile.Eggs :: any, PetConfig.Rarities)
+				if eggId then
+					local egg = profile.Eggs[eggId]
+					profile.Eggs[eggId] = nil
+					slot.Egg = egg
+					slot.HatchAt = os.time() + hatchSeconds(player, egg.Rarity)
+				end
+			else
+				profile.Coins += EggConfig.IncubatorPrices[#EggConfig.IncubatorPrices]
+			end
+		end
 	end)
 end
 

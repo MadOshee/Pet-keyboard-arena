@@ -72,10 +72,13 @@ local function updateLabel(entry: Watched, now: number)
 		label.Text = formatDuration(left)
 		local speedUp = incubator:FindFirstChild("SpeedUp")
 		if speedUp and speedUp:IsA("ProximityPrompt") and type(hatchAt) == "number" then
-			speedUp.ActionText = string.format(
-				Strings.PromptSpeedUp,
-				Incubation.SpeedUpCost(hatchAt, now, EggConfig)
-			)
+			local profile = DataController:Get()
+			speedUp.ActionText = if profile and (profile :: Types.Profile).FreeSpeedUps > 0
+				then Strings.PromptSpeedUpFree
+				else string.format(
+					Strings.PromptSpeedUp,
+					Incubation.SpeedUpCost(hatchAt, now, EggConfig)
+				)
 		end
 	elseif state == "Ready" then
 		label.Text = Strings.IncubatorReady

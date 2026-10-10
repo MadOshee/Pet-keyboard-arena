@@ -4,6 +4,7 @@
 -- profile's PendingOffer and sends the offer id plus a slot number; the
 -- server decides everything else.
 
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -11,6 +12,7 @@ local RunService = game:GetService("RunService")
 local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local EggRoller = require(ReplicatedStorage.Shared.Logic.EggRoller)
 local Types = require(ReplicatedStorage.Shared.Types)
@@ -39,6 +41,7 @@ local window: Frame
 local timerLabel: TextLabel
 local cards: { Card } = {}
 local rerollButton: TextButton
+local robuxRerollButton: TextButton
 local oddsLabel: TextLabel
 local warningLabel: TextLabel
 local reveal: TextButton
@@ -157,7 +160,7 @@ local function build()
 	warningLabel.Text = Strings.EggStorageFullWarning
 
 	oddsLabel =
-		Widgets.Label("Odds", window, UDim2.fromScale(0.62, 0.07), UDim2.fromScale(0.03, 0.85))
+		Widgets.Label("Odds", window, UDim2.fromScale(0.47, 0.07), UDim2.fromScale(0.03, 0.85))
 	oddsLabel.TextXAlignment = Enum.TextXAlignment.Left
 	oddsLabel.TextColor3 = Color3.fromRGB(200, 200, 215)
 
@@ -174,6 +177,23 @@ local function build()
 		end
 		waiting = true
 		ClientNet.Fire("EggReroll", shownOfferId)
+	end)
+
+	-- Robux reroll; the odds above stay visible before the purchase.
+	robuxRerollButton = Widgets.Button(
+		"RobuxReroll",
+		window,
+		UDim2.fromScale(0.15, 0.12),
+		UDim2.fromScale(0.51, 0.83),
+		Color3.fromRGB(60, 180, 90)
+	)
+	robuxRerollButton.Text = Strings.RerollRobux
+	robuxRerollButton.Visible = false
+	robuxRerollButton.Activated:Connect(function()
+		local id = ShopConfig.Products.Reroll.Id
+		if id ~= 0 then
+			MarketplaceService:PromptProductPurchase(player, id)
+		end
 	end)
 
 	reveal = Widgets.Button(
@@ -249,7 +269,11 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 
 	expiresAt = offer.ExpiresAt
 	local cost = EggConfig.RerollCosts[offer.RerollCount + 1]
-	if cost then
+	robuxRerollButton.Visible = cost ~= nil and ShopConfig.Products.Reroll.Id ~= 0
+	if cost and profile.FreeRerolls > 0 then
+		rerollButton.Text = string.format(Strings.RerollFree, profile.FreeRerolls)
+		rerollButton.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
+	elseif cost then
 		rerollButton.Text = string.format(Strings.Reroll, cost)
 		rerollButton.BackgroundColor3 = if profile.Coins >= cost
 			then Color3.fromRGB(230, 160, 40)

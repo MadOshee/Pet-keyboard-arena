@@ -28,6 +28,10 @@ local template: Types.Profile = {
 	},
 	ProcessedPurchases = {},
 	Tutorial = { Done = false },
+	FreeRerolls = 0,
+	FreeSpeedUps = 0,
+	LuckPotionOffers = 0,
+	VipIncubator = false,
 }
 
 -- One empty table per starting incubator (separate tables, not one shared).
