@@ -48,7 +48,7 @@
 
 ## Клиент (StarterPlayerScripts/Client)
 
-Порядок загрузки: DataController → HudController → EggOfferController → InventoryController → PetFollowController.
+Порядок загрузки: DataController → HudController → KeyPressController → EggOfferController → InventoryController → PetFollowController.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
@@ -58,6 +58,7 @@
 | UI/Widgets | 2 | `Corner`, `Stroke`, `AspectRatio`, `Label`, `Button`, `Panel`, `ScreenGui` | — |
 | UI/AssetModels | 2 | `Pet(kind)`, `Egg(theme)` (копии из ReplicatedStorage.Assets или nil), `LocalFront(model)`, `FrontCorrection(model)`, `FitHeight(model, h)`, `Viewport(parent, model?, color)` | PetConfig, EggConfig |
 | Controllers/HudController | 1–2 | интерфейс: фаза и таймер, счёт, команда, монеты, кнопка «Играть», баннер итогов и отказов (`ActionResult`) | DataController, ClientNet |
+| Controllers/KeyPressController | 1 | только визуал: клавиши проседают под любым персонажем и играют `KeySound`; пол целиком из клавиш: `arena/Arena.rbxm` (Keys с тегом ArenaKey, Decor, Floor), генерирует `lune run tools/build-arena` | — |
 | Controllers/EggOfferController | 2 | окно «выбери 1 из 4» из `PendingOffer`, реролл, шансы, таймер, окно «тебе выпал…» (`PetHatched`) | DataController, ClientNet, AssetModels, Widgets, EggRoller |
 | Controllers/InventoryController | 2 | кнопка PETS, список питомцев, надеть/снять, продажа с подтверждением, сумма бонусов | DataController, ClientNet, AssetModels, Widgets, StatCalculator |
 | Controllers/PetFollowController | 2 | питомцы всех игроков бегут за ними (по атрибуту `EquippedPets`), шары-заглушки без ассетов | AssetModels, PetConfig |

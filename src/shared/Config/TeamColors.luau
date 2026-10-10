@@ -9,7 +9,7 @@ local BLUE = Color3.fromRGB(56, 128, 245)
 return table.freeze({
 	Red = RED,
 	Blue = BLUE,
-	Neutral = Color3.fromRGB(225, 225, 230),
+	Neutral = Color3.fromRGB(255, 232, 178),
 	KeyLabel = Color3.fromRGB(40, 40, 48),
 
 	ForTeam = function(team: Types.TeamId): Color3
