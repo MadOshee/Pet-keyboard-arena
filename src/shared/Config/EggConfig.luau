@@ -1,6 +1,7 @@
 --!strict
--- Egg offer rules (docs/design.md 4.3 "Яйца", 4.5). After a rewarded round a
--- player gets 4 eggs, one per theme, each with its own rolled rarity.
+-- Egg rules (docs/design.md 4.3 "Яйца", 4.5). After a rewarded round a
+-- player gets 4 eggs, one per theme, each with its own rolled rarity; the
+-- picked egg hatches in an incubator on the player's plot.
 -- No requires or Roblox types: Lune tests load this file directly.
 
 return table.freeze({
@@ -19,6 +20,24 @@ return table.freeze({
 	RerollCosts = table.freeze({ 50, 100, 200, 400, 800 }),
 	-- Unpicked offers auto-pick the rarest egg after this many seconds.
 	OfferSeconds = 30,
+
+	-- Incubation time by rarity (D3), counted in real time, offline too.
+	HatchSeconds = table.freeze({
+		Common = 30,
+		Uncommon = 120,
+		Rare = 300,
+		Epic = 900,
+		Legendary = 1800,
+	}) :: { [string]: number },
+	SpeedUpCoinsPerSecond = 2,
+	StartEggCapacity = 20,
+	StartIncubators = 3,
+	MaxIncubators = 6,
+	-- Coins for the 4th, 5th and 6th incubator.
+	IncubatorPrices = table.freeze({ 1500, 5000, 15000 }),
+	-- +PetSlotsStep pet slots; the price doubles with every purchase.
+	PetSlotsStep = 25,
+	PetSlotsBasePrice = 2000,
 
 	-- Model name under ReplicatedStorage.Assets.Eggs for a theme.
 	ModelName = function(theme: string): string
