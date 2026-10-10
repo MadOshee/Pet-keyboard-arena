@@ -15,7 +15,7 @@
 | Config/TeamColors | 1 | `Red`, `Blue`, `Neutral`, `KeyLabel`, `ForTeam(team)` | Types |
 | Config/Strings | 1 | тексты интерфейса | — |
 | Net/RemoteNames | 1 | `ClientToServer`, `ServerToClient` | — |
-| Logic/ArenaGrid | 1 | `KeyboardLayout(unit, gap)`, `ForEachKeyInRadius(keys, x, z, r, visit)` | — |
+| Logic/ArenaGrid | 1 | `KeyboardLayout(unit, gap)`, `ForEachKeyInRadius(keys, x, z, r, visit)`, `BuildIndex(keys, cellSize)`, `ForEachKeyInRadiusIndexed(index, x, z, r, visit)` | — |
 | Logic/TeamBalancer | 1 | `TeamSize(humans, limits)`, `Assign(groups, limits) -> Assignment` | — |
 | Logic/Reward | 1 | `DecideWinner(red, blue)`, `OutcomeFor(team, winner)`, `Coins(outcome, keys, multiplier, config)` | — |
 
@@ -33,7 +33,7 @@
 | Services/NetService | 1 | `On(name, limit, handler)`, `FireClient(name, player, ...)`, `FireAllClients(name, ...)` | RemoteNames, RateLimiter |
 | Services/PlayerDataService | 1 | `IsLoaded(p)`, `Get(p)`, `Update(p, mutator)`; сигналы `ProfileLoaded(p, data)`, `ProfileReleasing(p)` | ProfileStore, NetService, Migrations, ProfileTemplate |
 | Services/ReadyService | 1 | `IsReady(p)`, `SetReady(p, value)`; сигнал `ReadyChanged(p, value)`; атрибут игрока `Ready` | NetService, PlayerDataService, Guard |
-| Services/ArenaService | 1 | `BeginRound(teams)`, `EndRound() -> RoundScore`, `GetTeamSpawn(team)`; атрибуты `ScoreRed`, `ScoreBlue` | ArenaGrid, ArenaConfig, TeamColors |
+| Services/ArenaService | 1 | клавиши: BasePart с тегом `ArenaKey` под Workspace.Arena, цвет между раундами из атрибута `BaseColor`; `BeginRound(teams)`, `EndRound() -> RoundScore`, `GetTeamSpawn(team)`; атрибуты `ScoreRed`, `ScoreBlue` | ArenaGrid, ArenaConfig, TeamColors |
 | Match/LocalMatchSource | 1 | `CollectParticipants() -> { { Player } }` | ReadyService, PlayerDataService |
 | Services/RoundService | 1 | `GetPhase()`; сигналы `PhaseChanged(phase)`, `RoundEnded(result)`; атрибуты `RoundPhase`, `PhaseEndsAt`, `Winner`, атрибут игрока `Team` | ArenaService, LocalMatchSource, TeamBalancer, Reward |
 | Services/RewardService | 1 | слушает `RoundEnded`, шлёт `RoundResult` | PlayerDataService, ReadyService, RoundService, NetService, Reward |

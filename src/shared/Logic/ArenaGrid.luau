@@ -19,6 +19,16 @@ export type KeyRect = {
 	HalfZ: number,
 }
 
+-- Uniform grid over the keys so a radius query only looks at nearby keys.
+-- Needed once the arena has thousands of small keys.
+export type KeyIndex = {
+	Keys: { KeyRect },
+	CellSize: number,
+	Cells: { [number]: { number } },
+	Stamps: { number },
+	Query: number,
+}
+
 type RowKey = { any } -- { label: string, width in key units: number }
 
 -- Every row is 15 units wide, like a standard keyboard.
@@ -142,6 +152,69 @@ function ArenaGrid.ForEachKeyInRadius(
 		local dz = math.max(math.abs(z - key.CenterZ) - key.HalfZ, 0)
 		if dx * dx + dz * dz <= radiusSquared then
 			visit(index)
+		end
+	end
+end
+
+local CELL_OFFSET = 32768
+
+local function cellKey(cellX: number, cellZ: number): number
+	return (cellX + CELL_OFFSET) * 65536 + (cellZ + CELL_OFFSET)
+end
+
+function ArenaGrid.BuildIndex(keys: { KeyRect }, cellSize: number): KeyIndex
+	local cells: { [number]: { number } } = {}
+	local stamps: { number } = {}
+	for index, key in keys do
+		stamps[index] = 0
+		local minX = math.floor((key.CenterX - key.HalfX) / cellSize)
+		local maxX = math.floor((key.CenterX + key.HalfX) / cellSize)
+		local minZ = math.floor((key.CenterZ - key.HalfZ) / cellSize)
+		local maxZ = math.floor((key.CenterZ + key.HalfZ) / cellSize)
+		for cellX = minX, maxX do
+			for cellZ = minZ, maxZ do
+				local k = cellKey(cellX, cellZ)
+				local bucket = cells[k]
+				if bucket == nil then
+					bucket = {}
+					cells[k] = bucket
+				end
+				table.insert(bucket, index)
+			end
+		end
+	end
+	return { Keys = keys, CellSize = cellSize, Cells = cells, Stamps = stamps, Query = 0 }
+end
+
+-- Same contract as ForEachKeyInRadius, but only checks keys in the grid
+-- cells the circle touches. Each key is visited at most once per query.
+function ArenaGrid.ForEachKeyInRadiusIndexed(
+	index: KeyIndex,
+	x: number,
+	z: number,
+	radius: number,
+	visit: (keyIndex: number) -> ()
+)
+	index.Query += 1
+	local query = index.Query
+	local keys, stamps, cellSize = index.Keys, index.Stamps, index.CellSize
+	local radiusSquared = radius * radius
+	for cellX = math.floor((x - radius) / cellSize), math.floor((x + radius) / cellSize) do
+		for cellZ = math.floor((z - radius) / cellSize), math.floor((z + radius) / cellSize) do
+			local bucket = index.Cells[cellKey(cellX, cellZ)]
+			if bucket then
+				for _, keyIndex in bucket do
+					if stamps[keyIndex] ~= query then
+						stamps[keyIndex] = query
+						local key = keys[keyIndex]
+						local dx = math.max(math.abs(x - key.CenterX) - key.HalfX, 0)
+						local dz = math.max(math.abs(z - key.CenterZ) - key.HalfZ, 0)
+						if dx * dx + dz * dz <= radiusSquared then
+							visit(keyIndex)
+						end
+					end
+				end
+			end
 		end
 	end
 end

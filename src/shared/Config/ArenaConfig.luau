@@ -11,6 +11,7 @@ return table.freeze({
 	CenterZ = 0,
 
 	PaintTickRate = 10, -- paint checks per second
+	IndexCellSize = 8, -- studs per cell of the key lookup grid
 	ScoreSyncRate = 4, -- score attribute updates per second
 	BasePaintRadius = 3, -- studs from the player to a key's edge
 	MaxPaintHeight = 6, -- studs above the key tops; higher jumps do not paint

@@ -78,4 +78,37 @@ function tests.ignoresPointsFarOutside()
 	assert(#hits(rects, 1000, 1000, 3) == 0)
 end
 
+function tests.indexedQueryMatchesBruteForce()
+	local rects = toRects(ArenaGrid.KeyboardLayout(UNIT, GAP))
+	local index = ArenaGrid.BuildIndex(rects, 8)
+	local seed = 12345
+	local function random(): number
+		seed = (seed * 1103515245 + 12345) % 2147483648
+		return seed / 2147483648
+	end
+	for _ = 1, 300 do
+		local x, z, radius = (random() - 0.5) * 140, (random() - 0.5) * 60, random() * 10
+		local expected = hits(rects, x, z, radius)
+		local found = {}
+		ArenaGrid.ForEachKeyInRadiusIndexed(index, x, z, radius, function(keyIndex)
+			table.insert(found, keyIndex)
+		end)
+		table.sort(found)
+		assert(#found == #expected, `at ({x}, {z}) r={radius}: {#found} vs {#expected}`)
+		for i, keyIndex in expected do
+			assert(found[i] == keyIndex, "different keys")
+		end
+	end
+end
+
+function tests.indexedQueryVisitsEachKeyOnce()
+	-- One wide key spanning many cells must be reported once.
+	local index = ArenaGrid.BuildIndex({ { CenterX = 0, CenterZ = 0, HalfX = 30, HalfZ = 2 } }, 4)
+	local count = 0
+	ArenaGrid.ForEachKeyInRadiusIndexed(index, 0, 0, 20, function()
+		count += 1
+	end)
+	assert(count == 1, `visited {count} times`)
+end
+
 return tests
