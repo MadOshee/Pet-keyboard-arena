@@ -11,12 +11,15 @@
 4. В окне **Output** (View → Output) должны появиться строки
    `[PetKeyboardArena] server started` и `[PetKeyboardArena] client started` без красных ошибок.
 
+Чек-листы проверки по этапам: [docs/testing](docs/testing).
+
 Для проверки с несколькими игроками: вкладка **Test** → **Clients and Servers** → выбрать число игроков → **Start**.
 
 ## Для разработки (Rojo)
 
 1. Установить [Rokit](https://github.com/rojo-rbx/rokit), затем в папке проекта: `rokit install`.
-2. `rojo serve`, в Studio подключиться плагином Rojo.
+2. `wally install` (скачивает ProfileStore).
+3. `rojo serve`, в Studio подключиться плагином Rojo.
 
 Проверки (их же запускает CI):
 

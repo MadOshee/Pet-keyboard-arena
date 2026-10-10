@@ -7,7 +7,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Loader = require(ReplicatedStorage.Shared.Util.Loader)
 
 -- Lower layers first. New services are added here as each stage lands.
-local SERVICE_ORDER: { string } = {}
+local SERVICE_ORDER: { string } = {
+	"NetService",
+	"PlayerDataService",
+	"ReadyService",
+	"ArenaService",
+	"RoundService",
+	"RewardService",
+}
 
 local servicesFolder = script.Parent:FindFirstChild("Services")
 

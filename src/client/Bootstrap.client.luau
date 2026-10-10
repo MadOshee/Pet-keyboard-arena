@@ -7,7 +7,10 @@ ReplicatedStorage:WaitForChild("Shared")
 local Loader = require(ReplicatedStorage.Shared.Util.Loader)
 
 -- New controllers are added here as each stage lands.
-local CONTROLLER_ORDER: { string } = {}
+local CONTROLLER_ORDER: { string } = {
+	"DataController",
+	"HudController",
+}
 
 local controllersFolder = script.Parent:FindFirstChild("Controllers")
 
