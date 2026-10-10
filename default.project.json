@@ -8,6 +8,9 @@
       }
     },
     "ServerScriptService": {
+      "ServerPackages": {
+        "$path": "ServerPackages"
+      },
       "Server": {
         "$path": "src/server"
       }
@@ -57,7 +60,7 @@
           "Position": [
             0,
             0.5,
-            0
+            70
           ],
           "Neutral": true
         }

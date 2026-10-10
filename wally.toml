@@ -7,4 +7,4 @@ realm = "shared"
 [dependencies]
 
 [server-dependencies]
-# Added in stage 1 (player data): ProfileStore
+ProfileStore = "lm-loleris/profilestore@1.0.3"
