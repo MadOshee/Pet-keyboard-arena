@@ -13,6 +13,8 @@ local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Purchases = require(ReplicatedStorage.Shared.Logic.Purchases)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 
+local CHECK_ATTEMPTS = 4
+
 local GamePassService = {}
 
 -- (player, pass name) when a player gains a pass.
@@ -35,11 +37,21 @@ local function check(player: Player)
 	for key, pass in ShopConfig.GamePasses do
 		if pass.Id ~= 0 then
 			task.spawn(function()
-				local ok, result = pcall(function()
-					return MarketplaceService:UserOwnsGamePassAsync(player.UserId, pass.Id)
-				end)
-				if ok and result and player.Parent == Players then
-					grant(player, key)
+				-- Retry with backoff: a failed web call must not cost a paid pass.
+				for attempt = 1, CHECK_ATTEMPTS do
+					local ok, result = pcall(function()
+						return MarketplaceService:UserOwnsGamePassAsync(player.UserId, pass.Id)
+					end)
+					if ok then
+						if result and player.Parent == Players then
+							grant(player, key)
+						end
+						return
+					end
+					if player.Parent ~= Players then
+						return
+					end
+					task.wait(2 ^ attempt)
 				end
 			end)
 		end

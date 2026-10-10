@@ -19,6 +19,7 @@ local NetService = require(script.Parent.NetService)
 
 local STORE_NAME = "PlayerProfiles"
 local SAVE_POLL_SECONDS = 0.5
+local LOAD_WAIT_SECONDS = 15
 
 local PlayerDataService = {}
 
@@ -130,17 +131,39 @@ function PlayerDataService:GrantPurchase(
 	purchaseId: string,
 	mutator: (data: Types.Profile) -> ()
 ): Enum.ProductPurchaseDecision
+	-- Roblox replays pending receipts right after a rejoin, often before the
+	-- profile has loaded, so give the load a moment.
+	local waited = 0
+	while profiles[player] == nil and player.Parent == Players and waited < LOAD_WAIT_SECONDS do
+		waited += task.wait(SAVE_POLL_SECONDS)
+	end
 	local profile = profiles[player]
 	if profile == nil or not profile:IsActive() then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
+	-- The id is recorded only if the grant itself succeeded; a failed grant
+	-- leaves the receipt pending for Roblox to retry.
+	local granted = true
 	PlayerDataService:Update(player, function(data)
-		if
-			Purchases.Remember(data.ProcessedPurchases, purchaseId, ShopConfig.PurchaseHistorySize)
-		then
-			mutator(data)
+		if table.find(data.ProcessedPurchases, purchaseId) == nil then
+			local ok, err = pcall(function()
+				mutator(data)
+			end)
+			if ok then
+				Purchases.Remember(
+					data.ProcessedPurchases,
+					purchaseId,
+					ShopConfig.PurchaseHistorySize
+				)
+			else
+				granted = false
+				warn(`[PlayerDataService] purchase {purchaseId} failed: {err}`)
+			end
 		end
 	end)
+	if not granted then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
 
 	local function saved(): boolean
 		local last = profile.LastSavedData

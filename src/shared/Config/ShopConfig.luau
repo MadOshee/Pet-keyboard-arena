@@ -32,5 +32,5 @@ return table.freeze({
 	LuckPotionOffers = 5,
 	VipExtraIncubators = 1,
 	-- How many recent purchase ids the profile keeps to stop double grants.
-	PurchaseHistorySize = 50,
+	PurchaseHistorySize = 200,
 })
