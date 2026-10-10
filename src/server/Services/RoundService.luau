@@ -17,7 +17,9 @@ local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local LocalMatchSource = require(script.Parent.Parent.Match.LocalMatchSource)
 local ArenaService = require(script.Parent.ArenaService)
+local Participant = require(script.Parent.Parent.Util.Participant)
 local BatService = require(script.Parent.BatService)
+local BotService = require(script.Parent.BotService)
 local MovementGuard = require(script.Parent.MovementGuard)
 local PowerUpService = require(script.Parent.PowerUpService)
 local StatsService = require(script.Parent.StatsService)
@@ -25,8 +27,8 @@ local StatsService = require(script.Parent.StatsService)
 export type RoundResult = {
 	RoundId: number,
 	Winner: Types.Winner,
-	Teams: { [Player]: Types.TeamId },
-	KeysPainted: { [Player]: number },
+	Teams: { [Player]: Types.TeamId }, -- players only; bots get no rewards
+	KeysPainted: { [Participant.Participant]: number },
 }
 
 local RoundService = {}
@@ -36,6 +38,7 @@ RoundService.RoundEnded = Signal.new() :: Signal.Signal<RoundResult>
 
 local phase: Types.RoundPhase = "Intermission"
 local teams: { [Player]: Types.TeamId } = {}
+local botCounts = { Red = 0, Blue = 0 }
 local roundId = 0
 
 local function setPhase(newPhase: Types.RoundPhase, duration: number)
@@ -105,6 +108,8 @@ local function assignTeams(groups: { { Player } }): boolean
 	end
 
 	local assignment = TeamBalancer.Assign(balancerGroups, RoundConfig)
+	botCounts.Red = assignment.RedBots
+	botCounts.Blue = assignment.BlueBots
 	table.clear(teams)
 	for _, userId in assignment.Red do
 		teams[byUserId[userId]] = "Red"
@@ -133,12 +138,21 @@ local function runRound()
 	for player in teams do
 		placeOnArena(player)
 	end
+	local bots = BotService:Spawn(botCounts.Red, botCounts.Blue)
 	task.wait(RoundConfig.CountdownSeconds)
 
 	pruneLeftPlayers()
-	ArenaService:BeginRound(teams)
-	PowerUpService:BeginRound(teams)
-	BatService:BeginRound(teams)
+	local everyone: { [Participant.Participant]: Types.TeamId } = {}
+	for player: Player, team: Types.TeamId in teams do
+		everyone[player] = team
+	end
+	for bot: Model, team: Types.TeamId in bots do
+		everyone[bot] = team
+	end
+	ArenaService:BeginRound(everyone)
+	PowerUpService:BeginRound(everyone)
+	BatService:BeginRound(everyone)
+	BotService:BeginRound(everyone)
 	setPhase("Playing", RoundConfig.PlayingSeconds)
 	for player in teams do
 		setWalkSpeed(player, StatsService:GetWalkSpeed(player))
@@ -148,6 +162,7 @@ local function runRound()
 	local score = ArenaService:EndRound()
 	PowerUpService:EndRound()
 	BatService:EndRound()
+	BotService:Despawn()
 	pruneLeftPlayers()
 	roundId += 1
 	local winner: Types.Winner = Reward.DecideWinner(score.Red, score.Blue)

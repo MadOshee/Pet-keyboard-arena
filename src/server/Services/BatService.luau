@@ -13,6 +13,7 @@ local BatConfig = require(ReplicatedStorage.Shared.Config.BatConfig)
 local BatTargeting = require(ReplicatedStorage.Shared.Logic.BatTargeting)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Participant = require(script.Parent.Parent.Util.Participant)
 local ArenaService = require(script.Parent.ArenaService)
 local MovementGuard = require(script.Parent.MovementGuard)
 local NetService = require(script.Parent.NetService)
@@ -22,29 +23,20 @@ local SPAWN_SPREAD = 12 -- studs along the spawn line, so returns do not stack
 
 local BatService = {}
 
--- (attacker, victim)
-BatService.KnockedOut = Signal.new() :: Signal.Signal<Player, Player>
+-- (attacker, victim); each is a Player or a bot Model.
+BatService.KnockedOut =
+	Signal.new() :: Signal.Signal<Participant.Participant, Participant.Participant>
 
 local random = Random.new()
-local participants: { [Player]: Types.TeamId } = {}
-local nextSwingAt: { [Player]: number } = {}
-local knockedUntil: { [Player]: number } = {}
-local immuneUntil: { [Player]: number } = {}
+local participants: { [Participant.Participant]: Types.TeamId } = {}
+local nextSwingAt: { [Participant.Participant]: number } = {}
+local knockedUntil: { [Participant.Participant]: number } = {}
+local immuneUntil: { [Participant.Participant]: number } = {}
 local roundToken = 0
 local active = false
 
-local function getRoot(player: Player): BasePart?
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if root and root:IsA("BasePart") and humanoid and humanoid.Health > 0 then
-		return root
-	end
-	return nil
-end
-
-local function removeBat(player: Player)
-	local character = player.Character
+local function removeBat(participant: Participant.Participant)
+	local character = Participant.Character(participant)
 	local bat = character and character:FindFirstChild(BAT_NAME)
 	if bat then
 		bat:Destroy()
@@ -53,8 +45,8 @@ end
 
 -- Welds a copy of Assets.Bat to the character's right hand (R15 or R6).
 -- Without the asset nobody holds a visible bat, but swings still work.
-local function giveBat(player: Player)
-	local character = player.Character
+local function giveBat(participant: Participant.Participant)
+	local character = Participant.Character(participant)
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
 	local template = assets and assets:FindFirstChild(BAT_NAME)
 	local gripFound = character and character:FindFirstChild("RightGripAttachment", true)
@@ -106,25 +98,33 @@ local function giveBat(player: Player)
 	bat.Parent = character
 end
 
-local function returnToSpawn(victim: Player, token: number)
+local function returnToSpawn(victim: Participant.Participant, token: number)
 	if token ~= roundToken or not active then
 		return
 	end
 	local team: Types.TeamId? = participants[victim]
 	knockedUntil[victim] = nil
-	if team == nil or victim.Parent ~= Players then
+	if team == nil or not Participant.IsPresent(victim) then
 		return
 	end
-	local character = victim.Character
+	local character = Participant.Character(victim)
 	if character then
 		local offset = Vector3.new(0, 0, (random:NextNumber() - 0.5) * SPAWN_SPREAD)
 		character:PivotTo(ArenaService:GetTeamSpawn(team :: Types.TeamId) + offset)
-		MovementGuard:Reset(victim)
+	end
+	local player = Participant.AsPlayer(victim)
+	if player then
+		MovementGuard:Reset(player)
 	end
 	immuneUntil[victim] = os.clock() + BatConfig.ImmunitySeconds
 end
 
-local function knock(attacker: Player, victim: Player, attackerRoot: BasePart, victimRoot: BasePart)
+local function knock(
+	attacker: Participant.Participant,
+	victim: Participant.Participant,
+	attackerRoot: BasePart,
+	victimRoot: BasePart
+)
 	local now = os.clock()
 	knockedUntil[victim] = now + BatConfig.KnockoutSeconds
 	ArenaService:BlockPainting(victim, now + BatConfig.KnockoutSeconds)
@@ -133,10 +133,15 @@ local function knock(attacker: Player, victim: Player, attackerRoot: BasePart, v
 	local direction = if offset.Magnitude > 0.01
 		then offset.Unit
 		else attackerRoot.CFrame.LookVector
+	-- A player's client flies its own character; the server flies bots.
+	if Participant.AsPlayer(victim) == nil then
+		victimRoot.AssemblyLinearVelocity = direction * BatConfig.KnockSpeed
+			+ Vector3.new(0, BatConfig.KnockLift, 0)
+	end
 	NetService:FireAllClients(
 		"KnockedOut",
-		victim.UserId,
-		attacker.UserId,
+		Participant.Character(victim),
+		Participant.Character(attacker),
 		direction,
 		BatConfig.KnockoutSeconds
 	)
@@ -146,32 +151,32 @@ local function knock(attacker: Player, victim: Player, attackerRoot: BasePart, v
 	task.delay(BatConfig.KnockoutSeconds, returnToSpawn, victim, token)
 end
 
-local function canBeHit(player: Player, now: number): boolean
-	return now >= (knockedUntil[player] or 0) and now >= (immuneUntil[player] or 0)
+local function canBeHit(participant: Participant.Participant, now: number): boolean
+	return now >= (knockedUntil[participant] or 0) and now >= (immuneUntil[participant] or 0)
 end
 
-local function onSwing(player: Player)
-	local team: Types.TeamId? = participants[player]
+local function swing(attacker: Participant.Participant)
+	local team: Types.TeamId? = participants[attacker]
 	if not active or team == nil then
 		return
 	end
 	local now = os.clock()
-	if now < (nextSwingAt[player] or 0) or now < (knockedUntil[player] or 0) then
+	if now < (nextSwingAt[attacker] or 0) or now < (knockedUntil[attacker] or 0) then
 		return
 	end
-	local attackerRoot = getRoot(player)
+	local attackerRoot = Participant.Root(attacker)
 	if attackerRoot == nil then
 		return
 	end
-	nextSwingAt[player] = now + BatConfig.Cooldown
-	NetService:FireAllClients("BatSwingFx", player.UserId)
+	nextSwingAt[attacker] = now + BatConfig.Cooldown
+	NetService:FireAllClients("BatSwingFx", Participant.Character(attacker))
 
 	local root = attackerRoot :: BasePart
-	local candidates: { BatTargeting.Candidate<Player> } = {}
-	local roots: { [Player]: BasePart } = {}
-	for other: Player, otherTeam: Types.TeamId in participants do
+	local candidates: { BatTargeting.Candidate<Participant.Participant> } = {}
+	local roots: { [Participant.Participant]: BasePart } = {}
+	for other: Participant.Participant, otherTeam: Types.TeamId in participants do
 		if otherTeam ~= team and canBeHit(other, now) then
-			local otherRoot = getRoot(other)
+			local otherRoot = Participant.Root(other)
 			if otherRoot then
 				roots[other] = otherRoot
 				local position = otherRoot.Position
@@ -192,7 +197,7 @@ local function onSwing(player: Player)
 		BatConfig.HalfAngle
 	)
 	if target then
-		knock(player, target, root, roots[target])
+		knock(attacker, target, root, roots[target])
 	end
 end
 
@@ -201,7 +206,7 @@ function BatService:Init() end
 function BatService:Start()
 	-- Extra requests are dropped by the server-side cooldown anyway.
 	NetService:On("BatSwing", { PerSecond = 4, Burst = 4 }, function(player)
-		onSwing(player)
+		swing(player)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
@@ -212,15 +217,16 @@ function BatService:Start()
 	end)
 end
 
-function BatService:BeginRound(teams: { [Player]: Types.TeamId })
+-- `teams` holds players and bots.
+function BatService:BeginRound(teams: { [Participant.Participant]: Types.TeamId })
 	roundToken += 1
 	table.clear(participants)
 	table.clear(nextSwingAt)
 	table.clear(knockedUntil)
 	table.clear(immuneUntil)
-	for player: Player, team: Types.TeamId in teams do
-		participants[player] = team
-		giveBat(player)
+	for participant: Participant.Participant, team: Types.TeamId in teams do
+		participants[participant] = team
+		giveBat(participant)
 	end
 	active = true
 end
@@ -232,15 +238,24 @@ function BatService:Equip(player: Player)
 	end
 end
 
-function BatService:IsKnockedOut(player: Player): boolean
-	return os.clock() < (knockedUntil[player] or 0)
+-- Bots swing through here; players use the BatSwing remote.
+function BatService:Swing(participant: Participant.Participant)
+	swing(participant)
+end
+
+function BatService:IsKnockedOut(participant: Participant.Participant): boolean
+	return os.clock() < (knockedUntil[participant] or 0)
+end
+
+function BatService:CanBeHit(participant: Participant.Participant): boolean
+	return canBeHit(participant, os.clock())
 end
 
 function BatService:EndRound()
 	roundToken += 1
 	active = false
-	for player in participants do
-		removeBat(player)
+	for participant in participants do
+		removeBat(participant)
 	end
 	table.clear(participants)
 	table.clear(knockedUntil)

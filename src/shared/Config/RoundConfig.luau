@@ -9,8 +9,8 @@ return table.freeze({
 	PlayingSeconds = 60,
 	ResultsSeconds = 5,
 
-	-- Stage 1 has no bots yet, so a single ready player can start a round.
-	-- Stage 4 adds bots that fill teams up to MinTeamSize.
+	-- One ready player is enough: bots fill both teams up to the team size
+	-- (MinTeamSize at least, D6).
 	MinParticipants = 1,
 	MinTeamSize = 4,
 	MaxTeamSize = 6,

@@ -19,8 +19,8 @@ return table.freeze({
 		"RoundResult", -- (result: Types.RoundResultPayload) to each participant
 		"PetHatched", -- (result: Types.PetHatchedPayload) to the owner
 		"ActionResult", -- (action: string, reason: Types.ActionError) refusals only
-		"BatSwingFx", -- (attackerUserId: number) to all, swing effect
-		"KnockedOut", -- (victimUserId, attackerUserId, direction: Vector3, seconds) to all
+		"BatSwingFx", -- (attacker: Model) character of a player or bot, to all
+		"KnockedOut", -- (victim: Model, attacker: Model, direction: Vector3, seconds) to all
 		"PowerUpEvent", -- (kind: string, userId: number, position: Vector3) to all
 	}),
 })
