@@ -142,10 +142,7 @@ local function runRound()
 	task.wait(RoundConfig.CountdownSeconds)
 
 	pruneLeftPlayers()
-	local everyone: { [Participant.Participant]: Types.TeamId } = {}
-	for player: Player, team: Types.TeamId in teams do
-		everyone[player] = team
-	end
+	local everyone: { [Participant.Participant]: Types.TeamId } = table.clone(teams) :: any
 	for bot: Model, team: Types.TeamId in bots do
 		everyone[bot] = team
 	end
