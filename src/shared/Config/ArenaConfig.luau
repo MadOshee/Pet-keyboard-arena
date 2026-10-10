@@ -6,6 +6,10 @@ return table.freeze({
 	KeyUnit = 8,
 	KeyGap = 1,
 	KeyHeight = 2,
+	-- Client-only press animation (KeyPressController): how far a key sinks
+	-- under a character and how long the move takes.
+	KeyPressDepth = 0.8,
+	KeyPressTime = 0.15,
 	-- Arena center on the ground plane; key tops sit at KeyHeight.
 	CenterX = 0,
 	CenterZ = 0,

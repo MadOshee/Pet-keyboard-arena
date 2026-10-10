@@ -42,11 +42,11 @@
             0
           ],
           "Color": [
-            0.388,
-            0.372,
-            0.384
+            0.42,
+            0.66,
+            0.38
           ],
-          "Material": "Plastic",
+          "Material": "Grass",
           "TopSurface": "Smooth",
           "BottomSurface": "Smooth"
         }
