@@ -16,6 +16,7 @@ local CONTROLLER_ORDER: { string } = {
 	"PetFollowController",
 	"BatController",
 	"EffectsController",
+	"PlotController",
 }
 
 local controllersFolder = script.Parent:FindFirstChild("Controllers")

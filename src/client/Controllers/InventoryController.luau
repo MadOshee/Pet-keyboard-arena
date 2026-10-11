@@ -6,9 +6,11 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
+local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
 local StatCalculator = require(ReplicatedStorage.Shared.Logic.StatCalculator)
 local Types = require(ReplicatedStorage.Shared.Types)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
@@ -26,6 +28,7 @@ local InventoryController = {}
 local gui: ScreenGui
 local window: Frame
 local titleLabel: TextLabel
+local slotsButton: TextButton
 local statsLabel: TextLabel
 local emptyLabel: TextLabel
 local list: ScrollingFrame
@@ -180,7 +183,18 @@ local function refresh(profile: Types.Profile?)
 		buildCard(petId, data.Pets[petId], table.find(data.Equipped, petId) ~= nil, order)
 	end
 
+	local eggCount = 0
+	for _ in data.Eggs do
+		eggCount += 1
+	end
 	titleLabel.Text = string.format(Strings.PetsTitle, #ids, data.PetCapacity)
+		.. "   "
+		.. string.format(Strings.EggsCount, eggCount, data.EggCapacity)
+	slotsButton.Text = string.format(
+		Strings.BuyPetSlots,
+		EggConfig.PetSlotsStep,
+		Incubation.NextPetSlotsPrice(data.PetCapacity, PetConfig.StartCapacity, EggConfig)
+	)
 	statsLabel.Text = statsText(data)
 	emptyLabel.Visible = #ids == 0
 end
@@ -204,7 +218,7 @@ local function build()
 	Widgets.AspectRatio(window, 1.6)
 
 	titleLabel =
-		Widgets.Label("Title", window, UDim2.fromScale(0.5, 0.08), UDim2.fromScale(0.03, 0.025))
+		Widgets.Label("Title", window, UDim2.fromScale(0.6, 0.08), UDim2.fromScale(0.03, 0.025))
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	local close = Widgets.Button(
 		"Close",
@@ -214,6 +228,16 @@ local function build()
 		Color3.fromRGB(200, 70, 70)
 	)
 	close.Text = "X"
+	slotsButton = Widgets.Button(
+		"BuySlots",
+		window,
+		UDim2.fromScale(0.25, 0.08),
+		UDim2.fromScale(0.64, 0.025),
+		Color3.fromRGB(230, 160, 40)
+	)
+	slotsButton.Activated:Connect(function()
+		ClientNet.Fire("BuyUpgrade", "PetSlots")
+	end)
 	statsLabel =
 		Widgets.Label("Stats", window, UDim2.fromScale(0.94, 0.055), UDim2.fromScale(0.03, 0.12))
 	statsLabel.TextXAlignment = Enum.TextXAlignment.Left

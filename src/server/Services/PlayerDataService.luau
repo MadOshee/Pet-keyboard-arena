@@ -21,6 +21,8 @@ local PlayerDataService = {}
 
 PlayerDataService.ProfileLoaded = Signal.new() :: Signal.Signal<Player, Types.Profile>
 PlayerDataService.ProfileReleasing = Signal.new() :: Signal.Signal<Player>
+-- Fired after every Update, for systems that mirror profile data in the world.
+PlayerDataService.Changed = Signal.new() :: Signal.Signal<Player, Types.Profile>
 
 local store: any
 local profiles: { [Player]: any } = {}
@@ -111,6 +113,7 @@ function PlayerDataService:Update(player: Player, mutator: (data: Types.Profile)
 	end
 	mutator(profile.Data)
 	sync(player)
+	PlayerDataService.Changed:Fire(player, profile.Data)
 	return true
 end
 

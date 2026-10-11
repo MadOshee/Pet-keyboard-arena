@@ -3,7 +3,8 @@
 -- The server creates these under ReplicatedStorage.Remotes; clients only wait.
 -- Round phase, timer and score replicate as ReplicatedStorage attributes,
 -- and Ready/Team/EquippedPets as Player attributes, so they need no remotes.
--- The pending egg offer travels inside the profile (DataSync).
+-- The pending egg offer travels inside the profile (DataSync). Incubators
+-- are used through ProximityPrompts on the plot (PlotService), not remotes.
 
 return table.freeze({
 	ClientToServer = table.freeze({
@@ -13,10 +14,13 @@ return table.freeze({
 		"PetEquip", -- (petId: string, equip: boolean)
 		"PetSell", -- (petId: string)
 		"BatSwing", -- () the server picks the target
+		"BuyUpgrade", -- (upgradeId: "Incubator" | "PetSlots")
+		"GoToPlot", -- () teleport to your plot outside a round
 	}),
 	ServerToClient = table.freeze({
 		"DataSync", -- (profile: Types.Profile) full snapshot to the owner
 		"RoundResult", -- (result: Types.RoundResultPayload) to each participant
+		"EggPicked", -- (result: Types.EggPickedPayload) to the owner
 		"PetHatched", -- (result: Types.PetHatchedPayload) to the owner
 		"ActionResult", -- (action: string, reason: Types.ActionError) refusals only
 		"BatSwingFx", -- (attacker: Model) character of a player or bot, to all
