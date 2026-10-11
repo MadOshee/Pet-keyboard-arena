@@ -17,16 +17,20 @@
 | Config/PetConfig | 2 | `Rarities`, `Themes` (тема → один стат), `Pets` (ключ → имя, тема, редкость, модель из Assets.Pets), `Bonus[stat][rarity]`, `Caps`, `MaxEquipped`, `StartCapacity`, `SellValue` | — |
 | Config/EggConfig | 2 | `OfferThemes`, `EggsPerOffer`, `BaseWeights`, `OutcomeBonus`, `ContributionBonus`, `RerollCosts`, `OfferSeconds`, `ModelName(theme)` | — |
 | Config/PetStyle | 2 | цвета `Rarity[rarity]`, `Theme[theme]` | — |
+| Config/BatConfig | 3 | `Range`, `HalfAngle`, `Cooldown`, `KnockoutSeconds`, `ImmunitySeconds`, `KnockSpeed`, `KnockLift` | — |
+| Config/PowerUpConfig | 3 | `Kinds` (Speed, PaintBomb, Lock), `SpawnInterval`, `MaxActive`, `PickupRadius`, `SpeedMultiplier`, `SpeedSeconds`, `BombRadius`, `LockRadius`, `LockSeconds`, `Colors`, `Labels` | — |
 | Net/RemoteNames | 1 | `ClientToServer`, `ServerToClient` | — |
 | Logic/ArenaGrid | 1 | `KeyboardLayout(unit, gap)`, `ForEachKeyInRadius(keys, x, z, r, visit)`, `BuildIndex(keys, cellSize)`, `ForEachKeyInRadiusIndexed(index, x, z, r, visit)` | — |
 | Logic/TeamBalancer | 1 | `TeamSize(humans, limits)`, `Assign(groups, limits) -> Assignment` | — |
 | Logic/Reward | 1–2 | `DecideWinner(red, blue)`, `OutcomeFor(team, winner)`, `Coins(outcome, keys, multiplier, config)`, `ContributionPct(keys, bestOnTeam)` | — |
 | Logic/EggRoller | 2 | `Bonus(ctx, cfg)`, `Weights(ctx, cfg)`, `Odds(weights)`, `PickIndex(weights, rng)`, `RollOffer(ctx, themes, rarities, cfg, rng)`, `KindsFor(pets, theme, rarity)`, `RollPet(pets, theme, rarity, rng)`, `BestSlot(eggs, rarities)` | — |
+| Logic/BatTargeting | 3 | `FindTarget(origin, look, candidates, range, halfAngle) -> Id?` (ближайший в конусе, по горизонтали) | — |
+| Logic/MovementCheck | 3 | `IsSuspicious(fromX, fromZ, toX, toZ, dt, walkSpeed, settings)` | — |
 | Logic/StatCalculator | 2 | `Zero()`, `PetBonus(pet, cfg) -> (stat?, value)`, `Totals(pets, cfg) -> Stats` (с потолками), `Power(stats)` | — |
 
 ## Сервер (ServerScriptService/Server)
 
-Порядок загрузки: NetService → PlayerDataService → ReadyService → PetService → StatsService → ArenaService → RoundService → EggService → RewardService.
+Порядок загрузки: NetService → PlayerDataService → ReadyService → PetService → StatsService → MovementGuard → ArenaService → PowerUpService → BatService → RoundService → EggService → RewardService.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
@@ -39,16 +43,19 @@
 | Services/PlayerDataService | 1 | `IsLoaded(p)`, `Get(p)`, `Update(p, mutator)`; сигналы `ProfileLoaded(p, data)`, `ProfileReleasing(p)` | ProfileStore, NetService, Migrations, ProfileTemplate |
 | Services/ReadyService | 1 | `IsReady(p)`, `SetReady(p, value)`; сигнал `ReadyChanged(p, value)`; атрибут игрока `Ready` | NetService, PlayerDataService, Guard |
 | Services/PetService | 2 | `Count(data)`, `AddToProfile(data, kind, rarity) -> petId?` (внутри чужого `Update`), `GetEquipped(p)`; сигнал `EquippedChanged(p)`; атрибут игрока `EquippedPets` (ключи через запятую); remotes `PetEquip`, `PetSell` | PlayerDataService, NetService, Guard, PetConfig |
-| Services/StatsService | 2 | `GetStats(p)`, `GetWalkSpeed(p)`, `GetPaintRadius(p)`, `GetLuck(p)`, `GetCoinMultiplier(p)`, `GetPower(p)`; сигнал `StatsChanged(p, stats)` | PetService, StatCalculator, PetConfig, ArenaConfig |
-| Services/ArenaService | 1–2 | клавиши: BasePart с тегом `ArenaKey` под Workspace.Arena, цвет между раундами из атрибута `BaseColor`; `BeginRound(teams)` (радиус кисти каждого участника из StatsService), `EndRound() -> RoundScore`, `GetTeamSpawn(team)`; атрибуты `ScoreRed`, `ScoreBlue` | ArenaGrid, ArenaConfig, TeamColors, StatsService |
+| Services/MovementGuard | 3 | `Check(p, position, walkSpeed) -> "Ok" \| "Skip" \| "Return"` (5 нарушений за 10 с → вернуть на спавн, запись в Output), `Reset(p)` после каждого серверного телепорта | MovementCheck |
+| Services/StatsService | 2–3 | `SetSpeedBoost(p, mult, seconds)`, `ClearSpeedBoost(p)`, `GetStats(p)`, `GetWalkSpeed(p)` (с ускорением от бонуса), `GetPaintRadius(p)`, `GetLuck(p)`, `GetCoinMultiplier(p)`, `GetPower(p)`; сигнал `StatsChanged(p, stats)` | PetService, StatCalculator, PetConfig, ArenaConfig |
+| Services/ArenaService | 1–2 | клавиши: BasePart с тегом `ArenaKey` под Workspace.Arena, цвет между раундами из атрибута `BaseColor`; `BeginRound(teams)` (радиус кисти каждого участника из StatsService), `EndRound() -> RoundScore`, `PaintArea(team, x, z, r, player?)`, `LockArea(team, x, z, r, seconds)` (запертые клавиши светятся Neon), `BlockPainting(p, until)`, `IsPaintBlocked(p)`, `GetRandomKeyTop(random)`, `GetTeamSpawn(team)`; атрибуты `ScoreRed`, `ScoreBlue`; каждый тик спрашивает MovementGuard | ArenaGrid, ArenaConfig, TeamColors, StatsService, MovementGuard |
+| Services/PowerUpService | 3 | `BeginRound(teams)`, `EndRound()`; шары в Workspace.ActivePowerUps (атрибут `PowerUp`), подбор по расстоянию на сервере, шлёт `PowerUpEvent` | ArenaService, StatsService, NetService, PowerUpConfig |
+| Services/BatService | 3 | `BeginRound(teams)` (бита в правую руку), `Equip(p)` после респавна, `IsKnockedOut(p)`, `EndRound()`; сигнал `KnockedOut(attacker, victim)`; remote `BatSwing`, шлёт `BatSwingFx`, `KnockedOut` | ArenaService, MovementGuard, NetService, BatTargeting, BatConfig |
 | Match/LocalMatchSource | 1 | `CollectParticipants() -> { { Player } }` | ReadyService, PlayerDataService |
-| Services/RoundService | 1–2 | `GetPhase()`; сигналы `PhaseChanged(phase)`, `RoundEnded(result)`; атрибуты `RoundPhase`, `PhaseEndsAt`, `Winner`, атрибут игрока `Team`; скорость в раунде и сила для баланса команд из StatsService, после раунда скорость сбрасывается | ArenaService, StatsService, LocalMatchSource, TeamBalancer, Reward |
+| Services/RoundService | 1–2 | `GetPhase()`; сигналы `PhaseChanged(phase)`, `RoundEnded(result)`; атрибуты `RoundPhase`, `PhaseEndsAt`, `Winner`, атрибут игрока `Team`; скорость в раунде и сила для баланса команд из StatsService, после раунда скорость сбрасывается | ArenaService, PowerUpService, BatService, MovementGuard, StatsService, LocalMatchSource, TeamBalancer, Reward |
 | Services/EggService | 2 | `CreateOffer(p, ctx)` (старое невыбранное предложение сначала выбирается автоматически), `GetOffer(p)`; сигнал `PetHatched(p, payload)`; remotes `EggPick`, `EggReroll`; автовыбор самого редкого яйца после `OfferSeconds` | PlayerDataService, PetService, NetService, Guard, EggRoller, EggConfig, PetConfig |
 | Services/RewardService | 1–2 | слушает `RoundEnded`: монеты с множителем Coins, предложение яиц (исход, вклад, удача), шлёт `RoundResult` | PlayerDataService, ReadyService, RoundService, StatsService, EggService, NetService, Reward |
 
 ## Клиент (StarterPlayerScripts/Client)
 
-Порядок загрузки: DataController → HudController → KeyPressController → EggOfferController → InventoryController → PetFollowController.
+Порядок загрузки: DataController → HudController → KeyPressController → EggOfferController → InventoryController → PetFollowController → BatController → EffectsController.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
@@ -61,6 +68,8 @@
 | Controllers/KeyPressController | 1 | только визуал: клавиши проседают под любым персонажем и играют `KeySound`; пол целиком из клавиш: `arena/Arena.rbxm` (Keys с тегом ArenaKey, Decor, Floor), генерирует `lune run tools/build-arena` | — |
 | Controllers/EggOfferController | 2 | окно «выбери 1 из 4» из `PendingOffer`, реролл, шансы, таймер, окно «тебе выпал…» (`PetHatched`) | DataController, ClientNet, AssetModels, Widgets, EggRoller |
 | Controllers/InventoryController | 2 | кнопка PETS, список питомцев, надеть/снять, продажа с подтверждением, сумма бонусов | DataController, ClientNet, AssetModels, Widgets, StatCalculator |
+| Controllers/BatController | 3 | удар: клик, F или круглая кнопка BAT (видна только в раунде), серая на время перезарядки | ClientNet, Widgets, BatConfig |
+| Controllers/EffectsController | 3 | след и звук удара, искры попадания, полёт своей жертвы, надписи «Hit!», «Knocked out!», бонусов; вращение шаров-бонусов | ClientNet, Widgets, BatConfig |
 | Controllers/PetFollowController | 2 | питомцы всех игроков бегут за ними (по атрибуту `EquippedPets`), шары-заглушки без ассетов | AssetModels, PetConfig |
 
 ## Remotes
@@ -76,6 +85,10 @@
 | PetSell | клиент → сервер | `(petId: string)` | 4/с, всплеск 8 |
 | PetHatched | сервер → клиент | `(result: PetHatchedPayload)` | — |
 | ActionResult | сервер → клиент | `(action: string, reason: ActionError)`, только отказы | — |
+| BatSwing | клиент → сервер | `()` | 4/с, всплеск 4 (+ перезарядка 1,5 с на сервере) |
+| BatSwingFx | сервер → всем | `(attackerUserId)` | — |
+| KnockedOut | сервер → всем | `(victimUserId, attackerUserId, direction: Vector3, seconds)` | — |
+| PowerUpEvent | сервер → всем | `(kind, userId, position: Vector3)` | — |
 
 ## Решения этапа 2 (уточнения к design.md)
 

@@ -3,7 +3,7 @@
 -- Other services read the numbers they need from here instead of looking at
 -- pets directly: WalkSpeed and paint radius in the round, Luck for egg odds,
 -- the coin multiplier for rewards and Power for team balance.
--- Stage 3 adds temporary arena power-ups on top of these.
+-- Arena power-ups add a temporary speed boost on top (outside the pet cap).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,6 +20,7 @@ local StatsService = {}
 StatsService.StatsChanged = Signal.new() :: Signal.Signal<Player, Types.Stats>
 
 local cache: { [Player]: Types.Stats } = {}
+local speedBoost: { [Player]: { Multiplier: number, Ends: number } } = {}
 
 local function recalculate(player: Player)
 	if player.Parent ~= Players then
@@ -37,6 +38,7 @@ function StatsService:Start()
 	PetService.EquippedChanged:Connect(recalculate)
 	Players.PlayerRemoving:Connect(function(player)
 		cache[player] = nil
+		speedBoost[player] = nil
 	end)
 end
 
@@ -45,7 +47,22 @@ function StatsService:GetStats(player: Player): Types.Stats
 end
 
 function StatsService:GetWalkSpeed(player: Player): number
-	return ArenaConfig.BaseWalkSpeed * (1 + StatsService:GetStats(player).Speed)
+	local speed = ArenaConfig.BaseWalkSpeed * (1 + StatsService:GetStats(player).Speed)
+	local boost = speedBoost[player]
+	if boost and os.clock() < boost.Ends then
+		speed *= boost.Multiplier
+	end
+	return speed
+end
+
+-- Temporary multiplier on top of pets (the Speed power-up). The caller
+-- applies the new WalkSpeed to the humanoid.
+function StatsService:SetSpeedBoost(player: Player, multiplier: number, seconds: number)
+	speedBoost[player] = { Multiplier = multiplier, Ends = os.clock() + seconds }
+end
+
+function StatsService:ClearSpeedBoost(player: Player)
+	speedBoost[player] = nil
 end
 
 function StatsService:GetPaintRadius(player: Player): number
