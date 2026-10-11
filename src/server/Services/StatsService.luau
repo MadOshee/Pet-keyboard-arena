@@ -32,10 +32,13 @@ local function recalculate(player: Player)
 	StatsService.StatsChanged:Fire(player, stats)
 end
 
-function StatsService:Init() end
+-- Connected in Init: PetService starts first and may already publish pets
+-- for profiles that loaded early.
+function StatsService:Init()
+	PetService.EquippedChanged:Connect(recalculate)
+end
 
 function StatsService:Start()
-	PetService.EquippedChanged:Connect(recalculate)
 	Players.PlayerRemoving:Connect(function(player)
 		cache[player] = nil
 		speedBoost[player] = nil

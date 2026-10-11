@@ -53,6 +53,21 @@ local revealNote: TextLabel
 local shownOfferId: string? = nil
 local expiresAt = 0
 local waiting = false -- a request is in flight; ignore extra clicks
+local waitToken = 0
+local WAIT_TIMEOUT = 3
+
+-- Blocks double clicks until the server answers. A dropped request (rate
+-- limit, profile not loaded) gets no answer, so unlock after a timeout too.
+local function startWaiting()
+	waiting = true
+	waitToken += 1
+	local token = waitToken
+	task.delay(WAIT_TIMEOUT, function()
+		if token == waitToken then
+			waiting = false
+		end
+	end)
+end
 local revealToken = 0
 
 local function percent(value: number): number
@@ -108,7 +123,7 @@ local function buildCard(parent: Instance, slot: number): Card
 		if waiting or shownOfferId == nil then
 			return
 		end
-		waiting = true
+		startWaiting()
 		ClientNet.Fire("EggPick", shownOfferId, slot)
 	end)
 
@@ -175,7 +190,7 @@ local function build()
 		if waiting or shownOfferId == nil then
 			return
 		end
-		waiting = true
+		startWaiting()
 		ClientNet.Fire("EggReroll", shownOfferId)
 	end)
 

@@ -7,6 +7,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
 local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
@@ -20,6 +21,8 @@ local DataController = require(script.Parent.DataController)
 local player = Players.LocalPlayer
 
 local UPDATE_SECONDS = 0.5
+-- Phones and tablets: showcase pets on 12 plots without their particles.
+local LOW_END = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 local PlotController = {}
 
@@ -139,6 +142,17 @@ end
 local function watchPlot(plot: Instance)
 	if not plot:IsA("Model") then
 		return
+	end
+	if LOW_END then
+		local function quiet(descendant: Instance)
+			if descendant:IsA("ParticleEmitter") then
+				descendant.Enabled = false
+			end
+		end
+		plot.DescendantAdded:Connect(quiet)
+		for _, descendant in plot:GetDescendants() do
+			quiet(descendant)
+		end
 	end
 	local function scan(child: Instance)
 		if child:IsA("BasePart") and child:GetAttribute("Index") ~= nil then

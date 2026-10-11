@@ -76,10 +76,10 @@
 | UI/Widgets | 2, 7 | `PlaySound(name)` (звук из Assets.Sounds, каждая кнопка играет Click), `Corner`, `Stroke`, `AspectRatio`, `Label`, `Button`, `Panel`, `ScreenGui` | — |
 | UI/AssetModels | 2 | `Pet(kind)`, `Egg(theme)` (копии из ReplicatedStorage.Assets или nil), `LocalFront(model)`, `FrontCorrection(model)`, `FitHeight(model, h)`, `Viewport(parent, model?, color)` | PetConfig, EggConfig |
 | Controllers/HudController | 1–2 | интерфейс: фаза и таймер, счёт, команда, монеты, кнопка «Играть», баннер итогов и отказов (`ActionResult`) | DataController, ClientNet |
-| Controllers/KeyPressController | 1 | только визуал: клавиши проседают под любым персонажем и играют `KeySound`; пол целиком из клавиш: `arena/Arena.rbxm` (Keys с тегом ArenaKey, Decor, Floor), генерирует `lune run tools/build-arena` | — |
+| Controllers/KeyPressController | 1, 10 | только визуал: клавиши проседают под любым персонажем (игроки и боты) и играют `KeySound`; пол целиком из клавиш: `arena/Arena.rbxm` (Keys с тегом ArenaKey, Decor, Floor), генерирует `lune run tools/build-arena` | — |
 | Controllers/EggOfferController | 2–5, 9 | окно «выбери 1 из 4» из `PendingOffer`, реролл (бесплатный, если куплен), кнопка R$ REROLL (если товар создан), шансы, таймер, окно «куда ушло яйцо» (`EggPicked`) и «тебе выпал…» (`PetHatched`) | DataController, ClientNet, AssetModels, Widgets, EggRoller |
 | Controllers/InventoryController | 2–5 | кнопка PETS, список питомцев, число яиц, покупка +25 мест, надеть/снять, продажа с подтверждением, сумма бонусов | DataController, ClientNet, AssetModels, Widgets, StatCalculator |
-| Controllers/PlotController | 5, 7 | таймеры над инкубаторами своего участка, подсказки только на своём участке, цена ускорения, кнопка MY PLOT (с «!», когда яйцо готово) | DataController, ClientNet, Widgets, Incubation |
+| Controllers/PlotController | 5, 7 | таймеры над инкубаторами своего участка, подсказки только на своём участке, цена ускорения (или «free», если куплено ускорение), кнопка MY PLOT (с «!», когда яйцо готово); на телефоне частицы питомцев на витринах выключены | DataController, ClientNet, Widgets, Incubation |
 | Controllers/ShopController | 7, 9 | кнопка SHOP (в лобби): следующий инкубатор и +25 мест за монеты (серая кнопка, если монет мало, звук Purchase); раздел Robux: пассы (OWNED, если куплен) и товары с ценой из Roblox, SOON при id 0 | DataController, ClientNet, Widgets, Incubation |
 | Controllers/TutorialController | 7 | 5 подсказок сверху, шаги идут по действиям игрока (Ready, раунд, выбор яйца, вылупление, надеть питомца), SKIP; показывается, пока в профиле нет `Tutorial.Done` | DataController, ClientNet, Widgets |
 | Controllers/PartyController | 6 | кнопка PARTY: список игроков (друзья первыми) с INVITE, состав группы и LEAVE, всплывающее приглашение ACCEPT / DECLINE | ClientNet, Widgets |
@@ -139,3 +139,14 @@
 - «Ускорить яйцо» за Robux заканчивает яйцо, которому осталось дольше всех. Если яиц нет, ускорение сохраняется и тратится на следующее нажатие «Hatch now».
 - Пасс «Цвета краски» и золотой след VIP отложены: нужен твой выбор оттенков в Studio.
 - Окно яиц показывает шансы до покупки реролла за Robux (правило Roblox о платных случайных наградах).
+
+## Решения этапа 10 (оптимизация и исправления)
+
+- По ревью кода этапа 2 и этапа 9:
+  - StatsService подписывается на смену питомцев в `Init`, чтобы бонусы не терялись у профилей, загрузившихся раньше старта.
+  - Ошибка у одного игрока больше не останавливает автовыбор яиц для всего сервера и не лишает наград остальных после раунда.
+  - Инвентарь перестраивает карточки только когда меняются питомцы или надетые, а не при каждой смене монет.
+  - Питомцы ушедшего игрока не возвращаются в мир; подписки снимаются.
+  - Кнопки окна яиц разблокируются через 3 с, если сервер не ответил.
+- Клавиши проседают и под ботами.
+- Утечек по таблицам игроков не нашёл: у всех сервисов есть очистка на `PlayerRemoving` или в конце раунда.

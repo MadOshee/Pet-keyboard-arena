@@ -32,6 +32,7 @@ type Pet = {
 
 local folder: Folder
 local petsByPlayer: { [Player]: { Pet } } = {}
+local watchers: { [Player]: RBXScriptConnection } = {}
 
 local function placeholder(kind: string): Model
 	local entry = PetConfig.Pets[kind]
@@ -63,6 +64,10 @@ end
 
 local function rebuild(owner: Player)
 	clearPets(owner)
+	-- A late attribute change after leaving must not bring the pets back.
+	if owner.Parent ~= Players then
+		return
+	end
 	local value = owner:GetAttribute("EquippedPets")
 	if type(value) ~= "string" or value == "" then
 		return
@@ -95,7 +100,7 @@ local function rebuild(owner: Player)
 end
 
 local function watch(owner: Player)
-	owner:GetAttributeChangedSignal("EquippedPets"):Connect(function()
+	watchers[owner] = owner:GetAttributeChangedSignal("EquippedPets"):Connect(function()
 		rebuild(owner)
 	end)
 	rebuild(owner)
@@ -146,7 +151,14 @@ function PetFollowController:Start()
 	for _, owner in Players:GetPlayers() do
 		watch(owner)
 	end
-	Players.PlayerRemoving:Connect(clearPets)
+	Players.PlayerRemoving:Connect(function(owner)
+		clearPets(owner)
+		local watcher = watchers[owner]
+		if watcher then
+			watcher:Disconnect()
+			watchers[owner] = nil
+		end
+	end)
 	RunService.RenderStepped:Connect(step)
 end
 

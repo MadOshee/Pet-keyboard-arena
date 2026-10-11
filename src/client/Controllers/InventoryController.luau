@@ -33,6 +33,9 @@ local statsLabel: TextLabel
 local emptyLabel: TextLabel
 local list: ScrollingFrame
 local confirmPetId: string? = nil
+-- Pet ids and equipped list the cards were last built from; DataSync for
+-- coins or offers does not rebuild 50 viewports.
+local builtKey: string? = nil
 local confirmToken = 0
 
 local function percent(value: number): number
@@ -152,12 +155,6 @@ local function refresh(profile: Types.Profile?)
 	end
 	local data = profile :: Types.Profile
 
-	for _, child in list:GetChildren() do
-		if child:IsA("Frame") then
-			child:Destroy()
-		end
-	end
-
 	local ids = {}
 	for petId in data.Pets do
 		table.insert(ids, petId)
@@ -179,8 +176,17 @@ local function refresh(profile: Types.Profile?)
 		return a < b
 	end)
 
-	for order, petId in ids do
-		buildCard(petId, data.Pets[petId], table.find(data.Equipped, petId) ~= nil, order)
+	local key = table.concat(ids, ",") .. "|" .. table.concat(data.Equipped, ",")
+	if key ~= builtKey then
+		builtKey = key
+		for _, child in list:GetChildren() do
+			if child:IsA("Frame") then
+				child:Destroy()
+			end
+		end
+		for order, petId in ids do
+			buildCard(petId, data.Pets[petId], table.find(data.Equipped, petId) ~= nil, order)
+		end
 	end
 
 	local eggCount = 0
@@ -268,6 +274,7 @@ local function build()
 
 	toggle.Activated:Connect(function()
 		window.Visible = not window.Visible
+		builtKey = nil
 		refresh(DataController:Get())
 	end)
 	close.Activated:Connect(function()

@@ -100,7 +100,13 @@ function RewardService:Start()
 			end
 		end
 		for player: Player, team: Types.TeamId in result.Teams do
-			rewardParticipant(player, team, result, if team == "Red" then bestRed else bestBlue)
+			-- An error for one player must not skip everyone after them.
+			local ok, err = pcall(function()
+				rewardParticipant(player, team, result, if team == "Red" then bestRed else bestBlue)
+			end)
+			if not ok then
+				warn(`[RewardService] reward failed for {player.UserId}: {err}`)
+			end
 		end
 	end)
 
