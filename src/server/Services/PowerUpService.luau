@@ -2,14 +2,16 @@
 -- Arena power-ups (docs/design.md 4.3 "Бонусы на арене"): one appears on a
 -- random key every few seconds during Playing, at most MaxActive at once.
 -- The server decides pickups by distance; clients never ask to pick up.
--- Knocked-out participants cannot pick anything up.
+-- Knocked-out participants cannot pick anything up. Bots can.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local PowerUpConfig = require(ReplicatedStorage.Shared.Config.PowerUpConfig)
+local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Participant = require(script.Parent.Parent.Util.Participant)
 local ArenaService = require(script.Parent.ArenaService)
 local NetService = require(script.Parent.NetService)
 local StatsService = require(script.Parent.StatsService)
@@ -27,7 +29,8 @@ local PowerUpService = {}
 
 local random = Random.new()
 local folder: Folder
-local participants: { [Player]: Types.TeamId } = {}
+local participants: { [Participant.Participant]: Types.TeamId } = {}
+local botBoostEnds: { [Participant.Participant]: number } = {}
 local active: { Active } = {}
 local running = false
 local roundToken = 0
@@ -76,31 +79,53 @@ local function spawnOne()
 	table.insert(active, { Kind = kind, Part = makePart(kind, position) })
 end
 
-local function applySpeed(player: Player, token: number)
-	StatsService:SetSpeedBoost(player, PowerUpConfig.SpeedMultiplier, PowerUpConfig.SpeedSeconds)
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		humanoid.WalkSpeed = StatsService:GetWalkSpeed(player)
+-- Players get pets plus the boost from StatsService; bots run at base speed.
+local function walkSpeedOf(participant: Participant.Participant): number
+	local player = Participant.AsPlayer(participant)
+	if player then
+		return StatsService:GetWalkSpeed(player)
 	end
+	local boosted = os.clock() < (botBoostEnds[participant] or 0)
+	return ArenaConfig.BaseWalkSpeed * (if boosted then PowerUpConfig.SpeedMultiplier else 1)
+end
+
+local function applyWalkSpeed(participant: Participant.Participant)
+	local humanoid = Participant.Humanoid(participant)
+	if humanoid then
+		humanoid.WalkSpeed = walkSpeedOf(participant)
+	end
+end
+
+local function applySpeed(participant: Participant.Participant, token: number)
+	local player = Participant.AsPlayer(participant)
+	if player then
+		StatsService:SetSpeedBoost(
+			player,
+			PowerUpConfig.SpeedMultiplier,
+			PowerUpConfig.SpeedSeconds
+		)
+	else
+		botBoostEnds[participant] = os.clock() + PowerUpConfig.SpeedSeconds
+	end
+	applyWalkSpeed(participant)
 	task.delay(PowerUpConfig.SpeedSeconds, function()
-		-- GetWalkSpeed still includes a newer boost that has not ended.
-		if token ~= roundToken or participants[player] == nil then
-			return
-		end
-		local current = player.Character
-		local currentHumanoid = current and current:FindFirstChildOfClass("Humanoid")
-		if currentHumanoid then
-			currentHumanoid.WalkSpeed = StatsService:GetWalkSpeed(player)
+		-- walkSpeedOf still includes a newer boost that has not ended.
+		if token == roundToken and participants[participant] ~= nil then
+			applyWalkSpeed(participant)
 		end
 	end)
 end
 
-local function apply(player: Player, team: Types.TeamId, kind: string, position: Vector3)
+local function apply(
+	participant: Participant.Participant,
+	team: Types.TeamId,
+	kind: string,
+	position: Vector3
+)
 	if kind == "Speed" then
-		applySpeed(player, roundToken)
+		applySpeed(participant, roundToken)
 	elseif kind == "PaintBomb" then
-		ArenaService:PaintArea(team, position.X, position.Z, PowerUpConfig.BombRadius, player)
+		ArenaService:PaintArea(team, position.X, position.Z, PowerUpConfig.BombRadius, participant)
 	elseif kind == "Lock" then
 		ArenaService:LockArea(
 			team,
@@ -110,18 +135,14 @@ local function apply(player: Player, team: Types.TeamId, kind: string, position:
 			PowerUpConfig.LockSeconds
 		)
 	end
-	NetService:FireAllClients("PowerUpEvent", kind, player.UserId, position)
+	NetService:FireAllClients("PowerUpEvent", kind, Participant.UserId(participant), position)
 end
 
 local function checkPickups()
 	local radiusSquared = PowerUpConfig.PickupRadius * PowerUpConfig.PickupRadius
-	for player: Player, team: Types.TeamId in participants do
-		if ArenaService:IsPaintBlocked(player) then
-			continue
-		end
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if root == nil or not root:IsA("BasePart") then
+	for participant: Participant.Participant, team: Types.TeamId in participants do
+		local root = Participant.Root(participant)
+		if root == nil or ArenaService:IsPaintBlocked(participant) then
 			continue
 		end
 		local rootPosition = (root :: BasePart).Position
@@ -132,7 +153,7 @@ local function checkPickups()
 				table.remove(active, index)
 				local position = powerUp.Part.Position
 				powerUp.Part:Destroy()
-				apply(player, team, powerUp.Kind, position)
+				apply(participant, team, powerUp.Kind, position)
 			end
 		end
 	end
@@ -174,13 +195,15 @@ function PowerUpService:Start()
 	end)
 end
 
-function PowerUpService:BeginRound(teams: { [Player]: Types.TeamId })
+-- `teams` holds players and bots.
+function PowerUpService:BeginRound(teams: { [Participant.Participant]: Types.TeamId })
 	roundToken += 1
 	spawnElapsed = 0
 	clearActive()
 	table.clear(participants)
-	for player: Player, team: Types.TeamId in teams do
-		participants[player] = team
+	table.clear(botBoostEnds)
+	for participant: Participant.Participant, team: Types.TeamId in teams do
+		participants[participant] = team
 	end
 	running = true
 end
@@ -189,10 +212,23 @@ function PowerUpService:EndRound()
 	roundToken += 1
 	running = false
 	clearActive()
-	for player in participants do
-		StatsService:ClearSpeedBoost(player)
+	for participant in participants do
+		local player = Participant.AsPlayer(participant)
+		if player then
+			StatsService:ClearSpeedBoost(player)
+		end
 	end
 	table.clear(participants)
+	table.clear(botBoostEnds)
+end
+
+-- Positions of power-ups on the arena (bots sometimes go for them).
+function PowerUpService:GetActivePositions(): { Vector3 }
+	local positions = table.create(#active)
+	for index, powerUp in active do
+		positions[index] = powerUp.Part.Position
+	end
+	return positions
 end
 
 return PowerUpService

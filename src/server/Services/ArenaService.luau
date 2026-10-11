@@ -18,6 +18,7 @@ local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local ArenaGrid = require(ReplicatedStorage.Shared.Logic.ArenaGrid)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Participant = require(script.Parent.Parent.Util.Participant)
 local MovementGuard = require(script.Parent.MovementGuard)
 local StatsService = require(script.Parent.StatsService)
 
@@ -26,7 +27,7 @@ local KEY_TAG = "ArenaKey"
 export type RoundScore = {
 	Red: number,
 	Blue: number,
-	KeysPainted: { [Player]: number },
+	KeysPainted: { [Participant.Participant]: number },
 }
 
 local ArenaService = {}
@@ -41,10 +42,10 @@ local keyLockedUntil: { [number]: number } = {} -- locked keys keep their team
 local keyTopY = 0
 local bounds = { MinX = 0, MaxX = 0, CenterZ = 0 }
 
-local participants: { [Player]: Types.TeamId } = {}
-local paintRadius: { [Player]: number } = {}
-local paintBlockedUntil: { [Player]: number } = {}
-local keysPainted: { [Player]: number } = {}
+local participants: { [Participant.Participant]: Types.TeamId } = {}
+local paintRadius: { [Participant.Participant]: number } = {}
+local paintBlockedUntil: { [Participant.Participant]: number } = {}
+local keysPainted: { [Participant.Participant]: number } = {}
 local scoreRed, scoreBlue = 0, 0
 local active = false
 local scoreDirty = false
@@ -152,7 +153,11 @@ end
 
 -- Paints one key for `team`. Locked keys of the other team stay as they
 -- are. Returns true when the key changed hands.
-local function paintKey(index: number, team: Types.TeamId, player: Player?): boolean
+local function paintKey(
+	index: number,
+	team: Types.TeamId,
+	painter: Participant.Participant?
+): boolean
 	local previous = keyTeams[index]
 	if previous == team then
 		return false
@@ -172,27 +177,20 @@ local function paintKey(index: number, team: Types.TeamId, player: Player?): boo
 	end
 	keyTeams[index] = team
 	keyParts[index].Color = TeamColors.ForTeam(team)
-	if player then
-		keysPainted[player] = (keysPainted[player] or 0) + 1
+	if painter then
+		keysPainted[painter] = (keysPainted[painter] or 0) + 1
 	end
 	scoreDirty = true
 	return true
 end
 
-local function getRoot(player: Player): BasePart?
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if root == nil or not root:IsA("BasePart") or humanoid == nil or humanoid.Health <= 0 then
-		return nil
-	end
-	return root :: BasePart
-end
-
-local function returnToSpawn(player: Player, team: Types.TeamId)
-	local character = player.Character
+local function returnToSpawn(participant: Participant.Participant, team: Types.TeamId)
+	local character = Participant.Character(participant)
 	if character then
 		character:PivotTo(ArenaService:GetTeamSpawn(team))
+	end
+	local player = Participant.AsPlayer(participant)
+	if player then
 		MovementGuard:Reset(player)
 	end
 end
@@ -207,33 +205,36 @@ local function paintTick()
 
 	-- Loop variables are annotated: the type checker widens singleton
 	-- string types read from tables otherwise.
-	for player: Player, team: Types.TeamId in participants do
-		local root = getRoot(player)
-		if root == nil or now < (paintBlockedUntil[player] or 0) then
+	for participant: Participant.Participant, team: Types.TeamId in participants do
+		local root = Participant.Root(participant)
+		if root == nil or now < (paintBlockedUntil[participant] or 0) then
 			continue
 		end
-		local rootPart = root :: BasePart
-		local position = rootPart.Position
-		local humanoid = (player.Character :: Model):FindFirstChildOfClass("Humanoid") :: Humanoid
-		local verdict = MovementGuard:Check(player, position, humanoid.WalkSpeed)
-		if verdict == "Return" then
-			returnToSpawn(player, team)
-			continue
-		elseif verdict == "Skip" then
-			continue
+		local position = (root :: BasePart).Position
+		-- Bots move on the server, so only players need the speed check.
+		local player = Participant.AsPlayer(participant)
+		local humanoid = Participant.Humanoid(participant)
+		if player and humanoid then
+			local verdict = MovementGuard:Check(player, position, humanoid.WalkSpeed)
+			if verdict == "Return" then
+				returnToSpawn(participant, team)
+				continue
+			elseif verdict == "Skip" then
+				continue
+			end
 		end
 		if position.Y - keyTopY > ArenaConfig.MaxPaintHeight then
 			continue
 		end
 
-		local radius = paintRadius[player] or ArenaConfig.BasePaintRadius
+		local radius = paintRadius[participant] or ArenaConfig.BasePaintRadius
 		ArenaGrid.ForEachKeyInRadiusIndexed(
 			keyIndex,
 			position.X,
 			position.Z,
 			radius,
 			function(index)
-				paintKey(index, team, player)
+				paintKey(index, team, participant)
 			end
 		)
 	end
@@ -280,18 +281,22 @@ function ArenaService:Start()
 end
 
 -- Clears the board and starts painting for the given participants.
-function ArenaService:BeginRound(teams: { [Player]: Types.TeamId })
+-- `teams` holds players and bots.
+function ArenaService:BeginRound(teams: { [Participant.Participant]: Types.TeamId })
 	resetKeys()
 	syncScore()
 	table.clear(participants)
 	table.clear(keysPainted)
 	table.clear(paintRadius)
 	table.clear(paintBlockedUntil)
-	for player: Player, team: Types.TeamId in teams do
-		participants[player] = team
-		-- Pets cannot change during a round, so the radius is fixed here.
-		paintRadius[player] = StatsService:GetPaintRadius(player)
-		MovementGuard:Reset(player)
+	for participant: Participant.Participant, team: Types.TeamId in teams do
+		participants[participant] = team
+		local player = Participant.AsPlayer(participant)
+		if player then
+			-- Pets cannot change during a round, so the radius is fixed here.
+			paintRadius[participant] = StatsService:GetPaintRadius(player)
+			MovementGuard:Reset(player)
+		end
 	end
 	active = true
 end
@@ -314,19 +319,19 @@ function ArenaService:EndRound(): RoundScore
 end
 
 -- Paints every key within `radius` of (x, z) for `team` (paint bomb).
--- Keys count toward `player`'s contribution when given.
+-- Keys count toward `painter`'s contribution when given.
 function ArenaService:PaintArea(
 	team: Types.TeamId,
 	x: number,
 	z: number,
 	radius: number,
-	player: Player?
+	painter: Participant.Participant?
 )
 	if not active then
 		return
 	end
 	ArenaGrid.ForEachKeyInRadiusIndexed(keyIndex, x, z, radius, function(index)
-		paintKey(index, team, player)
+		paintKey(index, team, painter)
 	end)
 end
 
@@ -352,12 +357,37 @@ function ArenaService:LockArea(
 end
 
 -- A blocked participant (knocked out by a bat) paints nothing until then.
-function ArenaService:BlockPainting(player: Player, untilTime: number)
-	paintBlockedUntil[player] = untilTime
+function ArenaService:BlockPainting(participant: Participant.Participant, untilTime: number)
+	paintBlockedUntil[participant] = untilTime
 end
 
-function ArenaService:IsPaintBlocked(player: Player): boolean
-	return os.clock() < (paintBlockedUntil[player] or 0)
+function ArenaService:IsPaintBlocked(participant: Participant.Participant): boolean
+	return os.clock() < (paintBlockedUntil[participant] or 0)
+end
+
+-- Picks a key for a bot to walk to: the nearest of a few random keys that
+-- `team` does not own yet (any key when all sampled ones are owned).
+function ArenaService:FindKeyToPaint(
+	team: Types.TeamId,
+	from: Vector3,
+	random: Random,
+	samples: number
+): Vector3
+	local bestIndex = random:NextInteger(1, #keyParts)
+	local bestDistance = math.huge
+	for _ = 1, samples do
+		local index = random:NextInteger(1, #keyParts)
+		if keyTeams[index] ~= team then
+			local rect = keyRects[index]
+			local dx, dz = rect.CenterX - from.X, rect.CenterZ - from.Z
+			local distance = dx * dx + dz * dz
+			if distance < bestDistance then
+				bestIndex, bestDistance = index, distance
+			end
+		end
+	end
+	local rect = keyRects[bestIndex]
+	return Vector3.new(rect.CenterX, keyTopY, rect.CenterZ)
 end
 
 -- Top of a random key, for spawning power-ups.

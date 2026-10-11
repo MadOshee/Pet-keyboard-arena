@@ -52,15 +52,13 @@ local function playSound(name: string, parent: Instance?)
 	end
 end
 
-local function batOf(userId: number): Model?
-	local owner = Players:GetPlayerByUserId(userId)
-	local character = owner and owner.Character
+local function batOf(character: Model?): Model?
 	local bat = character and character:FindFirstChild("Bat")
 	return if bat and bat:IsA("Model") then bat else nil
 end
 
-local function onSwing(userId: number)
-	local found = batOf(userId)
+local function onSwing(attacker: Model?)
+	local found = batOf(attacker)
 	if found == nil then
 		return
 	end
@@ -75,34 +73,32 @@ local function onSwing(userId: number)
 	playSound("Click", bat.PrimaryPart)
 end
 
-local function onKnockedOut(
-	victimId: number,
-	attackerId: number,
-	direction: Vector3,
-	_seconds: number
-)
-	local bat = batOf(attackerId)
+local function onKnockedOut(victim: Model?, attacker: Model?, direction: Vector3, _seconds: number)
+	local bat = batOf(attacker)
 	local burst = bat and bat:FindFirstChild("HitBurst", true)
 	if burst and burst:IsA("ParticleEmitter") then
 		burst:Emit(20)
 	end
 
-	if attackerId == player.UserId then
+	local character = player.Character
+	if character == nil then
+		return
+	end
+	if attacker == character then
 		showPopup(Strings.YouKnocked, Color3.fromRGB(255, 220, 90))
 	end
-	if victimId ~= player.UserId then
+	if victim ~= character then
 		return
 	end
 	showPopup(Strings.KnockedOut, Color3.fromRGB(255, 90, 90))
 	playSound("Error")
 	-- Our own character is simulated on this client, so the push is ours to apply.
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local root = (character :: Model):FindFirstChild("HumanoidRootPart")
 	if root and root:IsA("BasePart") then
 		root.AssemblyLinearVelocity = direction * BatConfig.KnockSpeed
 			+ Vector3.new(0, BatConfig.KnockLift, 0)
 	end
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local humanoid = (character :: Model):FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
 	end
