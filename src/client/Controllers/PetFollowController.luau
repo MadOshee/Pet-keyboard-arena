@@ -6,6 +6,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
@@ -17,6 +18,9 @@ local SPREAD = 3.5 -- sideways gap between pets
 local FOLLOW_SPEED = 10 -- higher catches up faster
 local BOB_HEIGHT = 0.25
 local BOB_SPEED = 4
+
+-- Phones and tablets: touch screen without a keyboard.
+local lowEndDevice = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 local PetFollowController = {}
 
@@ -75,6 +79,14 @@ local function rebuild(owner: Player)
 			model = placeholder(kind)
 		end
 		local shown = model :: Model
+		-- Pack pets with particles are heavy on phones: turn the particles off there.
+		if lowEndDevice then
+			for _, descendant in shown:GetDescendants() do
+				if descendant:IsA("ParticleEmitter") then
+					descendant.Enabled = false
+				end
+			end
+		end
 		local correction = AssetModels.FrontCorrection(shown)
 		shown.Parent = folder
 		table.insert(pets, { Model = shown, Correction = correction, Current = nil })

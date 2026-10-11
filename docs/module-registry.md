@@ -76,12 +76,12 @@
 | Controllers/EggOfferController | 2–5 | окно «выбери 1 из 4» из `PendingOffer`, реролл, шансы, таймер, окно «куда ушло яйцо» (`EggPicked`) и «тебе выпал…» (`PetHatched`) | DataController, ClientNet, AssetModels, Widgets, EggRoller |
 | Controllers/InventoryController | 2–5 | кнопка PETS, список питомцев, число яиц, покупка +25 мест, надеть/снять, продажа с подтверждением, сумма бонусов | DataController, ClientNet, AssetModels, Widgets, StatCalculator |
 | Controllers/PlotController | 5, 7 | таймеры над инкубаторами своего участка, подсказки только на своём участке, цена ускорения, кнопка MY PLOT (с «!», когда яйцо готово) | DataController, ClientNet, Widgets, Incubation |
-| Controllers/ShopController | 7 | кнопка SHOP (в лобби): следующий инкубатор и +25 мест для питомцев с ценами, кнопка серая, если монет не хватает; заметка про Robux (этап 9) | DataController, ClientNet, Widgets, Incubation |
+| Controllers/ShopController | 7 | кнопка SHOP (в лобби): следующий инкубатор и +25 мест для питомцев с ценами, кнопка серая, если монет не хватает, звук Purchase после покупки; заметка про Robux (этап 9) | DataController, ClientNet, Widgets, Incubation |
 | Controllers/TutorialController | 7 | 5 подсказок сверху, шаги идут по действиям игрока (Ready, раунд, выбор яйца, вылупление, надеть питомца), SKIP; показывается, пока в профиле нет `Tutorial.Done` | DataController, ClientNet, Widgets |
 | Controllers/PartyController | 6 | кнопка PARTY: список игроков (друзья первыми) с INVITE, состав группы и LEAVE, всплывающее приглашение ACCEPT / DECLINE | ClientNet, Widgets |
 | Controllers/BatController | 3 | удар: клик, F или круглая кнопка BAT (видна только в раунде), серая на время перезарядки | ClientNet, Widgets, BatConfig |
-| Controllers/EffectsController | 3 | след и звук удара, искры попадания, полёт своей жертвы, надписи «Hit!», «Knocked out!», бонусов; вращение шаров-бонусов | ClientNet, Widgets, BatConfig |
-| Controllers/PetFollowController | 2 | питомцы всех игроков бегут за ними (по атрибуту `EquippedPets`), шары-заглушки без ассетов | AssetModels, PetConfig |
+| Controllers/EffectsController | 3, 8 | след и звук удара, искры попадания, полёт своей жертвы, надписи «Hit!», «Knocked out!», бонусов; вращение шаров-бонусов; звуки событий (победа Tada + конфетти, яйцо, питомец, эпический и легендарный с конфетти, отказ Error, приглашение Notification) | ClientNet, Widgets, BatConfig |
+| Controllers/PetFollowController | 2, 8 | питомцы всех игроков бегут за ними (по атрибуту `EquippedPets`), шары-заглушки без ассетов; на телефоне и планшете частицы питомцев выключены | AssetModels, PetConfig |
 
 ## Remotes
 
@@ -121,3 +121,8 @@
 - Туториал: в design.md был только `TutorialController` + флаг в профиле. Клиент не может сам записать флаг (сервер главный), поэтому добавлен крошечный `TutorialService` с одним remote `TutorialDone`. Больше он ничего не делает.
 - Магазин за монеты использует уже готовый remote `BuyUpgrade` (этап 5), новых покупок на сервере нет. Товары за Robux появятся на этапе 9.
 - Адаптив: весь интерфейс в Scale с `UIAspectRatioConstraint`, поэтому кнопки слева (PARTY, PETS, MY PLOT, SHOP) стоят выше джойстика телефона.
+
+## Решения этапа 8 (уточнения к design.md)
+
+- Большая часть контента уже пришла раньше: клавиши арены и пол (этап 1), 24 питомца в 4 темах, яйца и бита из паков (этапы 2–3). Этап 8 добавил звуки и конфетти для событий и выключение частиц питомцев на телефонах (риск из `docs/assets.md`).
+- Оформление лобби и участков (декор, таблички) не делал вслепую: его нужно смотреть в Studio вместе с Иваном.

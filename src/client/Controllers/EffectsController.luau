@@ -1,14 +1,17 @@
 --!strict
--- Visual and sound feedback for the bat and power-ups, plus the local
--- victim's knock-back flight. All cosmetic: the server already decided the
--- outcome and returns the victim to their spawn on its own.
+-- Visual and sound feedback for the bat and power-ups, the local victim's
+-- knock-back flight, and sounds and confetti for game events (round won,
+-- egg picked, pet hatched, refused action, party invite). All cosmetic: the
+-- server already decided every outcome.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local BatConfig = require(ReplicatedStorage.Shared.Config.BatConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
+local Types = require(ReplicatedStorage.Shared.Types)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 
@@ -18,10 +21,21 @@ local TRAIL_SECONDS = 0.3
 local POPUP_SECONDS = 1.5
 local SPIN_SPEED = 2 -- radians per second
 local BOB_HEIGHT = 0.4
+local CONFETTI_PIECES = 60
+local CONFETTI_SECONDS = 2.5
+local CONFETTI_COLORS = {
+	Color3.fromRGB(255, 90, 90),
+	Color3.fromRGB(255, 200, 60),
+	Color3.fromRGB(90, 200, 255),
+	Color3.fromRGB(120, 230, 120),
+	Color3.fromRGB(220, 120, 255),
+}
 
 local EffectsController = {}
 
+local gui: ScreenGui
 local popup: TextLabel
+local invitesSeen = 0
 local popupToken = 0
 local baseHeights: { [BasePart]: number } = {}
 
@@ -115,6 +129,69 @@ local function onPowerUp(kind: string, userId: number, _position: Vector3)
 	playSound("Success")
 end
 
+-- Paper confetti falling over the screen.
+local function confetti()
+	for _ = 1, CONFETTI_PIECES do
+		local piece = Instance.new("Frame")
+		piece.Name = "Confetti"
+		piece.BorderSizePixel = 0
+		piece.BackgroundColor3 = CONFETTI_COLORS[math.random(#CONFETTI_COLORS)]
+		piece.Size = UDim2.fromScale(0.008, 0.02)
+		piece.Position = UDim2.fromScale(math.random(), -0.05 - math.random() * 0.2)
+		piece.Rotation = math.random(0, 360)
+		piece.Parent = gui
+		local seconds = CONFETTI_SECONDS * (0.7 + math.random() * 0.6)
+		local tween = TweenService:Create(
+			piece,
+			TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+			{
+				Position = UDim2.fromScale(
+					piece.Position.X.Scale + (math.random() - 0.5) * 0.2,
+					1.05
+				),
+				Rotation = piece.Rotation + math.random(-540, 540),
+			}
+		)
+		tween.Completed:Once(function()
+			piece:Destroy()
+		end)
+		tween:Play()
+	end
+end
+
+local function onRoundResult(result: Types.RoundResultPayload)
+	if result.Outcome == "Win" then
+		playSound("Tada")
+		confetti()
+	elseif result.Outcome == "Draw" then
+		playSound("Success")
+	end
+end
+
+local function onHatched(result: Types.PetHatchedPayload)
+	if result.Rarity == "Legendary" or result.Rarity == "Epic" then
+		playSound("LevelUp")
+		confetti()
+	else
+		playSound("Success")
+	end
+end
+
+local function onActionResult(_action: string, reason: string)
+	if (Strings.Errors :: any)[reason] then
+		playSound("Error")
+	end
+end
+
+-- A sound only when a new invite arrives, not on every party update.
+local function onPartyUpdate(party: Types.PartyPayload)
+	local count = #party.Invites
+	if count > invitesSeen then
+		playSound("Notification")
+	end
+	invitesSeen = count
+end
+
 -- Power-up balls spin and bob locally; the server only places them.
 local function animatePowerUps()
 	local folder = workspace:FindFirstChild("ActivePowerUps")
@@ -143,7 +220,7 @@ local function animatePowerUps()
 end
 
 function EffectsController:Init()
-	local gui = Widgets.ScreenGui("Effects", 4)
+	gui = Widgets.ScreenGui("Effects", 4)
 	popup = Widgets.Label("Popup", gui, UDim2.fromScale(0.5, 0.08), UDim2.fromScale(0.25, 0.22))
 	popup.Visible = false
 	gui.Parent = player:WaitForChild("PlayerGui")
@@ -153,6 +230,13 @@ function EffectsController:Start()
 	ClientNet.On("BatSwingFx", onSwing)
 	ClientNet.On("KnockedOut", onKnockedOut)
 	ClientNet.On("PowerUpEvent", onPowerUp)
+	ClientNet.On("RoundResult", onRoundResult)
+	ClientNet.On("PetHatched", onHatched)
+	ClientNet.On("EggPicked", function()
+		playSound("Notification")
+	end)
+	ClientNet.On("ActionResult", onActionResult)
+	ClientNet.On("PartyUpdate", onPartyUpdate)
 	RunService.RenderStepped:Connect(animatePowerUps)
 end
 
