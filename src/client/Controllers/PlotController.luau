@@ -12,8 +12,10 @@ local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
 local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
+local Types = require(ReplicatedStorage.Shared.Types)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
+local DataController = require(script.Parent.DataController)
 
 local player = Players.LocalPlayer
 
@@ -29,6 +31,7 @@ type Watched = {
 }
 
 local watched: { [BasePart]: Watched } = {}
+local plotButton: TextButton
 
 local function isMine(plot: Model): boolean
 	return plot:GetAttribute("OwnerUserId") == player.UserId
@@ -83,6 +86,21 @@ local function updateLabel(entry: Watched, now: number)
 		label.Text = Strings.IncubatorLocked
 		label.TextColor3 = Color3.fromRGB(160, 160, 170)
 	end
+end
+
+-- The MY PLOT button shows "!" while any of your eggs is ready to collect.
+local function updateReadyBadge(now: number)
+	local profile = DataController:Get()
+	local ready = false
+	if profile then
+		for _, slot: Types.Incubator in (profile :: Types.Profile).Incubators do
+			if slot.Egg ~= nil and slot.HatchAt ~= nil and (slot.HatchAt :: number) <= now then
+				ready = true
+				break
+			end
+		end
+	end
+	plotButton.Text = if ready then Strings.PlotReady else Strings.PlotButton
 end
 
 local function watchIncubator(incubator: BasePart, plot: Model)
@@ -143,6 +161,7 @@ function PlotController:Init()
 		Color3.fromRGB(90, 170, 90)
 	)
 	button.Text = Strings.PlotButton
+	plotButton = button
 	Widgets.AspectRatio(button, 2.2)
 	button.Activated:Connect(function()
 		ClientNet.Fire("GoToPlot")
@@ -175,6 +194,7 @@ function PlotController:Start()
 		for _, entry in watched do
 			updateLabel(entry, now)
 		end
+		updateReadyBadge(now)
 	end)
 end
 
