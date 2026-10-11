@@ -2,7 +2,8 @@
 -- Owns the keyboard arena: builds the keys, runs the server-side paint tick
 -- and keeps the score (docs/design.md 4.3 "Покраска", section 8).
 -- Clients never report painting: the server reads character positions and
--- paints the keys within the brush radius.
+-- paints the keys within the brush radius (base radius plus pet PaintRadius
+-- from StatsService).
 --
 -- Keys are any BaseParts tagged "ArenaKey" under Workspace.Arena. If none
 -- exist, a placeholder keyboard is generated, so an art model from the asset
@@ -17,6 +18,7 @@ local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local ArenaGrid = require(ReplicatedStorage.Shared.Logic.ArenaGrid)
 local Types = require(ReplicatedStorage.Shared.Types)
+local StatsService = require(script.Parent.StatsService)
 
 local KEY_TAG = "ArenaKey"
 
@@ -37,6 +39,7 @@ local keyTopY = 0
 local bounds = { MinX = 0, MaxX = 0, CenterZ = 0 }
 
 local participants: { [Player]: Types.TeamId } = {}
+local paintRadius: { [Player]: number } = {}
 local keysPainted: { [Player]: number } = {}
 local scoreRed, scoreBlue = 0, 0
 local active = false
@@ -135,7 +138,6 @@ local function resetKeys()
 end
 
 local function paintTick()
-	local radius = ArenaConfig.BasePaintRadius
 	-- Loop variables are annotated: the type checker widens singleton
 	-- string types read from tables otherwise.
 	for player: Player, team: Types.TeamId in participants do
@@ -146,6 +148,7 @@ local function paintTick()
 			continue
 		end
 
+		local radius = paintRadius[player] or ArenaConfig.BasePaintRadius
 		local position = (root :: BasePart).Position
 		if position.Y - keyTopY > ArenaConfig.MaxPaintHeight then
 			continue
@@ -215,6 +218,7 @@ function ArenaService:Start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		participants[player] = nil
+		paintRadius[player] = nil
 	end)
 end
 
@@ -224,8 +228,11 @@ function ArenaService:BeginRound(teams: { [Player]: Types.TeamId })
 	syncScore()
 	table.clear(participants)
 	table.clear(keysPainted)
+	table.clear(paintRadius)
 	for player: Player, team: Types.TeamId in teams do
 		participants[player] = team
+		-- Pets cannot change during a round, so the radius is fixed here.
+		paintRadius[player] = StatsService:GetPaintRadius(player)
 	end
 	active = true
 end

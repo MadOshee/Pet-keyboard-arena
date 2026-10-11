@@ -48,4 +48,12 @@ function Reward.Coins(
 	return math.floor((base + bonus) * cappedMultiplier)
 end
 
+-- A player's share of the best painter on their team, 0..1.
+function Reward.ContributionPct(keysPainted: number, bestOnTeam: number): number
+	if bestOnTeam <= 0 then
+		return 0
+	end
+	return math.clamp(keysPainted / bestOnTeam, 0, 1)
+end
+
 return Reward

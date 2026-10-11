@@ -39,4 +39,11 @@ function tests.multiplierIsCappedAndNeverBelowOne()
 	assert(Reward.Coins("Win", 0, 1.5, CONFIG) == 60)
 end
 
+function tests.contributionIsShareOfBest()
+	assert(Reward.ContributionPct(5, 10) == 0.5)
+	assert(Reward.ContributionPct(10, 10) == 1)
+	assert(Reward.ContributionPct(0, 0) == 0)
+	assert(Reward.ContributionPct(12, 10) == 1)
+end
+
 return tests
