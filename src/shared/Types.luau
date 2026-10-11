@@ -96,6 +96,14 @@ export type PetHatchedPayload = {
 	PetId: string,
 }
 
+-- A player's party as they see it (PartyUpdate remote). Members holds
+-- just the player when solo; Invites lists users inviting them.
+export type PartyPayload = {
+	Members: { number },
+	Leader: number,
+	Invites: { number },
+}
+
 -- Why a request was refused (ActionResult remote).
 export type ActionError =
 	"NoOffer"
@@ -113,5 +121,11 @@ export type ActionError =
 	| "MaxLevel"
 	| "Unknown"
 	| "NotYourPlot"
+	| "Self"
+	| "AlreadyTogether"
+	| "PartyFull"
+	| "AlreadyInvited"
+	| "NoInvite"
+	| "InvalidTarget"
 
 return nil
