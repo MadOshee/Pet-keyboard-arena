@@ -10,12 +10,16 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+local Purchases = require(ReplicatedStorage.Shared.Logic.Purchases)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Migrations = require(script.Parent.Parent.Data.Migrations)
 local ProfileTemplate = require(script.Parent.Parent.Data.ProfileTemplate)
 local NetService = require(script.Parent.NetService)
 
 local STORE_NAME = "PlayerProfiles"
+local SAVE_POLL_SECONDS = 0.5
+local LOAD_WAIT_SECONDS = 15
 
 local PlayerDataService = {}
 
@@ -115,6 +119,69 @@ function PlayerDataService:Update(player: Player, mutator: (data: Types.Profile)
 	sync(player)
 	PlayerDataService.Changed:Fire(player, profile.Data)
 	return true
+end
+
+-- Grants a Robux purchase exactly once (docs/design.md section 10). The
+-- purchase id is recorded in the same update as the grant, so a repeated
+-- receipt changes nothing. PurchaseGranted is returned only after a save
+-- that contains the id; otherwise Roblox retries the receipt later.
+-- Yields while saving.
+function PlayerDataService:GrantPurchase(
+	player: Player,
+	purchaseId: string,
+	mutator: (data: Types.Profile) -> ()
+): Enum.ProductPurchaseDecision
+	-- Roblox replays pending receipts right after a rejoin, often before the
+	-- profile has loaded, so give the load a moment.
+	local waited = 0
+	while profiles[player] == nil and player.Parent == Players and waited < LOAD_WAIT_SECONDS do
+		waited += task.wait(SAVE_POLL_SECONDS)
+	end
+	local profile = profiles[player]
+	if profile == nil or not profile:IsActive() then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	-- The id is recorded only if the grant itself succeeded; a failed grant
+	-- leaves the receipt pending for Roblox to retry.
+	local granted = true
+	PlayerDataService:Update(player, function(data)
+		if table.find(data.ProcessedPurchases, purchaseId) == nil then
+			local ok, err = pcall(function()
+				mutator(data)
+			end)
+			if ok then
+				Purchases.Remember(
+					data.ProcessedPurchases,
+					purchaseId,
+					ShopConfig.PurchaseHistorySize
+				)
+			else
+				granted = false
+				warn(`[PlayerDataService] purchase {purchaseId} failed: {err}`)
+			end
+		end
+	end)
+	if not granted then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	local function saved(): boolean
+		local last = profile.LastSavedData
+		return last ~= nil
+			and type(last.ProcessedPurchases) == "table"
+			and table.find(last.ProcessedPurchases, purchaseId) ~= nil
+	end
+	if saved() then
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
+	profile:Save()
+	-- Polling also ends cleanly if the session closes before a save lands.
+	while profile:IsActive() and not saved() do
+		task.wait(SAVE_POLL_SECONDS)
+	end
+	return if saved()
+		then Enum.ProductPurchaseDecision.PurchaseGranted
+		else Enum.ProductPurchaseDecision.NotProcessedYet
 end
 
 return PlayerDataService

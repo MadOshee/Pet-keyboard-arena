@@ -68,6 +68,11 @@ export type Profile = {
 	},
 	ProcessedPurchases: { string },
 	Tutorial: { Done: boolean },
+	-- Robux extras (stage 9)
+	FreeRerolls: number, -- bought rerolls, used before coins
+	FreeSpeedUps: number, -- bought speed-ups with no egg to finish at the time
+	LuckPotionOffers: number, -- egg offers left with the luck potion bonus
+	VipIncubator: boolean, -- the VIP pass incubator was added
 }
 
 -- Sent to a participant after each round (RoundResult remote).

@@ -15,7 +15,6 @@ local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
-local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
 local Types = require(ReplicatedStorage.Shared.Types)
 local EggService = require(script.Parent.EggService)
 local MovementGuard = require(script.Parent.MovementGuard)
@@ -272,7 +271,7 @@ local function refreshIncubators(plot: Plot, data: Types.Profile?)
 
 		if state == "Locked" then
 			local price = if data and slot == owned + 1
-				then Incubation.NextIncubatorPrice(owned, EggConfig)
+				then EggService:NextIncubatorPrice(data :: Types.Profile)
 				else nil
 			setPrompt(
 				incubator,
