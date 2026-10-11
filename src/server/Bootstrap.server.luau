@@ -13,6 +13,7 @@ local SERVICE_ORDER: { string } = {
 	"GamePassService",
 	"ReadyService",
 	"PartyService",
+	"PortalService",
 	"PetService",
 	"StatsService",
 	"MovementGuard",

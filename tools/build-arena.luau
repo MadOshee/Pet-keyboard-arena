@@ -22,16 +22,20 @@ local Vector3 = roblox.Vector3
 local CFrame = roblox.CFrame
 local Color3 = roblox.Color3
 
+local ArenaConfig = require("../src/shared/Config/ArenaConfig")
+
 -- Same as the keys in Free Ocean Keyboard: 2.2 x 1.4 x 2.2, touching.
 local KEY_SIZE = 2.2
 local KEY_HEIGHT = 1.4
 local PITCH = 2.2
--- Playable area in keys, centered on the origin (ArenaConfig.CenterX/Z = 0).
+-- Playable area in keys, centered on ArenaConfig.CenterX/CenterZ: the
+-- arena floats far away from the hub islands, players are teleported there.
 local ARENA_COLS = 57
 local ARENA_ROWS = 35
--- The decorative floor covers this rectangle (studs), lobby (z = 70) included.
+local OX, OZ = ArenaConfig.CenterX, ArenaConfig.CenterZ
+-- The decorative floor around the playable keys (studs, relative to the center).
 local FLOOR_MIN_X, FLOOR_MAX_X = -80, 80
-local FLOOR_MIN_Z, FLOOR_MAX_Z = -50, 95
+local FLOOR_MIN_Z, FLOOR_MAX_Z = -50, 50
 
 local LETTERS = string.split("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "")
 local WARM = {
@@ -55,7 +59,7 @@ local function makeKey(name: string, x: number, z: number, color: any): any
 	key.CanCollide = false
 	key.Color = color
 	key.Size = Vector3.new(KEY_SIZE, KEY_HEIGHT, KEY_SIZE)
-	key.CFrame = CFrame.new(x, KEY_HEIGHT / 2, z)
+	key.CFrame = CFrame.new(OX + x, KEY_HEIGHT / 2, OZ + z)
 	-- The pack's SurfaceGui is kept as is; like its key script, pick a random
 	-- letter (solid black, as in Ivan's reference screenshot).
 	local letter = key.Top.Letter
@@ -109,7 +113,8 @@ floor.Transparency = 1
 floor.CanQuery = false
 floor.CanTouch = false
 floor.Size = Vector3.new(FLOOR_MAX_X - FLOOR_MIN_X + PITCH, 1, FLOOR_MAX_Z - FLOOR_MIN_Z + PITCH)
-floor.CFrame = CFrame.new((FLOOR_MIN_X + FLOOR_MAX_X) / 2, -0.5, (FLOOR_MIN_Z + FLOOR_MAX_Z) / 2)
+floor.CFrame =
+	CFrame.new(OX + (FLOOR_MIN_X + FLOOR_MAX_X) / 2, -0.5, OZ + (FLOOR_MIN_Z + FLOOR_MAX_Z) / 2)
 floor.Parent = arena
 
 fs.writeFile("arena/Arena.rbxm", roblox.serializeModel({ arena }))

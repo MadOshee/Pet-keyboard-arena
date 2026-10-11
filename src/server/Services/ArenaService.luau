@@ -400,7 +400,7 @@ function ArenaService:GetTeamSpawn(team: Types.TeamId): CFrame
 	local inset = ArenaConfig.KeyUnit
 	local x = if team == "Red" then bounds.MinX + inset else bounds.MaxX - inset
 	local position = Vector3.new(x, keyTopY + 3, bounds.CenterZ)
-	local lookAt = Vector3.new(ArenaConfig.CenterX, position.Y, bounds.CenterZ)
+	local lookAt = Vector3.new((bounds.MinX + bounds.MaxX) / 2, position.Y, bounds.CenterZ)
 	return CFrame.lookAt(position, lookAt)
 end
 

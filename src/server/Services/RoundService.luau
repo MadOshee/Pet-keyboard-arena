@@ -1,6 +1,9 @@
 --!strict
 -- The round state machine (docs/design.md 4.3 "Раунд"):
--- Intermission -> Countdown -> Playing -> Results -> Intermission.
+-- Intermission (nobody queued) -> Starting (queue countdown on the hub)
+-- -> Countdown (on the arena) -> Playing -> Results -> back to the hub.
+-- Players join the queue at the hub portal (PortalService); after the
+-- match they leave the queue and return to the hub.
 -- Phase and end time replicate as ReplicatedStorage attributes
 -- ("RoundPhase", "PhaseEndsAt", "Winner"); each participant's team is the
 -- "Team" Player attribute. RoundEnded lets RewardService react without
@@ -18,6 +21,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local LocalMatchSource = require(script.Parent.Parent.Match.LocalMatchSource)
 local ArenaService = require(script.Parent.ArenaService)
 local Participant = require(script.Parent.Parent.Util.Participant)
+local ReadyService = require(script.Parent.ReadyService)
 local BatService = require(script.Parent.BatService)
 local BotService = require(script.Parent.BotService)
 local MovementGuard = require(script.Parent.MovementGuard)
@@ -177,14 +181,34 @@ local function runRound()
 		player:SetAttribute("Team", nil)
 		-- Pet Speed only applies in the round.
 		setWalkSpeed(player, ArenaConfig.BaseWalkSpeed)
+		-- Back to the hub; the next match starts from the portal again.
+		ReadyService:SetReady(player, false)
 		teleport(player, lobbyCFrame())
 	end
 	table.clear(teams)
 	ReplicatedStorage:SetAttribute("Winner", nil)
 end
 
+-- Waits on the hub until someone is queued, then counts down. Returns
+-- false if everyone left the queue during the countdown.
+local function waitForQueue(): boolean
+	setPhase("Intermission", 0)
+	while not LocalMatchSource.HasParticipants() do
+		task.wait(0.25)
+	end
+	setPhase("Starting", RoundConfig.StartingSeconds)
+	local startAt = os.clock() + RoundConfig.StartingSeconds
+	while os.clock() < startAt do
+		task.wait(0.25)
+		if not LocalMatchSource.HasParticipants() then
+			return false
+		end
+	end
+	return true
+end
+
 function RoundService:Init()
-	setPhase("Intermission", RoundConfig.IntermissionSeconds)
+	setPhase("Intermission", 0)
 end
 
 function RoundService:Start()
@@ -210,9 +234,9 @@ function RoundService:Start()
 
 	task.spawn(function()
 		while true do
-			setPhase("Intermission", RoundConfig.IntermissionSeconds)
-			task.wait(RoundConfig.IntermissionSeconds)
-			runRound()
+			if waitForQueue() then
+				runRound()
+			end
 		end
 	end)
 end

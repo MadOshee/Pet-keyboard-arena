@@ -9,9 +9,9 @@
 |---|---|---|---|
 | Util/Loader | 0 | `Run(entries)`; типы `Entry`, `Lifecycle` | — |
 | Util/Signal | 1 | `Signal.new()`, `:Connect(fn) -> Connection`, `:Fire(...)`, `:DisconnectAll()` | — |
-| Types | 0–2 | `Rarity`, `TeamId`, `Winner`, `Outcome`, `RoundPhase`, `Stat`, `Stats`, `PetInstance`, `EggInstance`, `OfferContext`, `EggOffer`, `Profile`, `RoundResultPayload`, `PetHatchedPayload`, `ActionError` | — |
-| Config/RoundConfig | 1 | тайминги фаз, размеры команд, `MinKeysForReward`, `Coins` | — |
-| Config/ArenaConfig | 1 | размеры клавиш, частоты тиков, радиус кисти, скорость, точка лобби | — |
+| Types | 0–2, карта | `Rarity`, `TeamId`, `Winner`, `Outcome`, `RoundPhase` (+ `Starting`), `QueueMode` (`Solo`/`Party`), `Stat`, `Stats`, `PetInstance`, `EggInstance`, `OfferContext`, `EggOffer`, `Profile`, `RoundResultPayload`, `PetHatchedPayload`, `ActionError` | — |
+| Config/RoundConfig | 1, карта | тайминги фаз (`StartingSeconds` — отсчёт после входа в портал), размеры команд, `MinKeysForReward`, `Coins` | — |
+| Config/ArenaConfig | 1, карта | размеры клавиш, частоты тиков, радиус кисти, скорость, центр арены (`CenterZ` = 3000, далеко от островов), точка возврата на хаб, `PortalRadius`, `PortalServerRadius` | — |
 | Config/TeamColors | 1 | `Red`, `Blue`, `Neutral`, `KeyLabel`, `ForTeam(team)` | Types |
 | Config/Strings | 1–2 | тексты интерфейса (раунд, яйца, питомцы, ошибки) | — |
 | Config/PetConfig | 2 | `Rarities`, `Themes` (тема → один стат), `Pets` (ключ → имя, тема, редкость, модель из Assets.Pets), `Bonus[stat][rarity]`, `Caps`, `MaxEquipped`, `StartCapacity`, `SellValue` | — |
@@ -34,7 +34,7 @@
 
 ## Сервер (ServerScriptService/Server)
 
-Порядок загрузки: NetService → PlayerDataService → GamePassService → ReadyService → PartyService → PetService → StatsService → MovementGuard → ArenaService → PowerUpService → BatService → BotService → RoundService → EggService → PlotService → TutorialService → MonetizationService → RewardService.
+Порядок загрузки: NetService → PlayerDataService → GamePassService → ReadyService → PartyService → PortalService → PetService → StatsService → MovementGuard → ArenaService → PowerUpService → BatService → BotService → RoundService → EggService → PlotService → TutorialService → MonetizationService → RewardService.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
@@ -46,7 +46,8 @@
 | Data/Migrations | 1 | `Apply(data, currentVersion, steps?)` | — |
 | Services/NetService | 1 | `On(name, limit, handler)`, `FireClient(name, player, ...)`, `FireAllClients(name, ...)` | RemoteNames, RateLimiter |
 | Services/PlayerDataService | 1–5, 9 | `IsLoaded(p)`, `Get(p)`, `Update(p, mutator)`, `GrantPurchase(p, purchaseId, mutator) -> ProductPurchaseDecision` (ждёт сохранения); сигналы `ProfileLoaded(p, data)`, `ProfileReleasing(p)`, `Changed(p, data)` после каждого `Update` | ProfileStore, NetService, Migrations, ProfileTemplate, ShopConfig, Purchases |
-| Services/ReadyService | 1 | `IsReady(p)`, `SetReady(p, value)`; сигнал `ReadyChanged(p, value)`; атрибут игрока `Ready` | NetService, PlayerDataService, Guard |
+| Services/ReadyService | 1, карта | очередь на матч: `IsReady(p)`, `GetMode(p) -> QueueMode?`, `SetReady(p, value, mode?)`; сигнал `ReadyChanged(p, value)`; атрибуты игрока `Ready`, `QueueMode`; remote `SetReady` только выходит из очереди | NetService, Guard |
+| Services/PortalService | карта | remote `JoinQueue(mode)`: проверяет, что игрок у портала (World.Portal) и не в матче; Solo — в очередь один, Party — вся группа (ошибка `NoParty` без группы) | NetService, PartyService, PlayerDataService, ReadyService, Guard, ArenaConfig |
 | Services/PetService | 2 | `Count(data)`, `AddToProfile(data, kind, rarity) -> petId?` (внутри чужого `Update`), `GetEquipped(p)`; сигнал `EquippedChanged(p)`; атрибут игрока `EquippedPets` (ключи через запятую); remotes `PetEquip`, `PetSell` | PlayerDataService, NetService, Guard, PetConfig |
 | Services/MovementGuard | 3 | `Check(p, position, walkSpeed) -> "Ok" \| "Skip" \| "Return"` (5 нарушений за 10 с → вернуть на спавн, запись в Output), `Reset(p)` после каждого серверного телепорта | MovementCheck |
 | Services/StatsService | 2–3 | `SetSpeedBoost(p, mult, seconds)`, `ClearSpeedBoost(p)`, `GetStats(p)`, `GetWalkSpeed(p)` (с ускорением от бонуса), `GetPaintRadius(p)`, `GetLuck(p)`, `GetCoinMultiplier(p)`, `GetPower(p)`; сигнал `StatsChanged(p, stats)` | PetService, StatCalculator, PetConfig, ArenaConfig |
@@ -54,11 +55,11 @@
 | Services/PowerUpService | 3–4 | `BeginRound(everyone)`, `EndRound()`, `GetActivePositions()`; боты тоже подбирают; шары в Workspace.ActivePowerUps (атрибут `PowerUp`), подбор по расстоянию на сервере, шлёт `PowerUpEvent` | ArenaService, StatsService, NetService, PowerUpConfig |
 | Services/BatService | 3–4 | `BeginRound(everyone)` (бита в правую руку игрокам и ботам), `Equip(p)` после респавна, `Swing(participant)` для ботов, `IsKnockedOut`, `CanBeHit`, `EndRound()`; сигнал `KnockedOut(attacker, victim)`; remote `BatSwing`, шлёт `BatSwingFx`, `KnockedOut`; ботов отбрасывает сервер | ArenaService, MovementGuard, NetService, Participant, BatTargeting, BatConfig |
 | Services/BotService | 4 | `Spawn(red, blue) -> { [Model]: TeamId }` (R15 цвета команды в Workspace.Bots, стоят до старта), `BeginRound(everyone)`, `Despawn()`; ИИ 2 раза в секунду: идти к ближайшей не своей клавише из 24 случайных, иногда к бонусу, удар битой не чаще раза в 3 с | ArenaService, BatService, PowerUpService, Participant |
-| Match/LocalMatchSource | 1–6 | `CollectParticipants() -> { { Player } }`: готовые члены одной группы идут одним списком | ReadyService, PlayerDataService, PartyService |
+| Match/LocalMatchSource | 1–6, карта | `CollectParticipants() -> { { Player } }`: игроки из очереди, вошедшие через PARTY GAME, идут одной группой; `HasParticipants()` | ReadyService, PlayerDataService, PartyService |
 | Services/PartyService | 6 | `GetMemberIds(p)`; сигнал `PartyChanged()`; атрибут игрока `PartyId` (0 — без группы); remotes `PartyInvite`, `PartyRespond`, `PartyLeave`, шлёт `PartyUpdate` | NetService, Guard, Parties |
-| Services/RoundService | 1–2 | `GetPhase()`; сигналы `PhaseChanged(phase)`, `RoundEnded(result)`; атрибуты `RoundPhase`, `PhaseEndsAt`, `Winner`, атрибут игрока `Team`; скорость в раунде и сила для баланса команд из StatsService, после раунда скорость сбрасывается | ArenaService, PowerUpService, BatService, BotService, MovementGuard, StatsService, LocalMatchSource, TeamBalancer, Reward |
+| Services/RoundService | 1–2, карта | Intermission (очереди нет) → Starting (отсчёт на хабе) → Countdown/Playing/Results на арене → возврат на хаб и выход из очереди; `GetPhase()`; сигналы `PhaseChanged(phase)`, `RoundEnded(result)`; атрибуты `RoundPhase`, `PhaseEndsAt`, `Winner`, атрибут игрока `Team`; скорость в раунде и сила для баланса команд из StatsService, после раунда скорость сбрасывается | ArenaService, PowerUpService, BatService, BotService, MovementGuard, StatsService, LocalMatchSource, TeamBalancer, Reward |
 | Services/EggService | 2–5, 9 | `NextIncubatorPrice(data)` (VIP-инкубатор не сдвигает цены), `GrantSpeedUp(data)`, `GrantVipIncubator(p)`; купленные рероллы и ускорения тратятся раньше монет; пасс FastHatch ускоряет инкубацию на 30%; `CreateOffer(p, ctx)` (старое невыбранное предложение сначала выбирается автоматически), `GetOffer(p)`; выбранное яйцо → свободный инкубатор, иначе хранилище, иначе монеты (шлёт `EggPicked`); `Collect(p, i)` (питомец, шлёт `PetHatched`, затем следующее яйцо из хранилища), `PlaceStored(p, i)`, `SpeedUp(p, i)`, `BuyIncubator(p)`, `BuyPetSlots(p)`; сигнал `PetHatched(p, payload)`; remotes `EggPick`, `EggReroll`, `BuyUpgrade` | PlayerDataService, PetService, NetService, Guard, EggRoller, Incubation, EggConfig, PetConfig |
-| Services/PlotService | 5 | 12 участков в Workspace.Plots (по 6 у западного и восточного края пола арены): табличка, 6 инкубаторов (атрибуты `State`, `HatchAt`, `Rarity`; подсказки `Main` и `SpeedUp` с атрибутом `Active`), витрина из 6 лучших питомцев; `Teleport(p)`; атрибут игрока `Plot`; remote `GoToPlot` | EggService, PlayerDataService, MovementGuard, NetService, Incubation |
+| Services/PlotService | 5, карта | 12 участков в Workspace.Plots, в домах островов (World.Islands.*.PlotAnchor; без карты — по краям арены): табличка, 6 инкубаторов (атрибуты `State`, `HatchAt`, `Rarity`; подсказки `Main` и `SpeedUp` с атрибутом `Active`), витрина из 6 лучших питомцев; `Teleport(p)`; атрибут игрока `Plot`; remote `GoToPlot` | EggService, PlayerDataService, MovementGuard, NetService, Incubation |
 | Services/GamePassService | 9 | `Owns(p, name)`; сигнал `PassAdded(p, name)`; проверка пассов при входе и после покупки в игре; атрибуты игрока `Pass_<name>` | ShopConfig, Purchases |
 | Services/MonetizationService | 9 | `MarketplaceService.ProcessReceipt`: товар по id из ShopConfig, выдача через `PlayerDataService:GrantPurchase`; VIP: тег над головой и бесплатный инкубатор | PlayerDataService, EggService, GamePassService, ShopConfig, Purchases |
 | Services/TutorialService | 7 | remote `TutorialDone`: ставит в профиле `Tutorial.Done = true` (клиент сам не может менять данные) | NetService, PlayerDataService |
@@ -66,7 +67,7 @@
 
 ## Клиент (StarterPlayerScripts/Client)
 
-Порядок загрузки: DataController → HudController → KeyPressController → EggOfferController → InventoryController → PetFollowController → BatController → EffectsController → PlotController → PartyController → ShopController → TutorialController.
+Порядок загрузки: DataController → HudController → KeyPressController → EggOfferController → InventoryController → PetFollowController → BatController → EffectsController → PlotController → PartyController → PortalController → ShopController → TutorialController.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
@@ -75,7 +76,7 @@
 | Controllers/DataController | 1 | `Get() -> Profile?`; сигнал `Changed(profile)` | ClientNet |
 | UI/Widgets | 2, 7 | `PlaySound(name)` (звук из Assets.Sounds, каждая кнопка играет Click), `Corner`, `Stroke`, `AspectRatio`, `Label`, `Button`, `Panel`, `ScreenGui` | — |
 | UI/AssetModels | 2 | `Pet(kind)`, `Egg(theme)` (копии из ReplicatedStorage.Assets или nil), `LocalFront(model)`, `FrontCorrection(model)`, `FitHeight(model, h)`, `Viewport(parent, model?, color)` | PetConfig, EggConfig |
-| Controllers/HudController | 1–2 | интерфейс: фаза и таймер, счёт, команда, монеты, кнопка «Играть», баннер итогов и отказов (`ActionResult`) | DataController, ClientNet |
+| Controllers/HudController | 1–2, карта | интерфейс: фаза и таймер (только в очереди и в матче), счёт (только в матче), команда, монеты, кнопка LEAVE QUEUE, баннер итогов и отказов (`ActionResult`) | DataController, ClientNet |
 | Controllers/KeyPressController | 1, 10 | только визуал: клавиши проседают под любым персонажем (игроки и боты) и играют `KeySound`; пол целиком из клавиш: `arena/Arena.rbxm` (Keys с тегом ArenaKey, Decor, Floor), генерирует `lune run tools/build-arena` | — |
 | Controllers/EggOfferController | 2–5, 9 | окно «выбери 1 из 4» из `PendingOffer`, реролл (бесплатный, если куплен), кнопка R$ REROLL (если товар создан), шансы, таймер, окно «куда ушло яйцо» (`EggPicked`) и «тебе выпал…» (`PetHatched`) | DataController, ClientNet, AssetModels, Widgets, EggRoller |
 | Controllers/InventoryController | 2–5 | кнопка PETS, список питомцев, число яиц, покупка +25 мест, надеть/снять, продажа с подтверждением, сумма бонусов | DataController, ClientNet, AssetModels, Widgets, StatCalculator |
@@ -150,3 +151,13 @@
   - Кнопки окна яиц разблокируются через 3 с, если сервер не ответил.
 - Клавиши проседают и под ботами.
 - Утечек по таблицам игроков не нашёл: у всех сервисов есть очистка на `PlayerRemoving` или в конце раунда.
+
+## Карта (хаб и острова)
+
+| Модуль | Этап | Публичный интерфейс | Зависит от |
+|---|---|---|---|
+| tools/world/Builder | карта | `build(rbx) -> Model World`: центральный остров с прудом, портал (`World.Portal`, PrimaryPart `Swirl`), 12 островов с домами (`World.Islands.IslandN`, атрибут `PlotIndex`, `PlotAnchor`, ларёк `ShopStall` с подсказкой `Shop`), мосты, море, корабли; стиль Stud. Работает и в Lune, и в Studio | — |
+| tools/build-world | карта | `lune run tools/build-world` пишет `world/World.rbxm` → Workspace.World | Builder |
+| tools/build-arena | 1, карта | арена ставится в `ArenaConfig.CenterX/CenterZ` | ArenaConfig |
+| Controllers/PortalController | карта | окно SOLO GAME / PARTY GAME у портала (`JoinQueue`), большой отсчёт «Match in N» в фазе Starting | ClientNet, Widgets, ArenaConfig |
+| Controllers/ShopController | 7, карта | + ларёк SHOP на острове открывает то же окно магазина | — |

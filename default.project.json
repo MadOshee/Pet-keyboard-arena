@@ -37,8 +37,8 @@
           ],
           "Position": [
             0,
-            0.5,
-            70
+            4.9,
+            50
           ],
           "Neutral": true,
           "Transparency": 1,
@@ -47,6 +47,40 @@
       },
       "Arena": {
         "$path": "arena/Arena.rbxm"
+      },
+      "World": {
+        "$path": "world/World.rbxm"
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "ClockTime": 14,
+        "Brightness": 2.5,
+        "OutdoorAmbient": [
+          150,
+          150,
+          160
+        ],
+        "GlobalShadows": true
+      },
+      "Atmosphere": {
+        "$className": "Atmosphere",
+        "$properties": {
+          "Density": 0.28,
+          "Offset": 0.1,
+          "Color": [
+            200,
+            230,
+            255
+          ],
+          "Decay": [
+            120,
+            180,
+            230
+          ],
+          "Glare": 0,
+          "Haze": 1
+        }
       }
     }
   }

@@ -1,7 +1,9 @@
 --!strict
--- Player plots around the arena (docs/design.md 4.3 "Участок", D3): each
--- player gets a free plot with incubators and a showcase of their best
--- pets. The plots are built in code under Workspace.Plots.
+-- Player plots (docs/design.md 4.3 "Участок", D3): each player gets a free
+-- island around the hub with incubators and a showcase of their best pets.
+-- The islands and houses are part of the map (World.Islands, built by
+-- tools/world); the plot contents are built in code under Workspace.Plots,
+-- on each island's PlotAnchor.
 --
 -- Incubators are used through ProximityPrompts: "Main" (place, collect or
 -- buy) and "SpeedUp". The server checks that the player owns the plot and
@@ -43,6 +45,7 @@ type Plot = {
 local PlotService = {}
 
 local plots: { Plot } = {}
+local onIslands = false -- plots sit in the island houses of the map
 local plotOf: { [Player]: Plot } = {}
 
 local function anchoredPart(
@@ -77,9 +80,41 @@ local function makePrompt(name: string, parent: Instance, key: Enum.KeyCode): Pr
 	return prompt
 end
 
--- Plot positions: six along the west edge and six along the east edge of
--- the arena floor (Workspace.Arena.Floor), facing the arena.
+-- Plot positions: the house floor of every island (World.Islands.*.PlotAnchor,
+-- -Z towards the hub), in PlotIndex order.
+local function islandCFrames(): { CFrame }?
+	local world = workspace:FindFirstChild("World")
+	local islands = world and world:FindFirstChild("Islands")
+	if islands == nil then
+		return nil
+	end
+	local anchors: { BasePart } = {}
+	for _, island in islands:GetChildren() do
+		local anchor = island:FindFirstChild("PlotAnchor")
+		if anchor and anchor:IsA("BasePart") and anchor:GetAttribute("PlotIndex") then
+			table.insert(anchors, anchor)
+		end
+	end
+	if #anchors == 0 then
+		return nil
+	end
+	table.sort(anchors, function(a, b)
+		return (a:GetAttribute("PlotIndex") :: number) < (b:GetAttribute("PlotIndex") :: number)
+	end)
+	local result = {}
+	for _, anchor in anchors do
+		table.insert(result, anchor.CFrame)
+	end
+	return result
+end
+
+-- Fallback without the map: six plots on each side of the arena floor.
 local function plotCFrames(): { CFrame }
+	local fromIslands = islandCFrames()
+	if fromIslands then
+		onIslands = true
+		return fromIslands
+	end
 	local arena = workspace:FindFirstChild("Arena")
 	local floor = arena and arena:FindFirstChild("Floor")
 	local minX, maxX, minZ, maxZ, topY = -80, 80, -50, 95, 0
@@ -117,11 +152,18 @@ local function buildPlot(index: number, cframe: CFrame, folder: Folder): Plot
 		model
 	)
 	model.PrimaryPart = base
+	if onIslands then
+		-- The island house is the visible floor; the base only marks the spot.
+		base.Transparency = 1
+		base.CanCollide = false
+		base.CanQuery = false
+		base.CanTouch = false
+	end
 
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "Sign"
 	sign.Size = UDim2.fromScale(10, 2)
-	sign.StudsOffset = Vector3.new(0, 9, 0)
+	sign.StudsOffset = Vector3.new(0, if onIslands then 22 else 9, 0) -- above the house roof
 	sign.MaxDistance = 150
 	local signLabel = Instance.new("TextLabel")
 	signLabel.Size = UDim2.fromScale(1, 1)

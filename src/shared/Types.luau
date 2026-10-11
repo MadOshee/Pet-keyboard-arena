@@ -8,7 +8,10 @@ export type Rarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary"
 export type TeamId = "Red" | "Blue"
 export type Winner = TeamId | "Draw"
 export type Outcome = "Win" | "Lose" | "Draw"
-export type RoundPhase = "Intermission" | "Countdown" | "Playing" | "Results"
+-- Intermission: nobody is queued. Starting: the queue countdown before the
+-- teleport to the arena.
+export type RoundPhase = "Intermission" | "Starting" | "Countdown" | "Playing" | "Results"
+export type QueueMode = "Solo" | "Party"
 export type Stat = "Speed" | "PaintRadius" | "Luck" | "Coins"
 
 -- Totals of equipped pet bonuses as fractions (0.1 = +10%), already capped.
@@ -132,5 +135,8 @@ export type ActionError =
 	| "AlreadyInvited"
 	| "NoInvite"
 	| "InvalidTarget"
+	| "NoParty"
+	| "TooFar"
+	| "InMatch"
 
 return nil

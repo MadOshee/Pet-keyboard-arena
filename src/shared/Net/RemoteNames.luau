@@ -8,7 +8,8 @@
 
 return table.freeze({
 	ClientToServer = table.freeze({
-		"SetReady", -- (ready: boolean)
+		"SetReady", -- (false) leave the match queue
+		"JoinQueue", -- (mode: "Solo" | "Party") at the hub portal
 		"EggPick", -- (offerId: string, slot: number)
 		"EggReroll", -- (offerId: string)
 		"PetEquip", -- (petId: string, equip: boolean)

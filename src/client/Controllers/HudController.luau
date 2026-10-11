@@ -1,7 +1,8 @@
 --!strict
--- Stage 1 HUD built in code: phase + timer, team score bar, coins, the
--- play/ready toggle and a banner for round results and refused requests. Uses Scale sizes so it fits
--- phones, tablets and PC. Art from the asset packs replaces it in stage 7.
+-- HUD built in code: phase + timer and team score bar (shown while queued or
+-- in a match), coins, the LEAVE QUEUE button and a banner for round results
+-- and refused requests. Joining the queue happens at the hub portal
+-- (PortalController). Uses Scale sizes so it fits phones, tablets and PC.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,6 +20,8 @@ local player = Players.LocalPlayer
 local HudController = {}
 
 type Refs = {
+	Top: Frame,
+	ScoreBar: Frame,
 	PhaseLabel: TextLabel,
 	TeamLabel: TextLabel,
 	RedFill: Frame,
@@ -108,6 +111,9 @@ local function build(): Refs
 	readyButton.TextScaled = true
 	readyButton.Font = Enum.Font.FredokaOne
 	readyButton.TextColor3 = Color3.new(1, 1, 1)
+	readyButton.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
+	readyButton.Text = Strings.LeaveQueue
+	readyButton.Visible = false
 	readyButton.AutoButtonColor = true
 	readyButton.Parent = gui
 	corner(readyButton, 0.25)
@@ -121,6 +127,8 @@ local function build(): Refs
 	gui.Parent = player:WaitForChild("PlayerGui")
 
 	return {
+		Top = top,
+		ScoreBar = bar,
 		PhaseLabel = phaseLabel,
 		TeamLabel = teamLabel,
 		RedFill = redFill,
@@ -151,8 +159,18 @@ local function updatePhase()
 		return
 	end
 	local secondsLeft = math.max(0, math.ceil(endsAt - workspace:GetServerTimeNow()))
+	local inMatch = player:GetAttribute("Team") ~= nil
 	local title = (Strings.Phase :: any)[phase] or phase
-	refs.PhaseLabel.Text = string.format("%s  %d:%02d", title, secondsLeft // 60, secondsLeft % 60)
+	if not inMatch and (phase == "Countdown" or phase == "Playing" or phase == "Results") then
+		-- Queued while another match is on the arena.
+		title = Strings.ArenaBusy
+	end
+	if phase == "Intermission" then
+		refs.PhaseLabel.Text = title
+	else
+		refs.PhaseLabel.Text =
+			string.format("%s  %d:%02d", title, secondsLeft // 60, secondsLeft % 60)
+	end
 end
 
 local function updateScore()
@@ -176,12 +194,14 @@ local function updateTeam()
 	end
 end
 
+-- The top panel shows only to players who are queued or playing; the
+-- score bar only in a match.
 local function updateReady()
 	local ready = player:GetAttribute("Ready") == true
-	refs.ReadyButton.Text = if ready then Strings.Ready else Strings.NotReady
-	refs.ReadyButton.BackgroundColor3 = if ready
-		then Color3.fromRGB(64, 190, 90)
-		else Color3.fromRGB(90, 90, 110)
+	local inMatch = player:GetAttribute("Team") ~= nil
+	refs.ReadyButton.Visible = ready and not inMatch
+	refs.Top.Visible = ready or inMatch
+	refs.ScoreBar.Visible = inMatch
 end
 
 local function updateCoins(profile: Types.Profile?)
@@ -211,13 +231,16 @@ end
 
 function HudController:Start()
 	refs.ReadyButton.Activated:Connect(function()
-		ClientNet.Fire("SetReady", player:GetAttribute("Ready") ~= true)
+		ClientNet.Fire("SetReady", false)
 	end)
 
 	ReplicatedStorage:GetAttributeChangedSignal("ScoreRed"):Connect(updateScore)
 	ReplicatedStorage:GetAttributeChangedSignal("ScoreBlue"):Connect(updateScore)
 	ReplicatedStorage:GetAttributeChangedSignal("Winner"):Connect(onWinner)
-	player:GetAttributeChangedSignal("Team"):Connect(updateTeam)
+	player:GetAttributeChangedSignal("Team"):Connect(function()
+		updateTeam()
+		updateReady()
+	end)
 	player:GetAttributeChangedSignal("Ready"):Connect(updateReady)
 	DataController.Changed:Connect(updateCoins)
 	ClientNet.On("RoundResult", onRoundResult)

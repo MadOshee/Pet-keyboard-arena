@@ -4,7 +4,9 @@
 -- client-reported value from here.
 
 return table.freeze({
-	IntermissionSeconds = 15,
+	-- Countdown after the first player enters the portal, so friends and
+	-- other players can join the same match before the teleport.
+	StartingSeconds = 10,
 	CountdownSeconds = 3,
 	PlayingSeconds = 60,
 	ResultsSeconds = 5,
@@ -15,8 +17,7 @@ return table.freeze({
 	MinTeamSize = 4,
 	MaxTeamSize = 6,
 
-	-- A participant who painted fewer keys is treated as AFK: no reward,
-	-- and their ready flag is cleared.
+	-- A participant who painted fewer keys is treated as AFK: no reward.
 	MinKeysForReward = 3,
 
 	Coins = table.freeze({

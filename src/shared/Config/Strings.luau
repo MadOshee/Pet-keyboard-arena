@@ -3,13 +3,22 @@
 
 return table.freeze({
 	Phase = table.freeze({
-		Intermission = "Next round",
+		Intermission = "Waiting for players",
+		Starting = "Match starts in",
 		Countdown = "Get ready",
 		Playing = "Paint!",
 		Results = "Results",
 	}),
-	Ready = "READY",
-	NotReady = "PLAY",
+	LeaveQueue = "LEAVE QUEUE",
+	ArenaBusy = "Arena busy, you play next",
+	-- Portal on the hub island
+	PortalTitle = "Join a match",
+	SoloGame = "SOLO GAME",
+	PartyGame = "PARTY GAME",
+	SoloHint = "Play on your own",
+	PartyHint = "Play with your party on one team",
+	MatchIn = "Match in %d",
+	Queued = "You are in the queue",
 	YourTeam = "Your team: %s",
 	TeamName = table.freeze({ Red = "RED", Blue = "BLUE" }),
 	Outcome = table.freeze({ Win = "Victory!", Lose = "Defeat", Draw = "Draw" }),
@@ -121,7 +130,7 @@ return table.freeze({
 	PlotReady = "MY PLOT  !",
 	TutorialSkip = "SKIP",
 	TutorialSteps = table.freeze({
-		"Press PLAY to join the next round",
+		"Walk into the portal and pick SOLO GAME or PARTY GAME",
 		"Run over the keys to paint them in your team's color",
 		"Pick one of the four eggs. Each theme gives a different bonus",
 		"Your egg hatches on your plot. Press MY PLOT and collect it with E",
@@ -149,5 +158,8 @@ return table.freeze({
 		AlreadyInvited = "You already invited this player",
 		NoInvite = "That invite has expired",
 		InvalidTarget = "That player has left",
+		NoParty = "You are not in a party: invite friends with PARTY first",
+		TooFar = "Walk up to the portal first",
+		InMatch = "You are already in a match",
 	}),
 })
