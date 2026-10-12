@@ -140,7 +140,7 @@ return table.freeze({
 		"Walk into the portal and pick SOLO GAME or PARTY GAME",
 		"Run over the keys to paint them in your team's color",
 		"Pick one of the four eggs. Each theme gives a different bonus",
-		"Press MY PLOT, step on a green button and put your egg on the platform",
+		"Press MY BASE, step on a green button and put your egg on the platform",
 		"Your pet earns coins every second, even offline. Win more eggs for more pets!",
 	}),
 	Errors = table.freeze({
@@ -168,7 +168,7 @@ return table.freeze({
 		AlreadyInvited = "You already invited this player",
 		NoInvite = "That invite has expired",
 		InvalidTarget = "That player has left",
-		NoParty = "You are not in a party: invite friends with PARTY first",
+		NoParty = "You are not in a party: invite friends with Party first",
 		TooFar = "Walk up to the portal first",
 		InMatch = "You are already in a match",
 	}),

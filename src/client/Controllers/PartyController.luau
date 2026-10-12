@@ -254,10 +254,7 @@ local function build()
 	decline.Text = Strings.Decline
 
 	toggle.Activated:Connect(function()
-		window.Visible = not window.Visible
-		if window.Visible then
-			refreshParty()
-		end
+		PartyController:Toggle()
 	end)
 	close.Activated:Connect(function()
 		window.Visible = false
@@ -273,6 +270,14 @@ local function build()
 	end)
 
 	gui.Parent = player:WaitForChild("PlayerGui")
+end
+
+-- Opens or closes the party window (PARTY button, the pack's top Party button).
+function PartyController:Toggle()
+	window.Visible = not window.Visible
+	if window.Visible then
+		refreshParty()
+	end
 end
 
 function PartyController:Init()

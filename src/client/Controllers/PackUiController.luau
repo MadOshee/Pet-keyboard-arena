@@ -1,11 +1,12 @@
 --!strict
 -- The whole Studs UI Pack screen (Assets.UI.GameUI), added as is so Ivan can
 -- see every piece in the game and pick what stays. HUD buttons open the pack
--- window with the same name (Shop, Pass, Rebirth, Index, Daily, StockShop,
--- Upgrades); window contents are the pack's own samples. Real data so far:
--- coins in the cash counter, BASE takes you to your plot and BACKPACK (the
--- pack's Pass button, renamed for Ivan) opens our pets window. Hidden during a
--- match. Replaces the pack's own LocalScript, which is not imported.
+-- window with the same name (Shop, Rebirth, Index, Daily, Upgrades); window
+-- contents are the pack's own samples. Real so far: coins in the cash counter,
+-- MY BASE takes you to your plot, BACKPACK (the pack's Pass button) opens our
+-- pets window and PARTY (the pack's top-left stock shop button) our party
+-- window. Hidden during a match. Replaces the pack's own LocalScript, which is
+-- not imported.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +17,7 @@ local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
 local InventoryController = require(script.Parent.InventoryController)
+local PartyController = require(script.Parent.PartyController)
 
 local player = Players.LocalPlayer
 
@@ -27,7 +29,6 @@ local PackUiController = {}
 
 local gui: ScreenGui? = nil
 local windowsGui: ScreenGui? = nil
-local packLeft: GuiObject? = nil
 local cashLabel: TextLabel? = nil
 local openPositions: { [GuiObject]: UDim2 } = {}
 local current: GuiObject? = nil
@@ -102,6 +103,12 @@ local function wireButton(button: GuiButton, windows: Instance, hud: Instance)
 		end)
 		return
 	end
+	if button.Name == "Party" then
+		button.MouseButton1Click:Connect(function()
+			PartyController:Toggle()
+		end)
+		return
+	end
 	local window = windows:FindFirstChild(button.Name)
 	if window and window:IsA("GuiObject") then
 		button.MouseButton1Click:Connect(function()
@@ -156,37 +163,19 @@ function PackUiController:Init()
 	if amount and amount:IsA("TextLabel") then
 		cashLabel = amount
 	end
-	local left = hud:FindFirstChild("Left")
-	if left and left:IsA("GuiObject") then
-		packLeft = left
-	end
 	screen.Parent = player:WaitForChild("PlayerGui")
 	layer.Parent = screen.Parent
 	gui = screen
 	windowsGui = layer
 end
 
--- Our menu column (Widgets.MenuButton) sits on the left edge too; keep it
--- just right of the pack's column so the two don't overlap.
-local function followPackColumn()
-	local found = packLeft
+-- Ivan dropped our own button column (Widgets.MenuButton) for the pack's:
+-- Backpack, My Base and Party cover pets, plot and party.
+local function hideMenuColumn()
 	local menu = player:WaitForChild("PlayerGui"):FindFirstChild("Menu")
-	local column = menu and menu:FindFirstChild("Left")
-	if found == nil or not (column and column:IsA("GuiObject")) then
-		return
+	if menu and menu:IsA("ScreenGui") then
+		menu.Enabled = false
 	end
-	local left = found :: GuiObject
-	local function place()
-		column.Position = UDim2.new(
-			0,
-			left.AbsolutePosition.X + left.AbsoluteSize.X + 12,
-			column.Position.Y.Scale,
-			0
-		)
-	end
-	left:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-	left:GetPropertyChangedSignal("AbsolutePosition"):Connect(place)
-	place()
 end
 
 function PackUiController:Start()
@@ -208,7 +197,7 @@ function PackUiController:Start()
 	updateVisible()
 	DataController.Changed:Connect(updateCash)
 	updateCash(DataController:Get())
-	followPackColumn()
+	hideMenuColumn()
 end
 
 return PackUiController
