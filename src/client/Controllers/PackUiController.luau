@@ -3,7 +3,8 @@
 -- see every piece in the game and pick what stays. HUD buttons open the pack
 -- window with the same name (Shop, Pass, Rebirth, Index, Daily, StockShop,
 -- Upgrades); window contents are the pack's own samples. Real data so far:
--- coins in the cash counter, and BASE takes you to your plot. Hidden during a
+-- coins in the cash counter, BASE takes you to your plot and BACKPACK (the
+-- pack's Pass button, renamed for Ivan) opens our pets window. Hidden during a
 -- match. Replaces the pack's own LocalScript, which is not imported.
 
 local Players = game:GetService("Players")
@@ -14,6 +15,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
+local InventoryController = require(script.Parent.InventoryController)
 
 local player = Players.LocalPlayer
 
@@ -91,6 +93,12 @@ local function wireButton(button: GuiButton, windows: Instance, hud: Instance)
 	if button.Name == "Base" then
 		button.MouseButton1Click:Connect(function()
 			ClientNet.Fire("GoToPlot")
+		end)
+		return
+	end
+	if button.Name == "Backpack" then
+		button.MouseButton1Click:Connect(function()
+			InventoryController:Toggle()
 		end)
 		return
 	end

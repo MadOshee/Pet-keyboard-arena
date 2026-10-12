@@ -277,15 +277,20 @@ local function build()
 	emptyLabel.Text = Strings.NoPets
 
 	toggle.Activated:Connect(function()
-		window.Visible = not window.Visible
-		builtKey = nil
-		refresh(DataController:Get())
+		InventoryController:Toggle()
 	end)
 	close.Activated:Connect(function()
 		window.Visible = false
 	end)
 
 	gui.Parent = player:WaitForChild("PlayerGui")
+end
+
+-- Opens or closes the pets window (PETS button, the pack's Backpack button).
+function InventoryController:Toggle()
+	window.Visible = not window.Visible
+	builtKey = nil
+	refresh(DataController:Get())
 end
 
 function InventoryController:Init()
