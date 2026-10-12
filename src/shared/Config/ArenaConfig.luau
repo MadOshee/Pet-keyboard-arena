@@ -27,7 +27,7 @@ return table.freeze({
 	LobbyZ = 36,
 
 	-- How close to the portal a player must be for the Solo/Party window.
-	PortalRadius = 14,
+	PortalRadius = 18,
 	-- The server allows a little more for lag.
 	PortalServerRadius = 24,
 })

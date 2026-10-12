@@ -32,9 +32,10 @@ return table.freeze({
 	SpeedUpCoinsPerSecond = 2,
 	StartEggCapacity = 20,
 	StartIncubators = 3,
-	MaxIncubators = 6,
-	-- Coins for the 4th, 5th and 6th incubator.
-	IncubatorPrices = table.freeze({ 1500, 5000, 15000 }),
+	-- One incubator per pet spot on the ground floor of the base building.
+	MaxIncubators = 10,
+	-- Coins for the 4th to the 10th incubator.
+	IncubatorPrices = table.freeze({ 1500, 5000, 15000, 30000, 50000, 80000, 120000 }),
 	-- +PetSlotsStep pet slots; the price doubles with every purchase.
 	PetSlotsStep = 25,
 	PetSlotsBasePrice = 2000,

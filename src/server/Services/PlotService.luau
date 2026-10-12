@@ -3,7 +3,8 @@
 -- base around the hub plaza with incubators and a showcase of their best
 -- pets. The bases and buildings are part of the map (World.Islands, built by
 -- tools/build-world); the plot contents are built in code under
--- Workspace.Plots, on each base's PlotAnchor.
+-- Workspace.Plots: eggs incubate on the building's ground-floor pet spots
+-- (EggSlots), the best pets stand on the second-floor spots (PetSlots).
 --
 -- Incubators are used through ProximityPrompts: "Main" (place, collect or
 -- buy) and "SpeedUp". The server checks that the player owns the plot and
@@ -27,6 +28,7 @@ local PLOT_COUNT = 12
 local PLOT_SIZE = 22
 local SHOWCASE_SIZE = 6
 local PET_HEIGHT = 3
+local EGG_HEIGHT = 3
 local REFRESH_SECONDS = 1
 local BASE_COLOR = Color3.fromRGB(126, 196, 120)
 local INCUBATOR_COLOR = Color3.fromRGB(235, 235, 245)
@@ -47,6 +49,14 @@ local PlotService = {}
 local plots: { Plot } = {}
 local onIslands = false -- plots sit in the buildings of the map
 local signHeight = 9 -- plot sign above the plot floor
+
+-- Where a plot's pieces go. Without slots the incubators and the showcase
+-- are built in a grid around the plot center.
+type Layout = {
+	Center: CFrame,
+	EggSlots: { CFrame }?,
+	PetSlots: { CFrame }?,
+}
 local plotOf: { [Player]: Plot } = {}
 
 local function anchoredPart(
@@ -81,9 +91,34 @@ local function makePrompt(name: string, parent: Instance, key: Enum.KeyCode): Pr
 	return prompt
 end
 
--- Plot positions: the building floor of every base (World.Islands.*.PlotAnchor,
--- -Z towards the building entrance), in PlotIndex order.
-local function islandCFrames(): { CFrame }?
+-- Slot parts of a folder (World.Islands.*.EggSlots / PetSlots) in Index order.
+local function slotCFrames(folder: Instance?): { CFrame }?
+	if folder == nil then
+		return nil
+	end
+	local slots: { BasePart } = {}
+	for _, child in (folder :: Instance):GetChildren() do
+		if child:IsA("BasePart") and type(child:GetAttribute("Index")) == "number" then
+			table.insert(slots, child)
+		end
+	end
+	if #slots == 0 then
+		return nil
+	end
+	table.sort(slots, function(a, b)
+		return (a:GetAttribute("Index") :: number) < (b:GetAttribute("Index") :: number)
+	end)
+	local result = {}
+	for _, slot in slots do
+		table.insert(result, slot.CFrame)
+	end
+	return result
+end
+
+-- Plot layouts from the map: the building floor of every base
+-- (World.Islands.*.PlotAnchor, -Z towards the building entrance) with its
+-- egg and pet slots on the spot pads, in PlotIndex order.
+local function islandLayouts(): { Layout }?
 	local world = workspace:FindFirstChild("World")
 	local islands = world and world:FindFirstChild("Islands")
 	if islands == nil then
@@ -102,9 +137,14 @@ local function islandCFrames(): { CFrame }?
 	table.sort(anchors, function(a, b)
 		return (a:GetAttribute("PlotIndex") :: number) < (b:GetAttribute("PlotIndex") :: number)
 	end)
-	local result = {}
+	local result: { Layout } = {}
 	for _, anchor in anchors do
-		table.insert(result, anchor.CFrame)
+		local island = anchor.Parent :: Instance
+		table.insert(result, {
+			Center = anchor.CFrame,
+			EggSlots = slotCFrames(island:FindFirstChild("EggSlots")),
+			PetSlots = slotCFrames(island:FindFirstChild("PetSlots")),
+		})
 	end
 	local height = anchors[1]:GetAttribute("SignHeight")
 	signHeight = if type(height) == "number" then height else 22
@@ -112,8 +152,8 @@ local function islandCFrames(): { CFrame }?
 end
 
 -- Fallback without the map: six plots on each side of the arena floor.
-local function plotCFrames(): { CFrame }
-	local fromIslands = islandCFrames()
+local function plotLayouts(): { Layout }
+	local fromIslands = islandLayouts()
 	if fromIslands then
 		onIslands = true
 		return fromIslands
@@ -135,13 +175,14 @@ local function plotCFrames(): { CFrame }
 		for row = 1, perSide do
 			local position = Vector3.new(x, topY, minZ + step * (row - 0.5))
 			local lookAt = Vector3.new(0, topY, position.Z)
-			table.insert(result, CFrame.lookAt(position, lookAt))
+			table.insert(result, { Center = CFrame.lookAt(position, lookAt) })
 		end
 	end
 	return result
 end
 
-local function buildPlot(index: number, cframe: CFrame, folder: Folder): Plot
+local function buildPlot(index: number, layout: Layout, folder: Folder): Plot
+	local cframe = layout.Center
 	local model = Instance.new("Model")
 	model.Name = `Plot{index}`
 	model:SetAttribute("PlotIndex", index)
@@ -179,20 +220,41 @@ local function buildPlot(index: number, cframe: CFrame, folder: Folder): Plot
 	signLabel.Parent = sign
 	sign.Parent = base
 
-	-- Incubators in two rows of three on the far half; -Z of the plot faces the arena.
+	-- Incubators: invisible on the building's ground-floor pads (the egg sits
+	-- on the pad), or two rows of discs on the far half of a bare plot; -Z of
+	-- the plot faces the arena.
 	local incubators: { BasePart } = {}
+	local eggSlots = layout.EggSlots
 	for slot = 1, EggConfig.MaxIncubators do
-		local column = (slot - 1) % 3 - 1
-		local row = (slot - 1) // 3
-		local offset = CFrame.new(column * 6, 1, 3 + row * 5.5)
-		local incubator = anchoredPart(
-			`Incubator{slot}`,
-			Vector3.new(2, 4, 4),
-			cframe * offset * CFrame.Angles(0, 0, math.rad(90)),
-			INCUBATOR_COLOR,
-			model
-		)
-		incubator.Shape = Enum.PartType.Cylinder
+		local incubator: Part
+		if eggSlots then
+			if slot > #eggSlots then
+				break
+			end
+			local at = eggSlots[slot]
+			incubator = anchoredPart(
+				`Incubator{slot}`,
+				Vector3.new(4, 1, 4),
+				at * CFrame.new(0, 0.5, 0),
+				INCUBATOR_COLOR,
+				model
+			)
+			incubator.Transparency = 1
+			incubator.CanCollide = false
+			incubator:SetAttribute("OnPad", true)
+		else
+			local column = (slot - 1) % 3 - 1
+			local row = (slot - 1) // 3
+			local offset = CFrame.new(column * 6, 1, 3 + row * 5.5)
+			incubator = anchoredPart(
+				`Incubator{slot}`,
+				Vector3.new(2, 4, 4),
+				cframe * offset * CFrame.Angles(0, 0, math.rad(90)),
+				INCUBATOR_COLOR,
+				model
+			)
+			incubator.Shape = Enum.PartType.Cylinder
+		end
 		incubator:SetAttribute("Index", slot)
 		incubator:SetAttribute("State", "Locked")
 		makePrompt("Main", incubator, Enum.KeyCode.E)
@@ -200,22 +262,40 @@ local function buildPlot(index: number, cframe: CFrame, folder: Folder): Plot
 		table.insert(incubators, incubator)
 	end
 
-	-- Showcase pedestals on the half next to the arena.
+	-- Showcase: invisible stands on the second-floor pads, or pedestals on the
+	-- half of a bare plot next to the arena.
 	local pedestals: { BasePart } = {}
-	for slot = 1, SHOWCASE_SIZE do
-		local column = (slot - 1) % 3 - 1
-		local row = (slot - 1) // 3
-		local offset = CFrame.new(column * 6, 0.5, -4 - row * 5)
-		table.insert(
-			pedestals,
-			anchoredPart(
+	local petSlots = layout.PetSlots
+	if petSlots then
+		for slot, at in petSlots do
+			local stand = anchoredPart(
 				`Pedestal{slot}`,
-				Vector3.new(3, 1, 3),
-				cframe * offset,
-				Color3.fromRGB(90, 90, 110),
+				Vector3.new(4, 0.2, 4),
+				at * CFrame.new(0, -0.1, 0),
+				BASE_COLOR,
 				model
 			)
-		)
+			stand.Transparency = 1
+			stand.CanCollide = false
+			stand.CanQuery = false
+			table.insert(pedestals, stand)
+		end
+	else
+		for slot = 1, SHOWCASE_SIZE do
+			local column = (slot - 1) % 3 - 1
+			local row = (slot - 1) // 3
+			local offset = CFrame.new(column * 6, 0.5, -4 - row * 5)
+			table.insert(
+				pedestals,
+				anchoredPart(
+					`Pedestal{slot}`,
+					Vector3.new(3, 1, 3),
+					cframe * offset,
+					Color3.fromRGB(90, 90, 110),
+					model
+				)
+			)
+		end
 	end
 
 	model.Parent = folder
@@ -280,10 +360,16 @@ local function setEggModel(incubator: BasePart, theme: string?)
 	model:SetAttribute("Theme", theme)
 	local size = model:GetExtentsSize()
 	if size.Y > 0 then
-		model:ScaleTo(model:GetScale() * 3 / size.Y)
+		model:ScaleTo(model:GetScale() * EGG_HEIGHT / size.Y)
 	end
-	local top = incubator.Position + Vector3.new(0, incubator.Size.X / 2 + 1.5, 0)
-	model:PivotTo(CFrame.new(top))
+	-- Stand the egg on the pad (or on top of the disc), centred on its
+	-- geometry: egg models' pivots are often far from the egg itself.
+	local surface = if incubator:GetAttribute("OnPad")
+		then incubator.Position.Y - incubator.Size.Y / 2
+		else incubator.Position.Y + incubator.Size.X / 2
+	local center = model:GetBoundingBox()
+	local target = Vector3.new(incubator.Position.X, surface + EGG_HEIGHT / 2, incubator.Position.Z)
+	model:PivotTo(model:GetPivot() + (target - center.Position))
 	model.Parent = incubator
 end
 
@@ -311,7 +397,9 @@ local function refreshIncubators(plot: Plot, data: Types.Profile?)
 		incubator:SetAttribute("State", state)
 		incubator:SetAttribute("HatchAt", hatchAt)
 		incubator:SetAttribute("Rarity", rarity)
-		incubator.Transparency = if state == "Locked" then 0.6 else 0
+		if not incubator:GetAttribute("OnPad") then
+			incubator.Transparency = if state == "Locked" then 0.6 else 0
+		end
 		setEggModel(incubator, theme)
 
 		if state == "Locked" then
@@ -359,7 +447,7 @@ local function refreshShowcase(plot: Plot, data: Types.Profile?)
 	end)
 
 	local keyParts = {}
-	for slot = 1, math.min(#best, SHOWCASE_SIZE) do
+	for slot = 1, math.min(#best, #plot.Pedestals) do
 		table.insert(keyParts, best[slot].Id)
 	end
 	local key = table.concat(keyParts, ",")
@@ -470,8 +558,8 @@ function PlotService:Init()
 	local folder = Instance.new("Folder")
 	folder.Name = "Plots"
 	folder.Parent = workspace
-	for index, cframe in plotCFrames() do
-		local plot = buildPlot(index, cframe, folder)
+	for index, layout in plotLayouts() do
+		local plot = buildPlot(index, layout, folder)
 		table.insert(plots, plot)
 		for slot, incubator in plot.Incubators do
 			for _, child in incubator:GetChildren() do
