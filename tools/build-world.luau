@@ -8,8 +8,9 @@
 --
 -- What it changes in the pack:
 --   * scripts are removed (the map is decoration only);
---   * the red market buildings and the pet spots on the ground floors are
---     removed: our plot (incubators and showcase) stands there instead;
+--   * the red market buildings are removed;
+--   * every pet spot of a building gets a slot: eggs incubate on the ground
+--     floor, the best pets stand on the second floor;
 --   * the plaza center is moved to the origin, the sea tiles that would cover
 --     the arena (ArenaConfig.CenterZ) are removed;
 --   * the "UPGRADES" NPC of every base becomes the shop keeper;
@@ -21,6 +22,9 @@
 --     .PlotAnchor                invisible Part on the ground floor of the
 --                                building, -Z towards the entrance; PlotService
 --                                builds the plot on it (attribute SignHeight)
+--     .EggSlots.EggSlotN         invisible Part on top of ground-floor spot N
+--                                (attribute Index): incubator N
+--     .PetSlots.PetSlotN         the same on the second floor: showcase pet N
 --     .Shop.NPC.HumanoidRootPart.Shop   ProximityPrompt that opens the shop
 
 local fs = require("@lune/fs")
@@ -34,7 +38,7 @@ local Instance = roblox.Instance
 local Vector3 = roblox.Vector3
 local CFrame = roblox.CFrame
 
-local PLOT_FORWARD = 15 -- studs from the building center towards its entrance
+local PLOT_FORWARD = 16 -- studs from the building center towards its entrance
 local SIGN_HEIGHT = 40 -- plot sign above the floor, over the roof
 
 local source = process.args[1]
@@ -93,8 +97,8 @@ for _, instance in doomed do
 	instance:Destroy()
 end
 
--- 2. Bases: drop the market and the ground-floor spots, find where the plot
--- goes, turn the upgrades NPC into the shop keeper.
+-- 2. Bases: drop the market, find where the plot goes, turn the upgrades NPC
+-- into the shop keeper.
 type Base = { Folder: any, Anchor: any, Angle: number }
 local bases: { Base } = {}
 for _, base in layout:GetChildren() do
@@ -103,7 +107,6 @@ for _, base in layout:GetChildren() do
 	end
 	base:FindFirstChild("Market"):Destroy()
 	local floor1 = base:FindFirstChild("Floor1")
-	floor1:FindFirstChild("Spots"):Destroy()
 
 	-- The stairs start in the middle of the building and go to the back;
 	-- the entrance is on the other side.
@@ -127,6 +130,41 @@ for _, base in layout:GetChildren() do
 	anchor.CFrame = CFrame.lookAt(spot, spot - back)
 	anchor:SetAttribute("SignHeight", SIGN_HEIGHT)
 	anchor.Parent = base
+
+	-- Slots on the spot pads (the 7x7 tiles), facing the entrance like the plot.
+	local function addSlots(floorName: string, folderName: string, slotName: string)
+		local folder = Instance.new("Folder")
+		folder.Name = folderName
+		for _, spot in base:FindFirstChild(floorName):FindFirstChild("Spots"):GetChildren() do
+			local number = tonumber(string.match(spot.Name, "%d+"))
+			local pad = nil
+			for _, p in parts(spot:FindFirstChild("Spot")) do
+				if
+					p.Size.X >= 6
+					and p.Size.Z >= 6
+					and (pad == nil or p.CFrame.Position.Y > pad.CFrame.Position.Y)
+				then
+					pad = p
+				end
+			end
+			assert(number and pad, `no pad in {base.Name}.{floorName}.{spot.Name}`)
+			local top = pad.CFrame.Position + Vector3.new(0, pad.Size.Y / 2, 0)
+			local slot = Instance.new("Part")
+			slot.Name = `{slotName}{number}`
+			slot.Anchored = true
+			slot.CanCollide = false
+			slot.CanQuery = false
+			slot.CanTouch = false
+			slot.Transparency = 1
+			slot.Size = Vector3.new(4, 0.2, 4)
+			slot.CFrame = CFrame.lookAt(top, top - back)
+			slot:SetAttribute("Index", number)
+			slot.Parent = folder
+		end
+		folder.Parent = base
+	end
+	addSlots("Floor1", "EggSlots", "EggSlot")
+	addSlots("Floor2", "PetSlots", "PetSlot")
 
 	local upgrades = base:FindFirstChild("Upgrades")
 	upgrades.Name = "Shop"

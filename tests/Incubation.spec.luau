@@ -24,7 +24,8 @@ function tests.incubatorPrices()
 	assert(Incubation.NextIncubatorPrice(3, EggConfig) == 1500)
 	assert(Incubation.NextIncubatorPrice(4, EggConfig) == 5000)
 	assert(Incubation.NextIncubatorPrice(5, EggConfig) == 15000)
-	assert(Incubation.NextIncubatorPrice(6, EggConfig) == nil)
+	assert(Incubation.NextIncubatorPrice(9, EggConfig) == 120000)
+	assert(Incubation.NextIncubatorPrice(10, EggConfig) == nil)
 end
 
 function tests.petSlotPriceDoubles()
