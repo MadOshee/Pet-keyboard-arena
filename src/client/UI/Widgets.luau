@@ -117,7 +117,8 @@ local function mirrorTopLayer(label: TextLabel)
 	end)
 end
 
-local function animatePress(button: GuiButton)
+-- Hover grows a button a little (with the Hover sound on PC), a press shrinks it.
+function Widgets.AnimatePress(button: GuiButton)
 	local scale = button:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
 	scale.Parent = button
 	local function tweenTo(value: number)
@@ -261,7 +262,7 @@ function Widgets.Button(
 		button.BackgroundColor3 = color
 		repaint()
 		button:GetPropertyChangedSignal("BackgroundColor3"):Connect(repaint)
-		animatePress(button)
+		Widgets.AnimatePress(button)
 	else
 		button = plainButton(name, size, position, color)
 	end
@@ -479,7 +480,7 @@ function Widgets.MenuButton(
 				end
 			end
 		end
-		animatePress(button)
+		Widgets.AnimatePress(button)
 	else
 		button = plainButton(name, UDim2.new(), UDim2.new(), color)
 	end

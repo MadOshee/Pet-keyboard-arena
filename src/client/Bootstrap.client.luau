@@ -10,6 +10,7 @@ local Loader = require(ReplicatedStorage.Shared.Util.Loader)
 local CONTROLLER_ORDER: { string } = {
 	"DataController",
 	"HudController",
+	"PackUiController",
 	"KeyPressController",
 	"EggOfferController",
 	"InventoryController",
