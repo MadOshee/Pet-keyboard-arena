@@ -1,5 +1,5 @@
 --!strict
--- Regenerates world/World.rbxm (the hub) and the map's materials and sky
+-- Regenerates world/World.rbxm (the hub) and the map's materials
 -- from Ivan's map pack world/source/StealMap6.rbxl: the plaza in the middle,
 -- six bases with two-storey buildings around it, the sea with ships.
 --
@@ -213,16 +213,13 @@ buildPortal(roblox, world, CFrame.new(0, plazaTop, 0))
 fs.writeFile("world/World.rbxm", roblox.serializeModel({ world }))
 print(`world/World.rbxm: {#parts(world)} parts, plaza top at y={plazaTop}`)
 
--- Materials (the pack's stud textures) and the sky go next to the world.
+-- Materials (the pack's stud textures) go next to the world. The pack's sky
+-- is left out: it washed the whole picture out to white.
 if not fs.isDir("world/materials") then
 	fs.writeDir("world/materials")
 end
 for _, variant in game:GetService("MaterialService"):GetChildren() do
 	fs.writeFile(`world/materials/{variant.Name}.rbxm`, roblox.serializeModel({ variant }))
-end
-local sky = game:GetService("Lighting"):FindFirstChildWhichIsA("Sky")
-if sky then
-	fs.writeFile("world/Sky.rbxm", roblox.serializeModel({ sky }))
 end
 for index, base in bases do
 	local position = base.Anchor.CFrame.Position
