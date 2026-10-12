@@ -20,6 +20,7 @@ local template: Types.Profile = {
 	Eggs = {},
 	EggCapacity = EggConfig.StartEggCapacity,
 	Incubators = {},
+	IncomeAt = 0,
 	-- PendingOffer stays nil until a rewarded round.
 	Stats = {
 		RoundsPlayed = 0,

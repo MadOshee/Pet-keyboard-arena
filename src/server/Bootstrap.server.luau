@@ -23,6 +23,7 @@ local SERVICE_ORDER: { string } = {
 	"BotService",
 	"RoundService",
 	"EggService",
+	"PlatformService",
 	"PlotService",
 	"TutorialService",
 	"MonetizationService",

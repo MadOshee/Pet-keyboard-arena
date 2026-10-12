@@ -1,7 +1,8 @@
 --!strict
 -- Pet inventory window: list, equip up to 3, sell with a confirm tap
 -- (docs/design.md 4.3 "Питомцы"). Reads the profile mirror and sends only
--- pet ids; the server checks ownership, slots and the round lock.
+-- pet ids; the server checks ownership, slots and the round lock. Pets
+-- standing on plot platforms are on the plot, not in this list.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,6 +12,7 @@ local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
+local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local StatCalculator = require(ReplicatedStorage.Shared.Logic.StatCalculator)
 local Types = require(ReplicatedStorage.Shared.Types)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
@@ -155,9 +157,12 @@ local function refresh(profile: Types.Profile?)
 	end
 	local data = profile :: Types.Profile
 
+	local placed = PetIncome.PlacedPets(data.Incubators :: any)
 	local ids = {}
 	for petId in data.Pets do
-		table.insert(ids, petId)
+		if placed[petId] == nil then
+			table.insert(ids, petId)
+		end
 	end
 	-- Equipped first, then rarest, then newest.
 	table.sort(ids, function(a, b)

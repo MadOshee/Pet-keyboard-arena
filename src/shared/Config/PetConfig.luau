@@ -89,6 +89,16 @@ return table.freeze({
 	Caps = table.freeze(CAPS),
 	MaxEquipped = 3,
 	StartCapacity = 50,
+	-- Coins a pet standing on a platform earns every second, offline too.
+	IncomePerSecond = table.freeze({
+		Common = 1,
+		Uncommon = 2,
+		Rare = 5,
+		Epic = 12,
+		Legendary = 30,
+	}),
+	-- Offline earnings count at most this long.
+	OfflineIncomeMaxSeconds = 24 * 60 * 60,
 	-- Coins for selling a pet, or for a hatch when the inventory is full.
 	SellValue = table.freeze({ Common = 5, Uncommon = 10, Rare = 25, Epic = 60, Legendary = 150 }),
 })

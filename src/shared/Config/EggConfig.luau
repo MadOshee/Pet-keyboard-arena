@@ -31,11 +31,30 @@ return table.freeze({
 	}) :: { [string]: number },
 	SpeedUpCoinsPerSecond = 2,
 	StartEggCapacity = 20,
+	-- "Incubators" are the platforms of the base building: 10 on the ground
+	-- floor, then 10 on the second floor. Each holds an egg or a pet.
 	StartIncubators = 3,
-	-- One incubator per pet spot on the ground floor of the base building.
-	MaxIncubators = 10,
-	-- Coins for the 4th to the 10th incubator.
-	IncubatorPrices = table.freeze({ 1500, 5000, 15000, 30000, 50000, 80000, 120000 }),
+	MaxIncubators = 20,
+	-- Coins for the 4th to the 20th platform.
+	IncubatorPrices = table.freeze({
+		1500,
+		5000,
+		15000,
+		30000,
+		50000,
+		80000,
+		120000,
+		160000,
+		200000,
+		250000,
+		300000,
+		400000,
+		500000,
+		650000,
+		800000,
+		1000000,
+		1200000,
+	}),
 	-- +PetSlotsStep pet slots; the price doubles with every purchase.
 	PetSlotsStep = 25,
 	PetSlotsBasePrice = 2000,

@@ -9,8 +9,9 @@
 -- What it changes in the pack:
 --   * scripts are removed (the map is decoration only);
 --   * the red market buildings are removed;
---   * every pet spot of a building gets a slot: eggs incubate on the ground
---     floor, the best pets stand on the second floor;
+--   * every pet spot of a building becomes a platform (10 on the ground
+--     floor, then 10 on the second floor) that holds an egg or a pet, and its
+--     green pad becomes the platform's button;
 --   * the plaza center is moved to the origin, the sea tiles that would cover
 --     the arena (ArenaConfig.CenterZ) are removed;
 --   * the "UPGRADES" NPC of every base becomes the shop keeper;
@@ -22,9 +23,11 @@
 --     .PlotAnchor                invisible Part on the ground floor of the
 --                                building, -Z towards the entrance; PlotService
 --                                builds the plot on it (attribute SignHeight)
---     .EggSlots.EggSlotN         invisible Part on top of ground-floor spot N
---                                (attribute Index): incubator N
---     .PetSlots.PetSlotN         the same on the second floor: showcase pet N
+--     .Platforms.PlatformN       invisible Part on top of spot pad N (attribute
+--                                Index; ground floor 1-10, second floor
+--                                11-20), -Z towards its button
+--     ...PlatformButton          the green pad in front of a spot (attribute
+--                                Platform = N): stepping on it opens platform N
 --     .Shop.NPC.HumanoidRootPart.Shop   ProximityPrompt that opens the shop
 
 local fs = require("@lune/fs")
@@ -37,6 +40,14 @@ local buildPortal = require("./world/Portal")
 local Instance = roblox.Instance
 local Vector3 = roblox.Vector3
 local CFrame = roblox.CFrame
+
+-- Lune's CFrame.lookAt flips some directions (looking along +Z gives -Z),
+-- so level "look at" frames are built by hand.
+local function facing(position: any, target: any): any
+	local look = Vector3.new(target.X - position.X, 0, target.Z - position.Z).Unit
+	local up = Vector3.new(0, 1, 0)
+	return CFrame.fromMatrix(position, look:Cross(up).Unit, up, -look)
+end
 
 local PLOT_FORWARD = 16 -- studs from the building center towards its entrance
 local SIGN_HEIGHT = 40 -- plot sign above the floor, over the roof
@@ -127,14 +138,14 @@ for _, base in layout:GetChildren() do
 	anchor.CanTouch = false
 	anchor.Transparency = 1
 	anchor.Size = Vector3.new(4, 0.2, 4)
-	anchor.CFrame = CFrame.lookAt(spot, spot - back)
+	anchor.CFrame = facing(spot, spot - back)
 	anchor:SetAttribute("SignHeight", SIGN_HEIGHT)
 	anchor.Parent = base
 
-	-- Slots on the spot pads (the 7x7 tiles), facing the entrance like the plot.
-	local function addSlots(floorName: string, folderName: string, slotName: string)
-		local folder = Instance.new("Folder")
-		folder.Name = folderName
+	-- Platforms on the spot pads (the 7x7 tiles), facing their green button.
+	local platforms = Instance.new("Folder")
+	platforms.Name = "Platforms"
+	local function addPlatforms(floorName: string, first: number)
 		for _, spot in base:FindFirstChild(floorName):FindFirstChild("Spots"):GetChildren() do
 			local number = tonumber(string.match(spot.Name, "%d+"))
 			local pad = nil
@@ -147,24 +158,36 @@ for _, base in layout:GetChildren() do
 					pad = p
 				end
 			end
-			assert(number and pad, `no pad in {base.Name}.{floorName}.{spot.Name}`)
+			-- The pack's green "Receive" pad: the highest part of that model.
+			local button = nil
+			for _, p in parts(spot:FindFirstChild("Receive")) do
+				if button == nil or p.CFrame.Position.Y > button.CFrame.Position.Y then
+					button = p
+				end
+			end
+			assert(number and pad and button, `no pad in {base.Name}.{floorName}.{spot.Name}`)
+			local index = first + number - 1
+			button.Name = "PlatformButton"
+			button:SetAttribute("Platform", index)
+
 			local top = pad.CFrame.Position + Vector3.new(0, pad.Size.Y / 2, 0)
-			local slot = Instance.new("Part")
-			slot.Name = `{slotName}{number}`
-			slot.Anchored = true
-			slot.CanCollide = false
-			slot.CanQuery = false
-			slot.CanTouch = false
-			slot.Transparency = 1
-			slot.Size = Vector3.new(4, 0.2, 4)
-			slot.CFrame = CFrame.lookAt(top, top - back)
-			slot:SetAttribute("Index", number)
-			slot.Parent = folder
+			local toward = button.CFrame.Position
+			local platform = Instance.new("Part")
+			platform.Name = `Platform{index}`
+			platform.Anchored = true
+			platform.CanCollide = false
+			platform.CanQuery = false
+			platform.CanTouch = false
+			platform.Transparency = 1
+			platform.Size = Vector3.new(4, 0.2, 4)
+			platform.CFrame = facing(top, toward)
+			platform:SetAttribute("Index", index)
+			platform.Parent = platforms
 		end
-		folder.Parent = base
 	end
-	addSlots("Floor1", "EggSlots", "EggSlot")
-	addSlots("Floor2", "PetSlots", "PetSlot")
+	addPlatforms("Floor1", 1)
+	addPlatforms("Floor2", 11)
+	platforms.Parent = base
 
 	local upgrades = base:FindFirstChild("Upgrades")
 	upgrades.Name = "Shop"

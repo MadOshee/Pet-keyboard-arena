@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+local ModelFront = require(ReplicatedStorage.Shared.Util.ModelFront)
 
 local AssetModels = {}
 
@@ -50,28 +51,14 @@ function AssetModels.Egg(theme: string): Model?
 	return if template then prepare(template:Clone()) else nil
 end
 
--- The direction a model faces, in its pivot's space and flattened to the
--- ground plane. Pack pets mark their front with a "FaceDecal" decal.
+-- The direction a model faces (see Shared/Util/ModelFront).
 function AssetModels.LocalFront(model: Model): Vector3
-	local pivot = model:GetPivot()
-	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("Decal") and descendant.Name == "FaceDecal" then
-			local part = descendant.Parent
-			if part and part:IsA("BasePart") then
-				local world = part.CFrame:VectorToWorldSpace(Vector3.FromNormalId(descendant.Face))
-				local flat = pivot:VectorToObjectSpace(world) * Vector3.new(1, 0, 1)
-				if flat.Magnitude > 0.01 then
-					return flat.Unit
-				end
-			end
-		end
-	end
-	return Vector3.new(0, 0, -1)
+	return ModelFront.LocalFront(model)
 end
 
 -- Rotation that turns a model's own front into -Z (CFrame.LookVector).
 function AssetModels.FrontCorrection(model: Model): CFrame
-	return CFrame.lookAt(Vector3.zero, AssetModels.LocalFront(model)):Inverse()
+	return ModelFront.Correction(model)
 end
 
 -- Scales a model so its height is about `height` studs.
