@@ -24,6 +24,7 @@ local HIDDEN_POSITION = UDim2.fromScale(0.5, 1.5)
 local PackUiController = {}
 
 local gui: ScreenGui? = nil
+local windowsGui: ScreenGui? = nil
 local packLeft: GuiObject? = nil
 local cashLabel: TextLabel? = nil
 local openPositions: { [GuiObject]: UDim2 } = {}
@@ -124,15 +125,22 @@ function PackUiController:Init()
 	screen.DisplayOrder = 0
 	local hud = screen:WaitForChild("HUD")
 	local windows = screen:WaitForChild("Main")
+	-- Windows get their own layer above our menu column (DisplayOrder 2).
+	local layer = Widgets.ScreenGui("GameUIWindows", 3)
+	layer.ScreenInsets = screen.ScreenInsets
+	layer.IgnoreGuiInset = screen.IgnoreGuiInset
+	windows.Parent = layer
 	for _, window in windows:GetChildren() do
 		if window:IsA("GuiObject") then
 			openPositions[window] = window.Position
 			window.Visible = false
 		end
 	end
-	for _, descendant in screen:GetDescendants() do
-		if descendant:IsA("GuiButton") then
-			wireButton(descendant, windows, hud)
+	for _, root in { screen, layer } do
+		for _, descendant in root:GetDescendants() do
+			if descendant:IsA("GuiButton") then
+				wireButton(descendant, windows, hud)
+			end
 		end
 	end
 	local cashFrame = hud:FindFirstChild("CashFrame", true)
@@ -145,7 +153,9 @@ function PackUiController:Init()
 		packLeft = left
 	end
 	screen.Parent = player:WaitForChild("PlayerGui")
+	layer.Parent = screen.Parent
 	gui = screen
+	windowsGui = layer
 end
 
 -- Our menu column (Widgets.MenuButton) sits on the left edge too; keep it
@@ -182,6 +192,9 @@ function PackUiController:Start()
 			closeNow()
 		end
 		screen.Enabled = inLobby
+		if windowsGui then
+			windowsGui.Enabled = inLobby
+		end
 	end
 	player:GetAttributeChangedSignal("Team"):Connect(updateVisible)
 	updateVisible()
