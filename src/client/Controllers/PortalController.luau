@@ -3,6 +3,8 @@
 -- SOLO GAME and PARTY GAME. The choice goes to the server (PortalService),
 -- which queues the player or their party. While the queue counts down
 -- (phase "Starting") a big "Match in N" shows in the middle of the screen.
+-- The controller also animates the portal: the core spins, the crystals
+-- float (tools/world/Portal.luau names the parts).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,11 +22,21 @@ local PortalController = {}
 local UPDATE_SECONDS = 0.2
 -- Closing the window keeps it closed until the player steps away.
 local REOPEN_DISTANCE = ArenaConfig.PortalRadius + 6
+-- Portal animation, only while the player is close enough to see it.
+local ANIMATE_DISTANCE = 300
+local SPIN_SPEED = 1.2 -- radians per second
+local FLOAT_HEIGHT = 0.8
+local FLOAT_SPEED = 2
 
 local window: Frame
 local countdown: TextLabel
 local portal: Model? = nil
 local dismissed = false
+
+type Animated = { Part: BasePart, Offset: CFrame }
+local spinning: { Animated } = {}
+local floating: { Animated } = {}
+local animationTime = 0
 
 local function build()
 	local gui = Widgets.ScreenGui("Portal", 4)
@@ -139,6 +151,58 @@ local function update()
 	end
 end
 
+-- Remembers the parts to animate relative to the swirl (whose X axis is
+-- the gate axis) or to their own start position.
+local function collectAnimated(found: Model)
+	local primary = found.PrimaryPart
+	if primary == nil then
+		return
+	end
+	local swirl = primary :: BasePart
+	local spin = found:FindFirstChild("Spin")
+	if spin then
+		for _, descendant in spin:GetDescendants() do
+			if descendant:IsA("BasePart") then
+				table.insert(
+					spinning,
+					{ Part = descendant, Offset = swirl.CFrame:ToObjectSpace(descendant.CFrame) }
+				)
+			end
+		end
+	end
+	local float = found:FindFirstChild("Float")
+	if float then
+		for _, descendant in float:GetDescendants() do
+			if descendant:IsA("BasePart") then
+				table.insert(floating, { Part = descendant, Offset = descendant.CFrame })
+			end
+		end
+	end
+end
+
+local function animate(dt: number)
+	local found = portal
+	local primary = found and found.PrimaryPart
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if primary == nil or not (root and root:IsA("BasePart")) then
+		return
+	end
+	local swirl = primary :: BasePart
+	if ((root :: BasePart).Position - swirl.Position).Magnitude > ANIMATE_DISTANCE then
+		return
+	end
+	animationTime += dt
+	local turn = swirl.CFrame * CFrame.Angles(animationTime * SPIN_SPEED, 0, 0)
+	for _, item in spinning do
+		item.Part.CFrame = turn * item.Offset
+	end
+	for index, item in floating do
+		local lift = math.sin(animationTime * FLOAT_SPEED + index * 1.7) * FLOAT_HEIGHT
+		item.Part.CFrame = item.Offset * CFrame.new(0, lift, 0) * CFrame.Angles(0, animationTime, 0)
+	end
+end
+
 function PortalController:Init()
 	build()
 end
@@ -149,11 +213,13 @@ function PortalController:Start()
 		local found = world:WaitForChild("Portal")
 		if found:IsA("Model") then
 			portal = found
+			collectAnimated(found)
 		end
 	end)
 
 	local elapsed = 0
 	RunService.Heartbeat:Connect(function(dt)
+		animate(dt)
 		elapsed += dt
 		if elapsed >= UPDATE_SECONDS then
 			elapsed = 0

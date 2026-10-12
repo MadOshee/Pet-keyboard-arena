@@ -11,7 +11,7 @@
 | Util/Signal | 1 | `Signal.new()`, `:Connect(fn) -> Connection`, `:Fire(...)`, `:DisconnectAll()` | — |
 | Types | 0–2, карта | `Rarity`, `TeamId`, `Winner`, `Outcome`, `RoundPhase` (+ `Starting`), `QueueMode` (`Solo`/`Party`), `Stat`, `Stats`, `PetInstance`, `EggInstance`, `OfferContext`, `EggOffer`, `Profile`, `RoundResultPayload`, `PetHatchedPayload`, `ActionError` | — |
 | Config/RoundConfig | 1, карта | тайминги фаз (`StartingSeconds` — отсчёт после входа в портал), размеры команд, `MinKeysForReward`, `Coins` | — |
-| Config/ArenaConfig | 1, карта | размеры клавиш, частоты тиков, радиус кисти, скорость, центр арены (`CenterZ` = 3000, далеко от островов), точка возврата на хаб, `PortalRadius`, `PortalServerRadius` | — |
+| Config/ArenaConfig | 1, карта | размеры клавиш, частоты тиков, радиус кисти, скорость, центр арены (`CenterZ` = 3000, далеко от хаба), точка возврата на площадь хаба, `PortalRadius`, `PortalServerRadius` | — |
 | Config/TeamColors | 1 | `Red`, `Blue`, `Neutral`, `KeyLabel`, `ForTeam(team)` | Types |
 | Config/Strings | 1–2 | тексты интерфейса (раунд, яйца, питомцы, ошибки) | — |
 | Config/PetConfig | 2 | `Rarities`, `Themes` (тема → один стат), `Pets` (ключ → имя, тема, редкость, модель из Assets.Pets), `Bonus[stat][rarity]`, `Caps`, `MaxEquipped`, `StartCapacity`, `SellValue` | — |
@@ -59,7 +59,7 @@
 | Services/PartyService | 6 | `GetMemberIds(p)`; сигнал `PartyChanged()`; атрибут игрока `PartyId` (0 — без группы); remotes `PartyInvite`, `PartyRespond`, `PartyLeave`, шлёт `PartyUpdate` | NetService, Guard, Parties |
 | Services/RoundService | 1–2, карта | Intermission (очереди нет) → Starting (отсчёт на хабе) → Countdown/Playing/Results на арене → возврат на хаб и выход из очереди; `GetPhase()`; сигналы `PhaseChanged(phase)`, `RoundEnded(result)`; атрибуты `RoundPhase`, `PhaseEndsAt`, `Winner`, атрибут игрока `Team`; скорость в раунде и сила для баланса команд из StatsService, после раунда скорость сбрасывается | ArenaService, PowerUpService, BatService, BotService, MovementGuard, StatsService, LocalMatchSource, TeamBalancer, Reward |
 | Services/EggService | 2–5, 9 | `NextIncubatorPrice(data)` (VIP-инкубатор не сдвигает цены), `GrantSpeedUp(data)`, `GrantVipIncubator(p)`; купленные рероллы и ускорения тратятся раньше монет; пасс FastHatch ускоряет инкубацию на 30%; `CreateOffer(p, ctx)` (старое невыбранное предложение сначала выбирается автоматически), `GetOffer(p)`; выбранное яйцо → свободный инкубатор, иначе хранилище, иначе монеты (шлёт `EggPicked`); `Collect(p, i)` (питомец, шлёт `PetHatched`, затем следующее яйцо из хранилища), `PlaceStored(p, i)`, `SpeedUp(p, i)`, `BuyIncubator(p)`, `BuyPetSlots(p)`; сигнал `PetHatched(p, payload)`; remotes `EggPick`, `EggReroll`, `BuyUpgrade` | PlayerDataService, PetService, NetService, Guard, EggRoller, Incubation, EggConfig, PetConfig |
-| Services/PlotService | 5, карта | 12 участков в Workspace.Plots, в домах островов (World.Islands.*.PlotAnchor; без карты — по краям арены): табличка, 6 инкубаторов (атрибуты `State`, `HatchAt`, `Rarity`; подсказки `Main` и `SpeedUp` с атрибутом `Active`), витрина из 6 лучших питомцев; `Teleport(p)`; атрибут игрока `Plot`; remote `GoToPlot` | EggService, PlayerDataService, MovementGuard, NetService, Incubation |
+| Services/PlotService | 5, карта | по участку на каждый `PlotAnchor` карты (сейчас 6, в зданиях баз World.Islands.*; без карты — 12 по краям арены) в Workspace.Plots: табличка (высота из атрибута `SignHeight` якоря), 6 инкубаторов (атрибуты `State`, `HatchAt`, `Rarity`; подсказки `Main` и `SpeedUp` с атрибутом `Active`), витрина из 6 лучших питомцев; `Teleport(p)`; атрибут игрока `Plot`; remote `GoToPlot` | EggService, PlayerDataService, MovementGuard, NetService, Incubation |
 | Services/GamePassService | 9 | `Owns(p, name)`; сигнал `PassAdded(p, name)`; проверка пассов при входе и после покупки в игре; атрибуты игрока `Pass_<name>` | ShopConfig, Purchases |
 | Services/MonetizationService | 9 | `MarketplaceService.ProcessReceipt`: товар по id из ShopConfig, выдача через `PlayerDataService:GrantPurchase`; VIP: тег над головой и бесплатный инкубатор | PlayerDataService, EggService, GamePassService, ShopConfig, Purchases |
 | Services/TutorialService | 7 | remote `TutorialDone`: ставит в профиле `Tutorial.Done = true` (клиент сам не может менять данные) | NetService, PlayerDataService |
@@ -152,12 +152,15 @@
 - Клавиши проседают и под ботами.
 - Утечек по таблицам игроков не нашёл: у всех сервисов есть очистка на `PlayerRemoving` или в конце раунда.
 
-## Карта (хаб и острова)
+## Карта (хаб и базы)
+
+Карта взята из пака Ивана `world/source/StealMap6.rbxl` (2026-10-12): площадь в центре, 6 баз с двухэтажными зданиями, море с кораблями.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
-| tools/world/Builder | карта | `build(rbx) -> Model World`: центральный остров с прудом, портал (`World.Portal`, PrimaryPart `Swirl`), 12 островов с домами (`World.Islands.IslandN`, атрибут `PlotIndex`, `PlotAnchor`, ларёк `ShopStall` с подсказкой `Shop`), мосты, море, корабли; стиль Stud. Работает и в Lune, и в Studio | — |
-| tools/build-world | карта | `lune run tools/build-world` пишет `world/World.rbxm` → Workspace.World | Builder |
+| tools/pack/clean_rbxl.py | карта | `python3 tools/pack/clean_rbxl.py <пак.rbxl> <выход.rbxl>`: распаковывает zstd-чанки и убирает свойство `Tags`, чтобы Lune смог прочитать файл из Studio | zstandard (pip) |
+| tools/build-world | карта | `lune run tools/build-world <очищенный пак>`: убирает скрипты, красные рынки и подставки первого этажа, переносит центр площади в (0, 0), убирает море под ареной, NPC «UPGRADES» делает продавцом (`Shop` → подсказка `Shop`), ставит `PlotAnchor` в каждое здание (`World.Islands.IslandN`, атрибуты `PlotIndex`, `SignHeight`) и портал в центр. Пишет `world/World.rbxm`, `world/materials/*.rbxm` (MaterialService) и `world/Sky.rbxm` | Portal, ArenaConfig |
+| tools/world/Portal | карта | `build(rbx, parent, cframe) -> Model Portal`: круглая сцена, кольцо-врата, светящийся диск (`Swirl` = PrimaryPart), части `Spin` (крутятся) и `Float` (кристаллы парят), надпись PLAY. Работает и в Lune, и в Studio | — |
 | tools/build-arena | 1, карта | арена ставится в `ArenaConfig.CenterX/CenterZ` | ArenaConfig |
-| Controllers/PortalController | карта | окно SOLO GAME / PARTY GAME у портала (`JoinQueue`), большой отсчёт «Match in N» в фазе Starting | ClientNet, Widgets, ArenaConfig |
-| Controllers/ShopController | 7, карта | + ларёк SHOP на острове открывает то же окно магазина | — |
+| Controllers/PortalController | карта | окно SOLO GAME / PARTY GAME у портала (`JoinQueue`), большой отсчёт «Match in N» в фазе Starting; анимация портала на клиенте (`Spin`, `Float`) | ClientNet, Widgets, ArenaConfig |
+| Controllers/ShopController | 7, карта | + продавец SHOP у входа в базу (подсказка `Shop`) открывает то же окно магазина | — |

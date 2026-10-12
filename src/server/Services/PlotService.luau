@@ -1,9 +1,9 @@
 --!strict
 -- Player plots (docs/design.md 4.3 "Участок", D3): each player gets a free
--- island around the hub with incubators and a showcase of their best pets.
--- The islands and houses are part of the map (World.Islands, built by
--- tools/world); the plot contents are built in code under Workspace.Plots,
--- on each island's PlotAnchor.
+-- base around the hub plaza with incubators and a showcase of their best
+-- pets. The bases and buildings are part of the map (World.Islands, built by
+-- tools/build-world); the plot contents are built in code under
+-- Workspace.Plots, on each base's PlotAnchor.
 --
 -- Incubators are used through ProximityPrompts: "Main" (place, collect or
 -- buy) and "SpeedUp". The server checks that the player owns the plot and
@@ -45,7 +45,8 @@ type Plot = {
 local PlotService = {}
 
 local plots: { Plot } = {}
-local onIslands = false -- plots sit in the island houses of the map
+local onIslands = false -- plots sit in the buildings of the map
+local signHeight = 9 -- plot sign above the plot floor
 local plotOf: { [Player]: Plot } = {}
 
 local function anchoredPart(
@@ -80,8 +81,8 @@ local function makePrompt(name: string, parent: Instance, key: Enum.KeyCode): Pr
 	return prompt
 end
 
--- Plot positions: the house floor of every island (World.Islands.*.PlotAnchor,
--- -Z towards the hub), in PlotIndex order.
+-- Plot positions: the building floor of every base (World.Islands.*.PlotAnchor,
+-- -Z towards the building entrance), in PlotIndex order.
 local function islandCFrames(): { CFrame }?
 	local world = workspace:FindFirstChild("World")
 	local islands = world and world:FindFirstChild("Islands")
@@ -105,6 +106,8 @@ local function islandCFrames(): { CFrame }?
 	for _, anchor in anchors do
 		table.insert(result, anchor.CFrame)
 	end
+	local height = anchors[1]:GetAttribute("SignHeight")
+	signHeight = if type(height) == "number" then height else 22
 	return result
 end
 
@@ -163,7 +166,7 @@ local function buildPlot(index: number, cframe: CFrame, folder: Folder): Plot
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "Sign"
 	sign.Size = UDim2.fromScale(10, 2)
-	sign.StudsOffset = Vector3.new(0, if onIslands then 22 else 9, 0) -- above the house roof
+	sign.StudsOffset = Vector3.new(0, signHeight, 0) -- above the building roof
 	sign.MaxDistance = 150
 	local signLabel = Instance.new("TextLabel")
 	signLabel.Size = UDim2.fromScale(1, 1)

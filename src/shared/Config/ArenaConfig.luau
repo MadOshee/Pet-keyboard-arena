@@ -7,7 +7,7 @@ return table.freeze({
 	KeyGap = 1,
 	KeyHeight = 2,
 	-- Arena center on the ground plane; key tops sit at KeyHeight. The arena
-	-- is far from the hub islands (world/World.rbxm), out of sight; players
+	-- is far from the hub (world/World.rbxm), out of sight; players
 	-- are teleported there for a match. tools/build-arena reads these too.
 	CenterX = 0,
 	CenterZ = 3000,
@@ -20,11 +20,11 @@ return table.freeze({
 
 	BaseWalkSpeed = 16,
 
-	-- Where players come back after a match: the hub island, by the portal
-	-- (World.HubSpawn in tools/world/Builder.luau).
+	-- Where players come back after a match: the hub plaza in front of the
+	-- portal, by the SpawnLocation (default.project.json).
 	LobbyX = 0,
-	LobbyY = 8,
-	LobbyZ = 46,
+	LobbyY = 18,
+	LobbyZ = 36,
 
 	-- How close to the portal a player must be for the Solo/Party window.
 	PortalRadius = 14,

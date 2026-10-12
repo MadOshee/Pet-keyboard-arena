@@ -37,8 +37,8 @@
           ],
           "Position": [
             0,
-            4.9,
-            50
+            15,
+            36
           ],
           "Neutral": true,
           "Transparency": 1,
@@ -55,11 +55,16 @@
     "Lighting": {
       "$properties": {
         "ClockTime": 14,
-        "Brightness": 2.5,
+        "Brightness": 3,
+        "Ambient": [
+          140,
+          140,
+          150
+        ],
         "OutdoorAmbient": [
-          150,
-          150,
-          160
+          200,
+          200,
+          210
         ],
         "GlobalShadows": true
       },
@@ -81,6 +86,28 @@
           "Glare": 0,
           "Haze": 1
         }
+      },
+      "Sky": {
+        "$path": "world/Sky.rbxm"
+      },
+      "Bloom": {
+        "$className": "BloomEffect",
+        "$properties": {
+          "Intensity": 0.6,
+          "Size": 24,
+          "Threshold": 1.6
+        }
+      }
+    },
+    "MaterialService": {
+      "Studs": {
+        "$path": "world/materials/Studs.rbxm"
+      },
+      "Glue": {
+        "$path": "world/materials/Glue.rbxm"
+      },
+      "Weld": {
+        "$path": "world/materials/Weld.rbxm"
       }
     }
   }
