@@ -14,6 +14,8 @@ local CONTROLLER_ORDER: { string } = {
 	"KeyPressController",
 	"EggOfferController",
 	"InventoryController",
+	"PetIndexController",
+	"BackpackController",
 	"PetFollowController",
 	"BatController",
 	"EffectsController",

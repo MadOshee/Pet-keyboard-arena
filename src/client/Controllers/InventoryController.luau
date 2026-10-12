@@ -16,6 +16,7 @@ local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local StatCalculator = require(ReplicatedStorage.Shared.Logic.StatCalculator)
 local Types = require(ReplicatedStorage.Shared.Types)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
+local PetText = require(script.Parent.Parent.UI.PetText)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
@@ -23,7 +24,6 @@ local DataController = require(script.Parent.DataController)
 local player = Players.LocalPlayer
 
 local CONFIRM_SECONDS = 3
-local STAT_ORDER = { "Speed", "PaintRadius", "Luck", "Coins" }
 
 local InventoryController = {}
 
@@ -40,10 +40,6 @@ local confirmPetId: string? = nil
 local builtKey: string? = nil
 local confirmToken = 0
 
-local function percent(value: number): number
-	return math.floor(value * 100 + 0.5)
-end
-
 local function rarityRank(rarity: string): number
 	return table.find(PetConfig.Rarities, rarity) or 0
 end
@@ -58,11 +54,10 @@ local function statsText(profile: Types.Profile): string
 	end
 	local stats = StatCalculator.Totals(equipped :: any, PetConfig :: any) :: any
 	local parts = {}
-	for _, stat in STAT_ORDER do
-		table.insert(
-			parts,
-			string.format(Strings.Bonus, percent(stats[stat]), (Strings.StatName :: any)[stat])
-		)
+	for _, stat in PetConfig.StatOrder do
+		if stats[stat] > 0 then
+			table.insert(parts, PetText.Bonus(stat, stats[stat]))
+		end
 	end
 	return string.format(Strings.EquippedCount, #equipped, PetConfig.MaxEquipped)
 		.. "   "
@@ -99,10 +94,7 @@ local function buildCard(petId: string, pet: Types.PetInstance, equipped: boolea
 	rarity.TextColor3 = rarityColor
 	local bonus =
 		Widgets.Label("Bonus", card, UDim2.fromScale(0.9, 0.09), UDim2.fromScale(0.05, 0.65))
-	local stat, value = StatCalculator.PetBonus(pet :: any, PetConfig :: any)
-	bonus.Text = if stat
-		then string.format(Strings.Bonus, percent(value), (Strings.StatName :: any)[stat] or stat)
-		else ""
+	bonus.Text = table.concat(PetText.BuffLines(pet.Kind), " ")
 
 	local equipButton = Widgets.Button(
 		"Equip",

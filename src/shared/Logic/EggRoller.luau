@@ -18,6 +18,11 @@ export type OddsConfig = {
 	ContributionBonus: number,
 }
 
+export type OfferConfig = OddsConfig & {
+	EggsPerOffer: number,
+	ThemeWeights: { [string]: number },
+}
+
 export type Egg = {
 	Theme: string,
 	Rarity: string,
@@ -75,18 +80,37 @@ function EggRoller.PickIndex(weights: { number }, rng: Rng): number
 	return #weights
 end
 
--- One egg per theme, each with its own rarity roll.
+-- EggsPerOffer eggs. Each rolls its theme by ThemeWeights (rarer eggs come
+-- up less often, repeats are fine) and its rarity by Weights. `themes` gives
+-- the theme order, cheapest first; the offer is sorted by it.
 function EggRoller.RollOffer(
 	context: Context,
 	themes: { string },
 	rarities: { string },
-	config: OddsConfig,
+	config: OfferConfig,
 	rng: Rng
 ): { Egg }
 	local weights = EggRoller.Weights(context, config)
-	local eggs = table.create(#themes)
+	local themeWeights = table.create(#themes)
 	for index, theme in themes do
-		eggs[index] = { Theme = theme, Rarity = rarities[EggRoller.PickIndex(weights, rng)] }
+		themeWeights[index] = config.ThemeWeights[theme] or 0
+	end
+	local picks = table.create(config.EggsPerOffer)
+	for index = 1, config.EggsPerOffer do
+		picks[index] = {
+			Theme = EggRoller.PickIndex(themeWeights, rng),
+			Rarity = EggRoller.PickIndex(weights, rng),
+		}
+	end
+	table.sort(picks, function(a, b)
+		if a.Theme ~= b.Theme then
+			return a.Theme < b.Theme
+		end
+		return a.Rarity < b.Rarity
+	end)
+	local eggs = table.create(#picks)
+	for index, pick in picks do
+		eggs[index] = { Theme = themes[pick.Theme], Rarity = rarities[pick.Rarity] }
 	end
 	return eggs
 end

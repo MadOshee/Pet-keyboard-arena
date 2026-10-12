@@ -309,6 +309,66 @@ function Widgets.Panel(
 	return frame
 end
 
+-- A tile of the pack's index: tinted face with a shine and a dark outline
+-- (its UIStroke "Outer"), and a two-layer title across the top. Returns the
+-- card and the title; Widgets.TintCard recolors it.
+function Widgets.Card(
+	name: string,
+	parent: Instance,
+	size: UDim2,
+	position: UDim2,
+	color: Color3
+): (Frame, TextLabel)
+	local source = template("Item")
+	local found = source and source:FindFirstChild("Name")
+	local card: Frame
+	local title: TextLabel
+	if source and source:IsA("Frame") and found and found:IsA("TextLabel") then
+		card = source:Clone()
+		card.AnchorPoint = Vector2.zero
+		-- The pack's shine goes behind the contents, softer.
+		local shine = card:FindFirstChild("Effect")
+		if shine and shine:IsA("ImageLabel") then
+			shine.ZIndex = 0
+			shine.ImageTransparency = 0.6
+		end
+		title = card:FindFirstChild("Name") :: TextLabel
+		title.Name = "Title"
+		title.Position = UDim2.fromScale(0.5, 0.13)
+		title.Size = UDim2.fromScale(0.92, 0.2)
+		mirrorTopLayer(title)
+	else
+		card = Instance.new("Frame")
+		Widgets.Corner(card, 0.06)
+		local outline = Widgets.Stroke(card, OUTLINE, 2)
+		outline.Name = "Outer"
+		title =
+			Widgets.Label("Title", card, UDim2.fromScale(0.92, 0.2), UDim2.fromScale(0.04, 0.03))
+	end
+	title.ZIndex = 25
+	title.Text = ""
+	local gradient = Instance.new("UIGradient")
+	gradient.Rotation = 90
+	gradient.Parent = card
+	card.Name = name
+	card.Size = size
+	card.Position = position
+	card.BackgroundTransparency = 0
+	Widgets.TintCard(card, color)
+	card.Parent = parent
+	return card, title
+end
+
+function Widgets.TintCard(card: GuiObject, color: Color3)
+	card.BackgroundColor3 = WHITE
+	local gradient = card:FindFirstChildOfClass("UIGradient")
+	if gradient then
+		gradient.Color = ColorSequence.new(lighter(color), darker(color))
+	else
+		card.BackgroundColor3 = color
+	end
+end
+
 -- Gold money text from the pack (two layers with a gradient).
 function Widgets.MoneyLabel(name: string, parent: Instance, size: UDim2, position: UDim2): TextLabel
 	local source = template("CashText")
@@ -372,11 +432,14 @@ function Widgets.ProgressBar(
 		if fillGradient then
 			fillGradient.Color = ColorSequence.new(lighter(fillColor), fillColor)
 		end
+		mirrorTopLayer(left)
+		mirrorTopLayer(right)
+		-- The pack's sample texts ("Level 5") go from both layers.
+		left.Text = " "
+		right.Text = " "
 		left.Text = ""
 		right.Text = ""
 		right.TextXAlignment = Enum.TextXAlignment.Right
-		mirrorTopLayer(left)
-		mirrorTopLayer(right)
 		local rightTop = right:FindFirstChild("Color")
 		if rightTop and rightTop:IsA("TextLabel") then
 			rightTop.TextXAlignment = Enum.TextXAlignment.Right

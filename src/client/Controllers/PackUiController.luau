@@ -1,22 +1,23 @@
 --!strict
 -- The whole Studs UI Pack screen (Assets.UI.GameUI), added as is so Ivan can
 -- see every piece in the game and pick what stays. HUD buttons open the pack
--- window with the same name (Shop, Rebirth, Index, Daily, Upgrades); window
--- contents are the pack's own samples. Real so far: coins in the cash counter,
--- MY BASE takes you to your plot, BACKPACK (the pack's Pass button) opens our
--- pets window and PARTY (the pack's top-left stock shop button) our party
--- window. Hidden during a match. Replaces the pack's own LocalScript, which is
--- not imported.
+-- window with the same name (Shop, Rebirth, Pets, Backpack, Daily,
+-- Upgrades); one window is open at a time. Real so far: coins in the cash
+-- counter, MY BASE takes you to your plot, PETS (PetIndexController) and
+-- BACKPACK (BackpackController) are filled by their controllers, PARTY (the
+-- pack's top-left stock shop button) opens our party window. Other windows
+-- still show the pack's samples. Hidden during a match. Replaces the pack's
+-- own LocalScript, which is not imported.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
-local InventoryController = require(script.Parent.InventoryController)
 local PartyController = require(script.Parent.PartyController)
 
 local player = Players.LocalPlayer
@@ -26,6 +27,9 @@ local CLOSE_TWEEN = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirecti
 local HIDDEN_POSITION = UDim2.fromScale(0.5, 1.5)
 
 local PackUiController = {}
+
+-- (window name) when a window starts opening, so its contents can refresh.
+PackUiController.Opened = Signal.new() :: Signal.Signal<string>
 
 local gui: ScreenGui? = nil
 local windowsGui: ScreenGui? = nil
@@ -71,6 +75,7 @@ local function toggle(window: GuiObject)
 	window.Position = HIDDEN_POSITION
 	window.Visible = true
 	current = window
+	PackUiController.Opened:Fire(window.Name)
 	local tween = TweenService:Create(window, OPEN_TWEEN, { Position = openPositions[window] })
 	tween:Play()
 	tween.Completed:Wait()
@@ -94,12 +99,6 @@ local function wireButton(button: GuiButton, windows: Instance, hud: Instance)
 	if button.Name == "Base" then
 		button.MouseButton1Click:Connect(function()
 			ClientNet.Fire("GoToPlot")
-		end)
-		return
-	end
-	if button.Name == "Backpack" then
-		button.MouseButton1Click:Connect(function()
-			InventoryController:Toggle()
 		end)
 		return
 	end
@@ -167,6 +166,18 @@ function PackUiController:Init()
 	layer.Parent = screen.Parent
 	gui = screen
 	windowsGui = layer
+end
+
+-- A pack window (in Main) by name, for the controllers that fill it.
+function PackUiController:GetWindow(name: string): GuiObject?
+	local layer = windowsGui
+	local windows = layer and layer:FindFirstChild("Main")
+	local window = windows and windows:FindFirstChild(name)
+	return if window and window:IsA("GuiObject") then window else nil
+end
+
+function PackUiController:IsOpen(name: string): boolean
+	return current ~= nil and (current :: GuiObject).Name == name
 end
 
 -- Ivan dropped our own button column (Widgets.MenuButton) for the pack's:

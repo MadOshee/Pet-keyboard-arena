@@ -199,7 +199,7 @@ local function buildPicker(data: Types.Profile)
 		local entry = PetConfig.Pets[pet.Kind]
 		local income = string.format(
 			Strings.PlatformIncome,
-			formatNumber(PetIncome.Rate(pet.Rarity, PetConfig))
+			formatNumber(PetIncome.Rate(pet.Kind, PetConfig :: any))
 		)
 		addCard(
 			order,
@@ -301,7 +301,7 @@ local function render()
 			)
 			infoLabel.Text = string.format(
 				Strings.PlatformEarns,
-				formatNumber(PetIncome.Rate(pet.Rarity, PetConfig))
+				formatNumber(PetIncome.Rate(pet.Kind, PetConfig :: any))
 			)
 		end
 		takeButton.Visible = true

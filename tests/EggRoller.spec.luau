@@ -75,20 +75,37 @@ function tests.pickIndexFollowsWeights()
 	end) == 3)
 end
 
-function tests.offerHasOneEggPerTheme()
+function tests.offerRollsThemesByWeight()
+	-- Each egg takes two rolls: theme, then rarity.
 	local eggs = EggRoller.RollOffer(
 		context("Win", 0.5, 0),
 		EggConfig.OfferThemes,
 		RARITIES,
 		EggConfig,
-		sequence({ 0.1, 0.6, 0.9, 0.999 })
+		sequence({ 0.99999, 0.1, 0.1, 0.1, 0.7, 0.999, 0.1, 0.6 })
 	)
 	assert(#eggs == EggConfig.EggsPerOffer)
-	for index, egg in eggs do
-		assert(egg.Theme == EggConfig.OfferThemes[index])
+	for _, egg in eggs do
+		assert(table.find(EggConfig.OfferThemes, egg.Theme) ~= nil)
 		assert(table.find(RARITIES, egg.Rarity) ~= nil)
 	end
-	assert(eggs[1].Rarity == "Common")
+	-- Sorted cheapest theme first, the top roll gave the rarest theme.
+	assert(eggs[1].Theme == "Basic" and eggs[1].Rarity == "Common")
+	assert(eggs[#eggs].Theme == "Volcanic")
+end
+
+function tests.rarestThemeIsRare()
+	local total = 0
+	for _, weight in EggConfig.ThemeWeights do
+		total += weight
+	end
+	local last = EggConfig.OfferThemes[#EggConfig.OfferThemes]
+	assert(EggConfig.ThemeWeights[last] / total <= 0.05)
+	for index = 2, #EggConfig.OfferThemes do
+		local theme = EggConfig.OfferThemes[index]
+		local cheaper = EggConfig.OfferThemes[index - 1]
+		assert(EggConfig.ThemeWeights[theme] < EggConfig.ThemeWeights[cheaper])
+	end
 end
 
 function tests.rollPetMatchesThemeAndRarity()

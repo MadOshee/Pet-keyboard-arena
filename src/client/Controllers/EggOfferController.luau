@@ -15,6 +15,7 @@ local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local EggRoller = require(ReplicatedStorage.Shared.Logic.EggRoller)
+local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local Types = require(ReplicatedStorage.Shared.Types)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
@@ -358,7 +359,7 @@ local function onHatched(result: Types.PetHatchedPayload)
 		string.format(Strings.Hatched, if entry then entry.Name else result.Kind),
 		`{rarityName} · {string.format(
 			Strings.PlatformIncome,
-			tostring(PetConfig.IncomePerSecond[result.Rarity] or 0)
+			tostring(PetIncome.Rate(result.Kind, PetConfig :: any))
 		)}`,
 		""
 	)

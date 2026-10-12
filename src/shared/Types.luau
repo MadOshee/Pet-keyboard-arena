@@ -12,13 +12,14 @@ export type Outcome = "Win" | "Lose" | "Draw"
 -- teleport to the arena.
 export type RoundPhase = "Intermission" | "Starting" | "Countdown" | "Playing" | "Results"
 export type QueueMode = "Solo" | "Party"
-export type Stat = "Speed" | "PaintRadius" | "Luck" | "Coins"
+export type Stat = "Speed" | "PaintRadius" | "Luck" | "Power" | "Coins"
 
 -- Totals of equipped pet bonuses as fractions (0.1 = +10%), already capped.
 export type Stats = {
 	Speed: number,
 	PaintRadius: number,
 	Luck: number,
+	Power: number, -- bat hit strength
 	Coins: number,
 }
 

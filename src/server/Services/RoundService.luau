@@ -106,7 +106,7 @@ local function assignTeams(groups: { { Player } }): boolean
 		end
 		local power = 0
 		for _, player in group do
-			power += StatsService:GetPower(player)
+			power += StatsService:GetTeamWeight(player)
 		end
 		table.insert(balancerGroups, { Members = members, Power = power })
 	end

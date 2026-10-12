@@ -106,7 +106,8 @@ local function onKnockedOut(victim: Model?, attacker: Model?, direction: Vector3
 	end
 	showPopup(Strings.KnockedOut, Color3.fromRGB(255, 90, 90))
 	playSound("Error")
-	-- Our own character is simulated on this client, so the push is ours to apply.
+	-- Our own character is simulated on this client, so the push is ours to
+	-- apply. `direction` is longer than 1 when the attacker has Power.
 	local root = (character :: Model):FindFirstChild("HumanoidRootPart")
 	if root and root:IsA("BasePart") then
 		root.AssemblyLinearVelocity = direction * BatConfig.KnockSpeed

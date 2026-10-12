@@ -17,6 +17,7 @@ local Participant = require(script.Parent.Parent.Util.Participant)
 local ArenaService = require(script.Parent.ArenaService)
 local MovementGuard = require(script.Parent.MovementGuard)
 local NetService = require(script.Parent.NetService)
+local StatsService = require(script.Parent.StatsService)
 
 local BAT_NAME = "Bat"
 local SPAWN_SPREAD = 12 -- studs along the spawn line, so returns do not stack
@@ -133,16 +134,20 @@ local function knock(
 	local direction = if offset.Magnitude > 0.01
 		then offset.Unit
 		else attackerRoot.CFrame.LookVector
+	-- Pets with Power push harder; bots hit with the base strength.
+	local attackerPlayer = Participant.AsPlayer(attacker)
+	local power = if attackerPlayer then StatsService:GetPower(attackerPlayer) else 0
+	local push = direction * (1 + power)
 	-- A player's client flies its own character; the server flies bots.
 	if Participant.AsPlayer(victim) == nil then
-		victimRoot.AssemblyLinearVelocity = direction * BatConfig.KnockSpeed
+		victimRoot.AssemblyLinearVelocity = push * BatConfig.KnockSpeed
 			+ Vector3.new(0, BatConfig.KnockLift, 0)
 	end
 	NetService:FireAllClients(
 		"KnockedOut",
 		Participant.Character(victim),
 		Participant.Character(attacker),
-		direction,
+		push,
 		BatConfig.KnockoutSeconds
 	)
 	BatService.KnockedOut:Fire(attacker, victim)

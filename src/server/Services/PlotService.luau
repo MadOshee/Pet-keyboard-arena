@@ -366,7 +366,7 @@ local function refreshPlatforms(plot: Plot, data: Types.Profile?)
 				state = "Pet"
 				rarity = placed.Rarity
 				kind = placed.Kind
-				income = PetIncome.Rate(placed.Rarity, PetConfig)
+				income = PetIncome.Rate(placed.Kind, PetConfig :: any)
 				key = "Pet:" .. (entry.PetId :: string)
 				build = function()
 					local config = PetConfig.Pets[placed.Kind]

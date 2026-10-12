@@ -1,5 +1,6 @@
 --!strict
--- Bat rules (docs/design.md 4.3 "Бита", D11). Pets never change these.
+-- Bat rules (docs/design.md 4.3 "Бита", D11). Pet Power makes the push
+-- stronger (BatService); everything else here pets never change.
 
 return table.freeze({
 	Range = 7, -- studs from the attacker to the target
