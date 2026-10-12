@@ -35,14 +35,35 @@
             1,
             12
           ],
-          "Position": [
-            0,
-            15,
-            36
-          ],
           "Neutral": true,
           "Transparency": 1,
-          "CanCollide": false
+          "CanCollide": false,
+          "CFrame": {
+            "CFrame": {
+              "position": [
+                0,
+                15,
+                36
+              ],
+              "orientation": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1
+                ]
+              ]
+            }
+          }
         }
       },
       "Arena": {
@@ -55,16 +76,16 @@
     "Lighting": {
       "$properties": {
         "ClockTime": 14,
-        "Brightness": 3,
+        "Brightness": 2,
         "Ambient": [
-          140,
-          140,
-          150
+          0.275,
+          0.275,
+          0.275
         ],
         "OutdoorAmbient": [
-          200,
-          200,
-          210
+          0.502,
+          0.502,
+          0.502
         ],
         "GlobalShadows": true
       },
@@ -74,21 +95,18 @@
           "Density": 0.28,
           "Offset": 0.1,
           "Color": [
-            200,
-            230,
-            255
+            0.784,
+            0.902,
+            1.0
           ],
           "Decay": [
-            120,
-            180,
-            230
+            0.471,
+            0.706,
+            0.902
           ],
           "Glare": 0,
           "Haze": 1
         }
-      },
-      "Sky": {
-        "$path": "world/Sky.rbxm"
       },
       "Bloom": {
         "$className": "BloomEffect",
