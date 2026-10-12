@@ -17,18 +17,29 @@ function PetText.Bonus(stat: string, value: number): string
 	return string.format(Strings.Bonus, percent(value), (Strings.StatName :: any)[stat] or stat)
 end
 
--- One line per buff of the kind; empty for unknown kinds.
-function PetText.BuffLines(kind: string): { string }
+export type Buff = { Stat: string, Text: string }
+
+-- The kind's buffs in PetConfig.StatOrder; empty for unknown kinds.
+function PetText.Buffs(kind: string): { Buff }
 	local entry = PetConfig.Pets[kind]
-	local lines = {}
+	local buffs: { Buff } = {}
 	if entry == nil then
-		return lines
+		return buffs
 	end
 	for _, stat in PetConfig.StatOrder do
 		local value = entry.Buffs[stat]
 		if value then
-			table.insert(lines, PetText.Bonus(stat, value))
+			table.insert(buffs, { Stat = stat, Text = PetText.Bonus(stat, value) })
 		end
+	end
+	return buffs
+end
+
+-- One line per buff of the kind; empty for unknown kinds.
+function PetText.BuffLines(kind: string): { string }
+	local lines = {}
+	for _, buff in PetText.Buffs(kind) do
+		table.insert(lines, buff.Text)
 	end
 	return lines
 end

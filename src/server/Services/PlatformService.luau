@@ -68,13 +68,23 @@ local function settle(data: Types.Profile, now: number): ({ Types.PetHatchedPayl
 		local egg = slot.Egg
 		if egg ~= nil and slot.HatchAt ~= nil and (slot.HatchAt :: number) <= now then
 			local hatchAt = slot.HatchAt :: number
-			local kind = EggRoller.RollPet(PetConfig.Pets :: any, egg.Theme, egg.Rarity, rng)
-			local petId = kind and PetService:AddToProfile(data, kind, egg.Rarity, true)
+			local kind = EggRoller.RollPet(
+				PetConfig.Pets :: any,
+				egg.Theme,
+				egg.Rarity,
+				rng,
+				PetConfig.Rarities
+			)
+			-- Small eggs lack some rarities: the pet keeps its own rarity.
+			local rarity: Types.Rarity = if kind
+				then PetConfig.Pets[kind].Rarity :: Types.Rarity
+				else egg.Rarity
+			local petId = kind and PetService:AddToProfile(data, kind, rarity, true)
 			if kind and petId then
 				slot.Egg = nil
 				slot.HatchAt = nil
 				slot.PetId = petId
-				table.insert(hatched, { Kind = kind, Rarity = egg.Rarity, PetId = petId })
+				table.insert(hatched, { Kind = kind, Rarity = rarity, PetId = petId })
 				table.insert(earners, { Kind = kind :: string, From = hatchAt })
 			end
 		elseif slot.PetId ~= nil then

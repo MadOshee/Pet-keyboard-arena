@@ -11,19 +11,41 @@ function tests.everyPetHasKnownThemeAndRarity()
 	end
 end
 
-function tests.everyOfferThemeHasEveryRarity()
-	for _, theme in EggConfig.OfferThemes do
+function tests.everyPackEggIsOffered()
+	assert(#EggConfig.OfferThemes == #PetConfig.ThemeOrder)
+	for index, theme in PetConfig.ThemeOrder do
+		assert(EggConfig.OfferThemes[index] == theme, `{theme}: OfferThemes order differs`)
 		assert(EggConfig.ThemeWeights[theme] ~= nil, `{theme}: no theme weight`)
-		assert(PetConfig.Themes[theme] ~= nil, `{theme}: not in PetConfig.Themes`)
-		for _, rarity in PetConfig.Rarities do
-			local found = false
-			for _, entry in PetConfig.Pets do
-				if entry.Theme == theme and entry.Rarity == rarity then
-					found = true
-				end
+	end
+end
+
+function tests.everyEggHasALegendaryAndAnEpic()
+	for _, theme in EggConfig.OfferThemes do
+		local count = { Legendary = 0, Epic = 0 }
+		for _, entry in PetConfig.Pets do
+			if entry.Theme == theme and count[entry.Rarity] then
+				count[entry.Rarity] += 1
 			end
-			assert(found, `no {rarity} pet in {theme}`)
 		end
+		assert(count.Legendary == 1 and count.Epic == 1, `{theme}: one Legendary and one Epic`)
+	end
+end
+
+-- Ivan: at most 3 buffs; an egg's best pet has 3, the one before it 2, the
+-- others 1.
+function tests.buffCountsFollowPlaceInEgg()
+	local sizes = {}
+	for _, entry in PetConfig.Pets do
+		sizes[entry.Theme] = (sizes[entry.Theme] or 0) + 1
+	end
+	for kind, entry in PetConfig.Pets do
+		local count = 0
+		for _ in entry.Buffs do
+			count += 1
+		end
+		local fromBest = sizes[entry.Theme] - entry.Order + 1
+		local expected = if fromBest == 1 then 3 elseif fromBest == 2 then 2 else 1
+		assert(count == expected, `{kind}: {count} buffs, expected {expected}`)
 	end
 end
 
@@ -53,7 +75,13 @@ end
 function tests.everyPetHasBuffsAndIncome()
 	for kind, entry in PetConfig.Pets do
 		local main = PetConfig.Themes[entry.Theme].Stat
-		assert(entry.Buffs[main] == PetConfig.Bonus[main][entry.Rarity], `{kind}: wrong main buff`)
+		local tier = table.find(PetConfig.ThemeOrder, entry.Theme) :: number
+		local expected = PetConfig.Bonus[main][entry.Rarity]
+			* (1 + PetConfig.BonusPerEgg * (tier - 1))
+		assert(
+			math.abs(entry.Buffs[main] - math.floor(expected * 100 + 0.5) / 100) < 1e-9,
+			`{kind}: wrong main buff`
+		)
 		for stat, value in entry.Buffs do
 			assert(table.find(PetConfig.StatOrder, stat) ~= nil, `{kind}: unknown stat {stat}`)
 			assert(value > 0, `{kind}: empty buff {stat}`)
@@ -63,26 +91,24 @@ function tests.everyPetHasBuffsAndIncome()
 end
 
 function tests.rarerEggsAndPetsEarnMore()
-	local function income(theme: string, rarity: string): number
+	local function best(theme: string, rarity: string?): number
+		local income = 0
 		for _, entry in PetConfig.Pets do
-			if entry.Theme == theme and entry.Rarity == rarity then
-				return entry.Income
+			if entry.Theme == theme and (rarity == nil or entry.Rarity == rarity) then
+				income = math.max(income, entry.Income)
 			end
 		end
-		error(`no {rarity} pet in {theme}`)
+		return income
 	end
 	for themeIndex, theme in EggConfig.OfferThemes do
-		for rank = 2, #PetConfig.Rarities do
-			local rarity = PetConfig.Rarities[rank]
-			assert(income(theme, rarity) > income(theme, PetConfig.Rarities[rank - 1]))
-		end
+		assert(best(theme, "Legendary") > best(theme, "Epic"), `{theme}: Legendary earns most`)
 		if themeIndex > 1 then
 			local cheaper = EggConfig.OfferThemes[themeIndex - 1]
-			assert(income(theme, "Common") > income(cheaper, "Common"))
+			assert(best(theme, "Legendary") > best(cheaper, "Legendary"), `{theme}: earns more`)
 		end
 	end
-	-- The rarest pet of the rarest egg earns thousands per second.
-	assert(income("Volcanic", "Legendary") >= 1000)
+	-- The best pet of the rarest egg earns thousands per second.
+	assert(best("Sparkletime") >= 5000)
 end
 
 function tests.rerollCostsGrow()

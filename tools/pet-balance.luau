@@ -11,11 +11,17 @@ local STAT_NAMES = {
 	PaintRadius = "Area",
 	Luck = "Luck",
 	Power = "Power",
-	Coins = "Coins",
+	Coins = "Money",
 }
 
+-- Enough decimals to show tiny chances: 0.0012%.
 local function percent(value: number): string
-	local text = string.format("%.2f", value * 100):gsub("0+$", ""):gsub("%.$", "")
+	local scaled = value * 100
+	local decimals = 2
+	if scaled > 0 and scaled < 0.01 then
+		decimals = math.ceil(-math.log10(scaled)) + 1
+	end
+	local text = string.format(`%.{decimals}f`, scaled):gsub("0+$", ""):gsub("%.$", "")
 	return text .. "%"
 end
 
@@ -36,15 +42,16 @@ local loseOdds = EggRoller.Odds(
 local winOdds =
 	EggRoller.Odds(EggRoller.Weights({ Outcome = "Win", ContributionPct = 1, Luck = 0 }, EggConfig))
 
--- Pets per theme and rarity, to split an egg's chance between them.
-local function sameKind(theme: string, rarity: string): number
-	local count = 0
-	for _, entry in PetConfig.Pets do
-		if entry.Theme == theme and entry.Rarity == rarity then
-			count += 1
+-- Chance that one egg of the theme hatches this kind, after a lost round.
+local function hatchChance(theme: string, kind: string): number
+	local chance = 0
+	for rank, rarity in PetConfig.Rarities do
+		local kinds = EggRoller.HatchKinds(PetConfig.Pets, theme, rarity, PetConfig.Rarities)
+		if table.find(kinds, kind) then
+			chance += loseOdds[rank] / #kinds
 		end
 	end
-	return count
+	return chance * themeWeights[theme] / themeTotal
 end
 
 print(
@@ -76,12 +83,7 @@ for _, theme in EggConfig.OfferThemes do
 		end
 	end
 	table.sort(kinds, function(a, b)
-		local rankA = table.find(PetConfig.Rarities, PetConfig.Pets[a].Rarity) or 0
-		local rankB = table.find(PetConfig.Rarities, PetConfig.Pets[b].Rarity) or 0
-		if rankA ~= rankB then
-			return rankA < rankB
-		end
-		return a < b
+		return PetConfig.Pets[a].Order < PetConfig.Pets[b].Order
 	end)
 	for _, kind in kinds do
 		local entry = PetConfig.Pets[kind]
@@ -92,11 +94,7 @@ for _, theme in EggConfig.OfferThemes do
 				table.insert(buffs, `+{percent(value)} {STAT_NAMES[stat]}`)
 			end
 		end
-		local rank = table.find(PetConfig.Rarities, entry.Rarity) or 1
-		local chance = themeWeights[theme]
-			/ themeTotal
-			* loseOdds[rank]
-			/ sameKind(theme, entry.Rarity)
+		local chance = hatchChance(theme, kind)
 		print(
 			`| {theme} | {entry.Name} | {entry.Rarity} | {number(entry.Income)} | {table.concat(
 				buffs,

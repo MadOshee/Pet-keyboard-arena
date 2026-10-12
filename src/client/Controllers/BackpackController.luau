@@ -95,14 +95,11 @@ local function showBats(profile: Types.Profile)
 	local card, title = Widgets.Card("Bat", list, UDim2.new(), UDim2.new(), BAT_COLOR)
 	title.Text = Strings.BackpackBat
 	local viewport = AssetModels.Viewport(cardHolder(card), batModel(), BAT_COLOR)
-	-- The bat is long and thin: show it diagonally and closer.
+	-- The bat is long and thin: show it diagonally, straight from the front.
 	local model = viewport:FindFirstChildOfClass("Model")
-	local camera = viewport.CurrentCamera
-	if model and camera then
+	if model then
 		model:PivotTo(CFrame.Angles(0, 0, math.rad(45)))
-		local center, size = model:GetBoundingBox()
-		local distance = math.max(size.X, size.Y) * 1.25
-		camera.CFrame = CFrame.lookAt(center.Position - Vector3.zAxis * distance, center.Position)
+		AssetModels.Frame(viewport, -Vector3.zAxis)
 	end
 	footer(card, Strings.PlatformEquipped, Color3.fromRGB(120, 255, 120))
 end

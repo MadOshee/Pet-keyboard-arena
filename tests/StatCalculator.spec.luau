@@ -26,30 +26,35 @@ function tests.eachThemeBoostsItsStat()
 	}, PetConfig)
 	assert(near(stats.Coins, 0.05))
 	assert(near(stats.Speed, 0.02))
-	assert(near(stats.PaintRadius, 0.03))
+	assert(near(stats.PaintRadius, 0.04)) -- 3% times 1.2 for the fifth egg
 	assert(stats.Luck == 0 and stats.Power == 0)
 end
 
-function tests.rarePetsAddExtraStatsAtAboutHalf()
+function tests.bestPetsAddExtraStatsAtAboutHalf()
+	-- Forest is the second egg: buffs are 5% bigger than the first egg's.
 	local buffs = StatCalculator.PetBuffs(pet("Tiger", "Epic"), PetConfig)
-	assert(near(buffs.Speed, 0.08))
-	assert(near(buffs.Power, 0.08)) -- half of 15%, rounded up
-	assert(near(buffs.Coins, 0.1))
-	local count = 0
-	for _ in StatCalculator.PetBuffs(pet("Lion", "Legendary"), PetConfig) do
-		count += 1
+	assert(near(buffs.Speed, 0.08)) -- 8.4%
+	assert(near(buffs.PaintRadius, 0.07)) -- half of 12.6%, rounded up
+	local function count(kind: string): number
+		local total = 0
+		for _ in StatCalculator.PetBuffs(pet(kind, ""), PetConfig) do
+			total += 1
+		end
+		return total
 	end
-	assert(count == #PetConfig.StatOrder, "a legendary boosts every stat")
+	assert(count("Lion") == 3, "the best pet of an egg has 3 buffs")
+	assert(count("Tiger") == 2, "the next one has 2")
+	assert(count("Elephant") == 1)
 end
 
 function tests.bonusesStack()
 	local stats = StatCalculator.Totals({
 		pet("Tiger", "Epic"),
-		pet("Lynx", "Rare"),
+		pet("Lynx", "Uncommon"),
 		pet("Deer", "Common"),
 	}, PetConfig)
-	assert(near(stats.Speed, 0.08 + 0.05 + 0.02))
-	assert(near(stats.Luck, 0.06))
+	assert(near(stats.Speed, 0.08 + 0.03 + 0.02))
+	assert(near(stats.PaintRadius, 0.07))
 end
 
 function tests.capsApply()

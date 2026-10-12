@@ -91,7 +91,7 @@ function tests.offerRollsThemesByWeight()
 	end
 	-- Sorted cheapest theme first, the top roll gave the rarest theme.
 	assert(eggs[1].Theme == "Basic" and eggs[1].Rarity == "Common")
-	assert(eggs[#eggs].Theme == "Volcanic")
+	assert(eggs[#eggs].Theme == EggConfig.OfferThemes[#EggConfig.OfferThemes])
 end
 
 function tests.rarestThemeIsRare()
@@ -114,19 +114,37 @@ function tests.rollPetMatchesThemeAndRarity()
 			for _, roll in { 0, 0.5, 0.99999 } do
 				local kind = EggRoller.RollPet(PetConfig.Pets, theme, rarity, function()
 					return roll
-				end)
+				end, RARITIES)
 				assert(kind ~= nil, `no pet for {theme} {rarity}`)
 				local entry = PetConfig.Pets[kind]
-				assert(entry.Theme == theme and entry.Rarity == rarity)
+				assert(entry.Theme == theme, `{kind}: wrong theme`)
+				local hasRarity = #EggRoller.KindsFor(PetConfig.Pets, theme, rarity) > 0
+				assert(entry.Rarity == rarity or not hasRarity, `{kind}: wrong rarity`)
 			end
 		end
 	end
 end
 
+function tests.rollPetFallsBackToNearestRarity()
+	local pets = {
+		A = { Theme = "T", Rarity = "Uncommon" },
+		B = { Theme = "T", Rarity = "Legendary" },
+	}
+	local function roll(rarity: string): string?
+		return EggRoller.RollPet(pets, "T", rarity, function()
+			return 0
+		end, RARITIES)
+	end
+	assert(roll("Common") == "A") -- nothing below: the next one up
+	assert(roll("Rare") == "A") -- as near as Epic: lower first
+	assert(roll("Epic") == "B") -- the nearest one
+	assert(roll("Legendary") == "B")
+end
+
 function tests.rollPetReturnsNilWhenNothingFits()
 	assert(EggRoller.RollPet(PetConfig.Pets, "Nope", "Common", function()
 		return 0
-	end) == nil)
+	end, RARITIES) == nil)
 end
 
 function tests.bestSlotPicksRarestFirstOnTies()

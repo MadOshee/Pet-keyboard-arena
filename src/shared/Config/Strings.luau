@@ -37,10 +37,10 @@ return table.freeze({
 	}),
 	StatName = table.freeze({
 		Speed = "Speed",
-		PaintRadius = "Paint area",
+		PaintRadius = "Area",
 		Luck = "Luck",
 		Power = "Power",
-		Coins = "Coins",
+		Coins = "Money",
 	}),
 	Bonus = "+%d%% %s",
 	EggTheme = "%s Egg",

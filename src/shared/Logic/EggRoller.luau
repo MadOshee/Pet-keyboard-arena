@@ -127,15 +127,42 @@ function EggRoller.KindsFor(pets: { [string]: PetEntry }, theme: string, rarity:
 	return kinds
 end
 
--- A pet's rarity always equals its egg's rarity. Nil when the config has no
--- pet for that theme and rarity (the PetConfig test prevents that).
+-- The pets an egg of this theme and rarity can hatch. Small eggs have no
+-- pet of some rarities: then the nearest rarity in `rarities` order, the
+-- lower one on a tie. Empty when the theme has no pets at all.
+function EggRoller.HatchKinds(
+	pets: { [string]: PetEntry },
+	theme: string,
+	rarity: string,
+	rarities: { string }?
+): { string }
+	local kinds = EggRoller.KindsFor(pets, theme, rarity)
+	local order: { string } = rarities or {}
+	local rank = table.find(order, rarity)
+	if #kinds > 0 or rank == nil then
+		return kinds
+	end
+	local start = rank :: number
+	for step = 1, #order do
+		for _, near in { order[start - step], order[start + step] } :: { string } do
+			kinds = EggRoller.KindsFor(pets, theme, near)
+			if #kinds > 0 then
+				return kinds
+			end
+		end
+	end
+	return kinds
+end
+
+-- One of HatchKinds, all equally likely. Nil when the theme has no pets.
 function EggRoller.RollPet(
 	pets: { [string]: PetEntry },
 	theme: string,
 	rarity: string,
-	rng: Rng
+	rng: Rng,
+	rarities: { string }?
 ): string?
-	local kinds = EggRoller.KindsFor(pets, theme, rarity)
+	local kinds = EggRoller.HatchKinds(pets, theme, rarity, rarities)
 	if #kinds == 0 then
 		return nil
 	end

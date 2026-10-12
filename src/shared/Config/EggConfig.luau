@@ -4,13 +4,46 @@
 -- rolled rarity; the picked egg hatches on a platform of the player's plot.
 -- No requires or Roblox types: Lune tests load this file directly.
 
+local OFFER_THEMES = table.freeze({
+	"Basic",
+	"Forest",
+	"Slime",
+	"Surfing",
+	"Arctic",
+	"Ice",
+	"Volcanic",
+	"Infernal",
+	"Dragon",
+	"Holographic",
+	"Space",
+	"Cyborg",
+	"Nebula",
+	"Underworld",
+	"Dark",
+	"Glitched",
+	"Glitch",
+	"Patriotic",
+	"Season 1",
+	"SpinToWin",
+	"Royal",
+	"Sparkletime",
+})
+
+-- Each egg comes up THEME_STEP times as often as the one after it.
+local THEME_STEP = 0.75
+local THEME_WEIGHTS: { [string]: number } = {}
+for index, theme in OFFER_THEMES do
+	THEME_WEIGHTS[theme] = math.floor(100 * THEME_STEP ^ (index - 1) * 100 + 0.5) / 100
+end
+
 return table.freeze({
-	-- Egg themes from PetConfig.Themes, cheapest first; offers are sorted so.
-	OfferThemes = table.freeze({ "Basic", "Forest", "Arctic", "Volcanic" }),
+	-- Egg themes, cheapest first: PetConfig.ThemeOrder (a test checks they
+	-- match). Offers are sorted in this order.
+	OfferThemes = OFFER_THEMES,
 	EggsPerOffer = 4,
 	-- How often each theme comes up in an offer slot: rarer eggs hatch pets
 	-- that earn more (PetConfig.Themes IncomeMultiplier).
-	ThemeWeights = table.freeze({ Basic = 60, Forest = 30, Arctic = 9, Volcanic = 1 }),
+	ThemeWeights = table.freeze(THEME_WEIGHTS),
 
 	-- Base weights in PetConfig.Rarities order (Common .. Legendary).
 	BaseWeights = table.freeze({ 50, 28, 15, 6, 1 }),

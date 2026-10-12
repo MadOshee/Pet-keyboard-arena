@@ -22,11 +22,19 @@ local DataController = require(script.Parent.DataController)
 local PackUiController = require(script.Parent.PackUiController)
 
 local WINDOW_NAME = "Pets"
+-- One egg row, in fractions of the row's width: the egg card on the left,
+-- its pets in COLUMNS columns on the right, the progress bar under them.
 local COLUMNS = 3
--- Width / height of one egg row: the egg on the left, two rows of pets and
--- the progress bar.
-local SECTION_RATIO = 2.1
-local MAX_BUFFS = 5
+local EGG_WIDTH = 0.21
+local EGG_HEIGHT = 0.46
+local PETS_LEFT = 0.225
+local CARD_WIDTH = 0.245
+local CARD_HEIGHT = 0.19
+local CARD_STEP_X = 0.26
+local CARD_STEP_Y = 0.2
+local BAR_HEIGHT = 0.06
+-- A pet has at most three buffs (Ivan).
+local MAX_BUFFS = 3
 
 local WHITE = Color3.new(1, 1, 1)
 local BLACK = Color3.new(0, 0, 0)
@@ -77,7 +85,7 @@ local function rarityRank(rarity: string): number
 	return table.find(PetConfig.Rarities, rarity) or 0
 end
 
--- The theme's pets, commonest first.
+-- The theme's pets, weakest first.
 local function kindsOf(theme: string): { string }
 	local kinds = {}
 	for kind, entry in PetConfig.Pets do
@@ -86,12 +94,11 @@ local function kindsOf(theme: string): { string }
 		end
 	end
 	table.sort(kinds, function(a, b)
-		local rankA = rarityRank(PetConfig.Pets[a].Rarity)
-		local rankB = rarityRank(PetConfig.Pets[b].Rarity)
-		if rankA ~= rankB then
-			return rankA < rankB
+		local entryA, entryB = PetConfig.Pets[a], PetConfig.Pets[b]
+		if entryA.Order ~= entryB.Order then
+			return entryA.Order < entryB.Order
 		end
-		return a < b
+		return rarityRank(entryA.Rarity) < rarityRank(entryB.Rarity)
 	end)
 	return kinds
 end
@@ -106,7 +113,8 @@ local function chanceText(theme: string): string
 	local share = if total > 0 then (weights[theme] or 0) / total * 100 else 0
 	local text = if share >= 10
 		then string.format("%d%%", math.floor(share + 0.5))
-		else string.format("%.1f%%", share)
+		elseif share >= 1 then string.format("%.1f%%", share)
+		else string.format("%.2f%%", share)
 	return string.format(Strings.IndexChance, text)
 end
 
@@ -175,9 +183,11 @@ local function showDetail(profile: Types.Profile)
 	nameLabel.Text = if known then entry.Name else Strings.IndexUnknown
 	rarityLabel.Text = (Strings.Rarity :: any)[entry.Rarity] or entry.Rarity
 	incomeLabel.Text = string.format(Strings.IndexIncome, PetText.Number(entry.Income))
-	local lines = PetText.BuffLines(kind :: string)
+	local buffs = PetText.Buffs(kind :: string)
 	for index, label in buffLabels do
-		label.Text = lines[index] or ""
+		local buff = buffs[index]
+		label.Text = if buff then buff.Text else ""
+		label.TextColor3 = if buff then PetStyle.Stat[buff.Stat] or WHITE else WHITE
 	end
 
 	ownedLabel.Text = string.format(Strings.IndexOwned, owned.Count)
@@ -249,11 +259,11 @@ local function selectPet(kind: string)
 	end
 end
 
-local function buildCard(parent: Frame, kind: string, size: UDim2, position: UDim2)
+local function buildCard(parent: Frame, kind: string)
 	local entry = PetConfig.Pets[kind]
 	local color = PetStyle.Rarity[entry.Rarity] or WHITE
-	local frame, title = Widgets.Card(kind, parent, size, position, color)
-	local holder = holderIn(frame, UDim2.fromScale(0.9, 0.74), UDim2.fromScale(0.05, 0.24))
+	local frame, title = Widgets.Card(kind, parent, UDim2.new(), UDim2.new(), color)
+	local holder = holderIn(frame, UDim2.fromScale(0.9, 0.7), UDim2.fromScale(0.05, 0.25))
 	local preview = AssetModels.Viewport(holder, AssetModels.Pet(kind), color)
 	local hit = Instance.new("TextButton")
 	hit.Name = "Hit"
@@ -267,6 +277,7 @@ local function buildCard(parent: Frame, kind: string, size: UDim2, position: UDi
 		selectPet(kind)
 	end)
 	cards[kind] = { Frame = frame, Title = title, Preview = preview }
+	return frame
 end
 
 local function buildSection(list: ScrollingFrame, theme: string, order: number)
@@ -275,18 +286,9 @@ local function buildSection(list: ScrollingFrame, theme: string, order: number)
 	section.BackgroundTransparency = 1
 	section.LayoutOrder = order
 	section.Parent = list
-	-- An aspect constraint cannot size a row inside an auto-sized canvas, so
-	-- the height follows the list width.
-	local function resize()
-		local width = list.AbsoluteSize.X * 0.97
-		section.Size = UDim2.new(0.97, 0, 0, width / SECTION_RATIO)
-	end
-	list:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
-	resize()
 
 	local themeColor = PetStyle.Theme[theme] or WHITE
-	local egg, eggTitle =
-		Widgets.Card("Egg", section, UDim2.fromScale(0.21, 1), UDim2.fromScale(0, 0), themeColor)
+	local egg, eggTitle = Widgets.Card("Egg", section, UDim2.new(), UDim2.new(), themeColor)
 	eggTitle.Text = string.format(Strings.EggTheme, theme)
 	local holder = holderIn(egg, UDim2.fromScale(0.9, 0.58), UDim2.fromScale(0.05, 0.24))
 	AssetModels.Viewport(holder, AssetModels.Egg(theme), themeColor)
@@ -297,30 +299,43 @@ local function buildSection(list: ScrollingFrame, theme: string, order: number)
 
 	local kinds = kindsOf(theme)
 	totalKinds += #kinds
-	for index, kind in kinds do
-		local column = (index - 1) % COLUMNS
-		local row = (index - 1) // COLUMNS
-		buildCard(
-			section,
-			kind,
-			UDim2.fromScale(0.245, 0.4),
-			UDim2.fromScale(0.225 + column * 0.26, row * 0.42)
-		)
+	local petFrames = {}
+	for _, kind in kinds do
+		table.insert(petFrames, buildCard(section, kind))
 	end
 
-	local bar, fill, left, right = Widgets.ProgressBar(
-		"Progress",
-		section,
-		UDim2.fromScale(0.765, 0.13),
-		UDim2.fromScale(0.225, 0.86),
-		DARK,
-		GREEN
-	)
+	local bar, fill, left, right =
+		Widgets.ProgressBar("Progress", section, UDim2.new(), UDim2.new(), DARK, GREEN)
 	left.Text = ""
 	right.Text = ""
 	local count = Widgets.Label("Count", bar, UDim2.fromScale(1, 1), UDim2.fromScale(0, 0))
 	count.ZIndex = 30
 	table.insert(sections, { Kinds = kinds, Fill = fill, Count = count })
+
+	-- Eggs have 4 to 11 pets, so rows differ in height. An aspect constraint
+	-- cannot size a row inside an auto-sized canvas: everything is placed in
+	-- pixels from the list width.
+	local rows = math.max(math.ceil(#kinds / COLUMNS), 1)
+	local function resize()
+		local width = list.AbsoluteSize.X * 0.97
+		local petsHeight = (rows - 1) * CARD_STEP_Y + CARD_HEIGHT
+		local height = math.max(EGG_HEIGHT, petsHeight + 0.01 + BAR_HEIGHT)
+		local function px(x: number, y: number): UDim2
+			return UDim2.fromOffset(math.floor(x * width + 0.5), math.floor(y * width + 0.5))
+		end
+		section.Size = UDim2.new(0.97, 0, 0, math.floor(height * width + 0.5))
+		egg.Size = px(EGG_WIDTH, EGG_HEIGHT)
+		for index, frame in petFrames do
+			local column = (index - 1) % COLUMNS
+			local row = (index - 1) // COLUMNS
+			frame.Size = px(CARD_WIDTH, CARD_HEIGHT)
+			frame.Position = px(PETS_LEFT + column * CARD_STEP_X, row * CARD_STEP_Y)
+		end
+		bar.Size = px(COLUMNS * CARD_STEP_X - (CARD_STEP_X - CARD_WIDTH), BAR_HEIGHT)
+		bar.Position = px(PETS_LEFT, height - BAR_HEIGHT)
+	end
+	list:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+	resize()
 end
 
 local function darkPanel(name: string, parent: Instance, size: UDim2, position: UDim2): Frame
@@ -390,14 +405,13 @@ local function build(window: GuiObject)
 	incomeLabel =
 		Widgets.Label("Income", detail, UDim2.fromScale(0.9, 0.09), UDim2.fromScale(0.05, 0.595))
 	incomeLabel.TextColor3 = MONEY
+	-- Buffs in a column, each in its stat's color (Ivan's picture).
 	for index = 1, MAX_BUFFS do
-		local column = (index - 1) % 2
-		local row = (index - 1) // 2
 		local label = Widgets.Label(
 			`Buff{index}`,
 			detail,
-			UDim2.fromScale(0.45, 0.08),
-			UDim2.fromScale(0.04 + column * 0.47, 0.7 + row * 0.095)
+			UDim2.fromScale(0.9, 0.085),
+			UDim2.fromScale(0.05, 0.695 + (index - 1) * 0.095)
 		)
 		label.ZIndex = 30
 		table.insert(buffLabels, label)
