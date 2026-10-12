@@ -140,7 +140,13 @@ end
 local function build()
 	gui = Widgets.ScreenGui("EggOffer", 5)
 
-	window = Widgets.Panel("Window", gui, UDim2.fromScale(0.8, 0.62), UDim2.fromScale(0.5, 0.5))
+	window = Widgets.Panel(
+		"Window",
+		gui,
+		UDim2.fromScale(0.8, 0.62),
+		UDim2.fromScale(0.5, 0.5),
+		Color3.fromRGB(255, 140, 0)
+	)
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
 	window.Visible = false
 	Widgets.AspectRatio(window, 1.9)

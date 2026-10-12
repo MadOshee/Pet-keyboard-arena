@@ -2,7 +2,8 @@
 -- HUD built in code: phase + timer and team score bar (shown while queued or
 -- in a match), coins, the LEAVE QUEUE button and a banner for round results
 -- and refused requests. Joining the queue happens at the hub portal
--- (PortalController). Uses Scale sizes so it fits phones, tablets and PC.
+-- (PortalController). Uses Scale sizes so it fits phones, tablets and PC,
+-- and the UI pack look through Widgets.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,6 +15,7 @@ local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local Types = require(ReplicatedStorage.Shared.Types)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
+local Widgets = require(script.Parent.Parent.UI.Widgets)
 
 local player = Players.LocalPlayer
 
@@ -37,32 +39,8 @@ local bannerToken = 0
 
 local ERROR_SECONDS = 2.5
 
-local function corner(parent: GuiObject, radius: number)
-	local uiCorner = Instance.new("UICorner")
-	uiCorner.CornerRadius = UDim.new(radius, 0)
-	uiCorner.Parent = parent
-end
-
-local function label(name: string, parent: Instance, size: UDim2, position: UDim2): TextLabel
-	local text = Instance.new("TextLabel")
-	text.Name = name
-	text.Size = size
-	text.Position = position
-	text.BackgroundTransparency = 1
-	text.TextScaled = true
-	text.Font = Enum.Font.FredokaOne
-	text.TextColor3 = Color3.new(1, 1, 1)
-	text.TextStrokeTransparency = 0.4
-	text.Text = ""
-	text.Parent = parent
-	return text
-end
-
 local function build(): Refs
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Hud"
-	gui.ResetOnSpawn = false
-	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	local gui = Widgets.ScreenGui("Hud", 1)
 
 	local top = Instance.new("Frame")
 	top.Name = "Top"
@@ -71,57 +49,39 @@ local function build(): Refs
 	top.Size = UDim2.fromScale(0.42, 0.14)
 	top.BackgroundTransparency = 1
 	top.Parent = gui
-	local topRatio = Instance.new("UIAspectRatioConstraint")
-	topRatio.AspectRatio = 5
-	topRatio.Parent = top
+	Widgets.AspectRatio(top, 5)
 
-	local phaseLabel = label("Phase", top, UDim2.fromScale(1, 0.45), UDim2.fromScale(0, 0))
+	local phaseLabel = Widgets.Label("Phase", top, UDim2.fromScale(1, 0.45), UDim2.fromScale(0, 0))
 
-	local bar = Instance.new("Frame")
-	bar.Name = "ScoreBar"
-	bar.Position = UDim2.fromScale(0.1, 0.5)
-	bar.Size = UDim2.fromScale(0.8, 0.3)
-	bar.BackgroundColor3 = TeamColors.Blue
-	bar.Parent = top
-	corner(bar, 0.5)
+	local bar, redFill, redScore, blueScore = Widgets.ProgressBar(
+		"ScoreBar",
+		top,
+		UDim2.fromScale(0.8, 0.3),
+		UDim2.fromScale(0.1, 0.5),
+		TeamColors.Blue,
+		TeamColors.Red
+	)
 
-	local redFill = Instance.new("Frame")
-	redFill.Name = "RedFill"
-	redFill.Size = UDim2.fromScale(0.5, 1)
-	redFill.BackgroundColor3 = TeamColors.Red
-	redFill.Parent = bar
-	corner(redFill, 0.5)
+	local teamLabel = Widgets.Label("Team", top, UDim2.fromScale(1, 0.2), UDim2.fromScale(0, 0.82))
 
-	local redScore = label("RedScore", bar, UDim2.fromScale(0.3, 1), UDim2.fromScale(0.02, 0))
-	redScore.TextXAlignment = Enum.TextXAlignment.Left
-	local blueScore = label("BlueScore", bar, UDim2.fromScale(0.3, 1), UDim2.fromScale(0.68, 0))
-	blueScore.TextXAlignment = Enum.TextXAlignment.Right
-
-	local teamLabel = label("Team", top, UDim2.fromScale(1, 0.2), UDim2.fromScale(0, 0.82))
-
-	local coinsLabel = label("Coins", gui, UDim2.fromScale(0.2, 0.06), UDim2.fromScale(0.78, 0.03))
+	local coinsLabel =
+		Widgets.MoneyLabel("Coins", gui, UDim2.fromScale(0.2, 0.06), UDim2.fromScale(0.78, 0.03))
 	coinsLabel.TextXAlignment = Enum.TextXAlignment.Right
-	coinsLabel.TextColor3 = Color3.fromRGB(255, 214, 64)
 
-	local readyButton = Instance.new("TextButton")
-	readyButton.Name = "Ready"
+	local readyButton = Widgets.Button(
+		"Ready",
+		gui,
+		UDim2.fromScale(0.22, 0.1),
+		UDim2.fromScale(0.5, 0.95),
+		Color3.fromRGB(230, 50, 50)
+	)
 	readyButton.AnchorPoint = Vector2.new(0.5, 1)
-	readyButton.Position = UDim2.fromScale(0.5, 0.95)
-	readyButton.Size = UDim2.fromScale(0.22, 0.1)
-	readyButton.TextScaled = true
-	readyButton.Font = Enum.Font.FredokaOne
-	readyButton.TextColor3 = Color3.new(1, 1, 1)
-	readyButton.BackgroundColor3 = Color3.fromRGB(200, 70, 70)
 	readyButton.Text = Strings.LeaveQueue
 	readyButton.Visible = false
-	readyButton.AutoButtonColor = true
-	readyButton.Parent = gui
-	corner(readyButton, 0.25)
-	local readyRatio = Instance.new("UIAspectRatioConstraint")
-	readyRatio.AspectRatio = 3
-	readyRatio.Parent = readyButton
+	Widgets.AspectRatio(readyButton, 3)
 
-	local banner = label("Banner", gui, UDim2.fromScale(0.6, 0.1), UDim2.fromScale(0.2, 0.32))
+	local banner =
+		Widgets.Label("Banner", gui, UDim2.fromScale(0.6, 0.1), UDim2.fromScale(0.2, 0.32))
 	banner.Visible = false
 
 	gui.Parent = player:WaitForChild("PlayerGui")

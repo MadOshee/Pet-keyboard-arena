@@ -169,17 +169,9 @@ local function watchPlot(plot: Instance)
 end
 
 function PlotController:Init()
-	local gui = Widgets.ScreenGui("PlotButton", 2)
-	local button = Widgets.Button(
-		"MyPlot",
-		gui,
-		UDim2.fromScale(0.1, 0.08),
-		UDim2.fromScale(0.015, 0.55),
-		Color3.fromRGB(90, 170, 90)
-	)
-	button.Text = Strings.PlotButton
+	local button =
+		Widgets.MenuButton("MyPlot", Strings.PlotButton, "Pass", Color3.fromRGB(255, 170, 0), 4)
 	plotButton = button
-	Widgets.AspectRatio(button, 2.2)
 	button.Activated:Connect(function()
 		ClientNet.Fire("GoToPlot")
 	end)
@@ -188,7 +180,6 @@ function PlotController:Init()
 	end
 	player:GetAttributeChangedSignal("Team"):Connect(updateVisible)
 	updateVisible()
-	gui.Parent = player:WaitForChild("PlayerGui")
 end
 
 function PlotController:Start()

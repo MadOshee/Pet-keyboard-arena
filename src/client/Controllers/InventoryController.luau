@@ -208,17 +208,21 @@ end
 local function build()
 	gui = Widgets.ScreenGui("Inventory", 3)
 
-	local toggle = Widgets.Button(
+	local toggle = Widgets.MenuButton(
 		"PetsButton",
-		gui,
-		UDim2.fromScale(0.1, 0.08),
-		UDim2.fromScale(0.015, 0.45),
-		Color3.fromRGB(120, 90, 220)
+		Strings.PetsButton,
+		"Index",
+		Color3.fromRGB(40, 150, 255),
+		2
 	)
-	toggle.Text = Strings.PetsButton
-	Widgets.AspectRatio(toggle, 2.2)
 
-	window = Widgets.Panel("Window", gui, UDim2.fromScale(0.72, 0.72), UDim2.fromScale(0.5, 0.5))
+	window = Widgets.Panel(
+		"Window",
+		gui,
+		UDim2.fromScale(0.72, 0.72),
+		UDim2.fromScale(0.5, 0.5),
+		Color3.fromRGB(30, 120, 230)
+	)
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
 	window.Visible = false
 	Widgets.AspectRatio(window, 1.6)
