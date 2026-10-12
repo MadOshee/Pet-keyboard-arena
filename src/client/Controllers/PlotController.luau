@@ -1,40 +1,34 @@
 --!strict
--- Client side of plots (docs/design.md 4.3 "Участок"): timers above
--- incubators, prompts shown only on your own plot, the speed-up price kept
--- current, and the MY PLOT button. Everything here is display; the server
--- re-checks every prompt.
+-- Client side of plots (docs/design.md 4.3 "Участок"): labels above the
+-- platforms of your own plot (price, timer, income) and the MY PLOT button.
+-- Everything here is display; the platform window is PlatformController.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
 local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
-local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
-local Types = require(ReplicatedStorage.Shared.Types)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
-local DataController = require(script.Parent.DataController)
 
 local player = Players.LocalPlayer
 
 local UPDATE_SECONDS = 0.5
--- Phones and tablets: showcase pets on 12 plots without their particles.
+-- Phones and tablets: plot pets on every base without their particles.
 local LOW_END = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 local PlotController = {}
 
 type Watched = {
-	Incubator: BasePart,
+	Platform: BasePart,
 	Billboard: BillboardGui,
 	Label: TextLabel,
 	Plot: Model,
 }
 
 local watched: { [BasePart]: Watched } = {}
-local plotButton: TextButton
 
 local function isMine(plot: Model): boolean
 	return plot:GetAttribute("OwnerUserId") == player.UserId
@@ -48,94 +42,65 @@ local function formatDuration(seconds: number): string
 	return string.format("%d:%02d", seconds // 60, seconds % 60)
 end
 
--- A prompt is usable only on your own plot and when the server marks it active.
-local function updatePrompts(entry: Watched)
-	local mine = isMine(entry.Plot)
-	for _, child in entry.Incubator:GetChildren() do
-		if child:IsA("ProximityPrompt") then
-			child.Enabled = mine and child:GetAttribute("Active") == true
-		end
-	end
+-- 1500000 -> "1,500,000"
+local function formatNumber(value: number): string
+	local text = tostring(math.floor(value))
+	local result = string.reverse(text):gsub("(%d%d%d)", "%1,")
+	return (string.reverse(result):gsub("^,", ""))
 end
 
 local function updateLabel(entry: Watched, now: number)
-	local incubator = entry.Incubator
-	local state = incubator:GetAttribute("State")
+	local platform = entry.Platform
+	local state = platform:GetAttribute("State")
 	local label = entry.Label
-	-- Timers show on your own plot only.
+	-- Labels show on your own plot only.
 	entry.Billboard.Enabled = isMine(entry.Plot)
-	local rarity = incubator:GetAttribute("Rarity")
+	local rarity = platform:GetAttribute("Rarity")
 	label.TextColor3 = if type(rarity) == "string" and PetStyle.Rarity[rarity]
 		then PetStyle.Rarity[rarity]
 		else Color3.new(1, 1, 1)
 
 	if state == "Incubating" then
-		local hatchAt = incubator:GetAttribute("HatchAt")
+		local hatchAt = platform:GetAttribute("HatchAt")
 		local left = if type(hatchAt) == "number" then hatchAt - now else 0
 		label.Text = formatDuration(left)
-		local speedUp = incubator:FindFirstChild("SpeedUp")
-		if speedUp and speedUp:IsA("ProximityPrompt") and type(hatchAt) == "number" then
-			local profile = DataController:Get()
-			speedUp.ActionText = if profile and (profile :: Types.Profile).FreeSpeedUps > 0
-				then Strings.PromptSpeedUpFree
-				else string.format(
-					Strings.PromptSpeedUp,
-					Incubation.SpeedUpCost(hatchAt, now, EggConfig)
-				)
-		end
-	elseif state == "Ready" then
-		label.Text = Strings.IncubatorReady
+	elseif state == "Pet" then
+		local income = platform:GetAttribute("Income")
+		label.Text = string.format(
+			Strings.PlatformIncome,
+			formatNumber(if type(income) == "number" then income else 0)
+		)
 	elseif state == "Empty" then
-		label.Text = Strings.IncubatorEmpty
+		label.Text = Strings.PlatformEmpty
 		label.TextColor3 = Color3.fromRGB(200, 200, 210)
 	else
-		label.Text = Strings.IncubatorLocked
-		label.TextColor3 = Color3.fromRGB(160, 160, 170)
-	end
-end
-
--- The MY PLOT button shows "!" while any of your eggs is ready to collect.
-local function updateReadyBadge(now: number)
-	local profile = DataController:Get()
-	local ready = false
-	if profile then
-		for _, slot: Types.Incubator in (profile :: Types.Profile).Incubators do
-			if slot.Egg ~= nil and slot.HatchAt ~= nil and (slot.HatchAt :: number) <= now then
-				ready = true
-				break
-			end
+		local price = platform:GetAttribute("Price")
+		if type(price) == "number" and price > 0 then
+			label.Text = string.format(Strings.PlatformPrice, formatNumber(price))
+			label.TextColor3 = Color3.fromRGB(255, 214, 64)
+		else
+			label.Text = Strings.PlatformLocked
+			label.TextColor3 = Color3.fromRGB(160, 160, 170)
 		end
 	end
-	plotButton.Text = if ready then Strings.PlotReady else Strings.PlotButton
 end
 
-local function watchIncubator(incubator: BasePart, plot: Model)
-	if watched[incubator] then
+local function watchPlatform(platform: BasePart, plot: Model)
+	if watched[platform] then
 		return
 	end
 	local billboard = Instance.new("BillboardGui")
-	billboard.Name = "Timer"
+	billboard.Name = "PlatformLabel"
 	billboard.Size = UDim2.fromScale(5, 1.2)
-	billboard.StudsOffset = Vector3.new(0, 5.5, 0)
+	billboard.StudsOffset = Vector3.new(0, 4.5, 0)
 	billboard.MaxDistance = 60
-	billboard.Adornee = incubator
+	billboard.Adornee = platform
 	local label = Widgets.Label("Text", billboard, UDim2.fromScale(1, 1), UDim2.new())
 	billboard.Parent = player:WaitForChild("PlayerGui")
 
 	local entry: Watched =
-		{ Incubator = incubator, Billboard = billboard, Label = label, Plot = plot }
-	watched[incubator] = entry
-	for _, child in incubator:GetChildren() do
-		if child:IsA("ProximityPrompt") then
-			child:GetAttributeChangedSignal("Active"):Connect(function()
-				updatePrompts(entry)
-			end)
-		end
-	end
-	plot:GetAttributeChangedSignal("OwnerUserId"):Connect(function()
-		updatePrompts(entry)
-	end)
-	updatePrompts(entry)
+		{ Platform = platform, Billboard = billboard, Label = label, Plot = plot }
+	watched[platform] = entry
 	updateLabel(entry, workspace:GetServerTimeNow())
 end
 
@@ -156,10 +121,7 @@ local function watchPlot(plot: Instance)
 	end
 	local function scan(child: Instance)
 		if child:IsA("BasePart") and child:GetAttribute("Index") ~= nil then
-			-- Prompts are created before the incubator replicates, but wait briefly to be safe.
-			child:WaitForChild("Main", 5)
-			child:WaitForChild("SpeedUp", 5)
-			watchIncubator(child, plot :: Model)
+			watchPlatform(child, plot :: Model)
 		end
 	end
 	plot.ChildAdded:Connect(scan)
@@ -171,7 +133,6 @@ end
 function PlotController:Init()
 	local button =
 		Widgets.MenuButton("MyPlot", Strings.PlotButton, "Pass", Color3.fromRGB(255, 170, 0), 4)
-	plotButton = button
 	button.Activated:Connect(function()
 		ClientNet.Fire("GoToPlot")
 	end)
@@ -202,7 +163,6 @@ function PlotController:Start()
 		for _, entry in watched do
 			updateLabel(entry, now)
 		end
-		updateReadyBadge(now)
 	end)
 end
 

@@ -79,14 +79,8 @@ local function bonusText(stat: string, rarity: string): string
 	return string.format(Strings.Bonus, percent(value), (Strings.StatName :: any)[stat] or stat)
 end
 
--- True when a picked egg would turn into coins: no empty incubator and
--- egg storage full.
+-- True when a picked egg would turn into coins: egg storage is full.
 local function eggWouldBeLost(profile: Types.Profile): boolean
-	for _, incubator in profile.Incubators do
-		if incubator.Egg == nil then
-			return false
-		end
-	end
 	local count = 0
 	for _ in profile.Eggs do
 		count += 1
@@ -335,20 +329,12 @@ local function showReveal(model: Model?, color: Color3, title: string, info: str
 	end)
 end
 
-local function formatDuration(seconds: number): string
-	seconds = math.max(0, math.ceil(seconds))
-	return string.format("%d:%02d", seconds // 60, seconds % 60)
-end
-
 local function onEggPicked(result: Types.EggPickedPayload)
 	local color = PetStyle.Rarity[result.Rarity] or Color3.new(1, 1, 1)
 	local rarityName = (Strings.Rarity :: any)[result.Rarity] or result.Rarity
 	local title = string.format(Strings.EggTheme, result.Theme) .. " · " .. rarityName
 	local info: string
-	if result.Where == "Incubator" then
-		local left = (result.HatchAt or 0) - workspace:GetServerTimeNow()
-		info = string.format(Strings.EggInIncubator, formatDuration(left))
-	elseif result.Where == "Storage" then
+	if result.Where ~= "Coins" then
 		info = Strings.EggStored
 	else
 		info = string.format(Strings.ConvertedToCoins, result.Coins)
@@ -365,13 +351,15 @@ end
 local function onHatched(result: Types.PetHatchedPayload)
 	local entry = PetConfig.Pets[result.Kind]
 	local color = PetStyle.Rarity[result.Rarity] or Color3.new(1, 1, 1)
-	local theme = entry and PetConfig.Themes[entry.Theme]
 	local rarityName = (Strings.Rarity :: any)[result.Rarity] or result.Rarity
 	showReveal(
 		AssetModels.Pet(result.Kind),
 		color,
 		string.format(Strings.Hatched, if entry then entry.Name else result.Kind),
-		if theme then `{rarityName} · {bonusText(theme.Stat, result.Rarity)}` else rarityName,
+		`{rarityName} · {string.format(
+			Strings.PlatformIncome,
+			tostring(PetConfig.IncomePerSecond[result.Rarity] or 0)
+		)}`,
 		""
 	)
 end

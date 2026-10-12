@@ -1,7 +1,8 @@
 --!strict
 -- First-time tips (docs/design.md 12, stage 7). Five steps, each advanced by
 -- something the player actually did: got ready, played a round, picked an
--- egg, hatched a pet, equipped it. Steps only move forward. SKIP or the last
+-- egg, put it on a platform and it hatched; the last tip about pet income
+-- closes by itself. Steps only move forward. SKIP or the last
 -- step tells the server, which stores Tutorial.Done so the tips never return.
 
 local Players = game:GetService("Players")
@@ -14,6 +15,8 @@ local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
 
 local player = Players.LocalPlayer
+
+local LAST_TIP_SECONDS = 10
 
 local TutorialController = {}
 
@@ -74,9 +77,6 @@ local function onProfile(profile: Types.Profile)
 	if profile.PendingOffer ~= nil then
 		advanceTo(3)
 	end
-	if #profile.Equipped > 0 and step >= 5 then
-		advanceTo(6)
-	end
 end
 
 function TutorialController:Init()
@@ -120,6 +120,9 @@ function TutorialController:Start()
 	end)
 	ClientNet.On("PetHatched", function()
 		advanceTo(5)
+		task.delay(LAST_TIP_SECONDS, function()
+			advanceTo(6)
+		end)
 	end)
 	DataController.Changed:Connect(onProfile)
 	local profile = DataController:Get()
