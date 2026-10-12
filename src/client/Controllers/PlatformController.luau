@@ -453,11 +453,13 @@ local function onOfflineIncome(result: Types.OfflineIncomePayload)
 end
 
 local function build()
-	gui = Widgets.ScreenGui("Platform", 3)
+	-- Above the HUD windows, so a pack window left open never covers it.
+	gui = Widgets.ScreenGui("Platform", 6)
 
 	window = Widgets.Panel("Window", gui, UDim2.fromScale(0.5, 0.42), UDim2.fromScale(0.5, 0.97))
 	window.AnchorPoint = Vector2.new(0.5, 1)
 	window.Visible = false
+	window.BackgroundTransparency = math.min(window.BackgroundTransparency, 0.15)
 	Widgets.AspectRatio(window, 2.1)
 
 	titleLabel =
@@ -480,17 +482,26 @@ local function build()
 	list.Parent = window
 	local row = Instance.new("UIListLayout")
 	row.FillDirection = Enum.FillDirection.Horizontal
-	row.Padding = UDim.new(0.015, 0)
+	row.Padding = UDim.new(0, 8)
 	row.SortOrder = Enum.SortOrder.LayoutOrder
 	row.Parent = list
-	-- Cards are as tall as the list and a bit narrower than tall.
+	-- Cards are as tall as the list and a bit narrower than tall. Sized in
+	-- pixels: scale sizes inside a scrolling list follow its canvas, not the
+	-- visible frame, and collapsed to nothing in Play.
+	local function sizeCard(card: GuiObject)
+		local height = list.AbsoluteSize.Y * 0.9
+		card.Size = UDim2.fromOffset(height * 0.8, height)
+	end
 	list.ChildAdded:Connect(function(child)
 		if child:IsA("GuiObject") then
-			child.Size = UDim2.fromScale(0, 0.95)
-			local ratio = Instance.new("UIAspectRatioConstraint")
-			ratio.AspectRatio = 0.8
-			ratio.DominantAxis = Enum.DominantAxis.Height
-			ratio.Parent = child
+			sizeCard(child)
+		end
+	end)
+	list:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		for _, child in list:GetChildren() do
+			if child:IsA("GuiObject") then
+				sizeCard(child)
+			end
 		end
 	end)
 
