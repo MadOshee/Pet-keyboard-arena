@@ -8,8 +8,8 @@
 --
 -- What it changes in the pack:
 --   * scripts are removed (the map is decoration only);
---   * the red market buildings and the pet spots on the ground floors are
---     removed: our plot (incubators and showcase) stands there instead;
+--   * the red market buildings are removed; our plot (incubators and
+--     showcase) stands in the aisle between the ground-floor pet spots;
 --   * the plaza center is moved to the origin, the sea tiles that would cover
 --     the arena (ArenaConfig.CenterZ) are removed;
 --   * the "UPGRADES" NPC of every base becomes the shop keeper;
@@ -34,7 +34,7 @@ local Instance = roblox.Instance
 local Vector3 = roblox.Vector3
 local CFrame = roblox.CFrame
 
-local PLOT_FORWARD = 15 -- studs from the building center towards its entrance
+local PLOT_FORWARD = 16 -- studs from the building center towards its entrance
 local SIGN_HEIGHT = 40 -- plot sign above the floor, over the roof
 
 local source = process.args[1]
@@ -93,8 +93,8 @@ for _, instance in doomed do
 	instance:Destroy()
 end
 
--- 2. Bases: drop the market and the ground-floor spots, find where the plot
--- goes, turn the upgrades NPC into the shop keeper.
+-- 2. Bases: drop the market, find where the plot goes, turn the upgrades NPC
+-- into the shop keeper.
 type Base = { Folder: any, Anchor: any, Angle: number }
 local bases: { Base } = {}
 for _, base in layout:GetChildren() do
@@ -103,7 +103,6 @@ for _, base in layout:GetChildren() do
 	end
 	base:FindFirstChild("Market"):Destroy()
 	local floor1 = base:FindFirstChild("Floor1")
-	floor1:FindFirstChild("Spots"):Destroy()
 
 	-- The stairs start in the middle of the building and go to the back;
 	-- the entrance is on the other side.
