@@ -74,7 +74,7 @@
 | Bootstrap | 0 | точка входа, `CONTROLLER_ORDER` | Loader |
 | Util/ClientNet | 1 | `Fire(name, ...)`, `On(name, handler)` | — |
 | Controllers/DataController | 1 | `Get() -> Profile?`; сигнал `Changed(profile)` | ClientNet |
-| UI/Widgets | 2, 7 | `PlaySound(name)` (звук из Assets.Sounds, каждая кнопка играет Click), `Corner`, `Stroke`, `AspectRatio`, `Label`, `Button`, `Panel`, `ScreenGui` | — |
+| UI/Widgets | 2, 7, UI-пак | всё в стиле Studs UI Pack из `Assets.UI` (без шаблонов простые кнопки): `PlaySound(name)` (сначала звуки UI-пака, потом Assets.Sounds; кнопки играют Click, при наведении мышью Hover), `Corner`, `Stroke`, `AspectRatio`, `Label` (шрифт пака с обводкой), `Button` (кнопка пака; Text, TextColor3 и BackgroundColor3 переносятся на рисунок), `Panel(..., barColor?)` (полупрозрачное окно, с barColor полоса заголовка), `MoneyLabel` (жёлто-зелёный текст монет), `ProgressBar(...)` → полоса, заливка, текст слева и справа, `MenuButton(name, text, icon, color, order)` (квадратная кнопка с иконкой в общей колонке слева), `ScreenGui` | — |
 | UI/AssetModels | 2 | `Pet(kind)`, `Egg(theme)` (копии из ReplicatedStorage.Assets или nil), `LocalFront(model)`, `FrontCorrection(model)`, `FitHeight(model, h)`, `Viewport(parent, model?, color)` | PetConfig, EggConfig |
 | Controllers/HudController | 1–2, карта | интерфейс: фаза и таймер (только в очереди и в матче), счёт (только в матче), команда, монеты, кнопка LEAVE QUEUE, баннер итогов и отказов (`ActionResult`) | DataController, ClientNet |
 | Controllers/KeyPressController | 1, 10 | только визуал: клавиши проседают под любым персонажем (игроки и боты) и играют `KeySound`; пол целиком из клавиш: `arena/Arena.rbxm` (Keys с тегом ArenaKey, Decor, Floor), генерирует `lune run tools/build-arena` | — |
