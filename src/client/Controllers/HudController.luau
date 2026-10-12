@@ -13,6 +13,7 @@ local RoundConfig = require(ReplicatedStorage.Shared.Config.RoundConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
@@ -165,7 +166,9 @@ local function updateReady()
 end
 
 local function updateCoins(profile: Types.Profile?)
-	refs.CoinsLabel.Text = if profile then string.format(Strings.Coins, profile.Coins) else ""
+	refs.CoinsLabel.Text = if profile
+		then string.format(Strings.Coins, Money.Format(profile.Coins))
+		else ""
 end
 
 local function onWinner()
@@ -178,7 +181,7 @@ end
 local function onRoundResult(result: Types.RoundResultPayload)
 	local text = Strings.Outcome[result.Outcome]
 	if result.Rewarded then
-		text ..= "  " .. string.format(Strings.CoinsGained, result.Coins)
+		text ..= "  " .. string.format(Strings.CoinsGained, Money.Format(result.Coins))
 	else
 		text ..= "\n" .. string.format(Strings.NoReward, RoundConfig.MinKeysForReward)
 	end

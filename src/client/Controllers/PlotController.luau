@@ -10,6 +10,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 
@@ -42,13 +43,6 @@ local function formatDuration(seconds: number): string
 	return string.format("%d:%02d", seconds // 60, seconds % 60)
 end
 
--- 1500000 -> "1,500,000"
-local function formatNumber(value: number): string
-	local text = tostring(math.floor(value))
-	local result = string.reverse(text):gsub("(%d%d%d)", "%1,")
-	return (string.reverse(result):gsub("^,", ""))
-end
-
 local function updateLabel(entry: Watched, now: number)
 	local platform = entry.Platform
 	local state = platform:GetAttribute("State")
@@ -68,7 +62,7 @@ local function updateLabel(entry: Watched, now: number)
 		local income = platform:GetAttribute("Income")
 		label.Text = string.format(
 			Strings.PlatformIncome,
-			formatNumber(if type(income) == "number" then income else 0)
+			Money.Format(if type(income) == "number" then income else 0)
 		)
 	elseif state == "Empty" then
 		label.Text = Strings.PlatformEmpty
@@ -76,7 +70,7 @@ local function updateLabel(entry: Watched, now: number)
 	else
 		local price = platform:GetAttribute("Price")
 		if type(price) == "number" and price > 0 then
-			label.Text = string.format(Strings.PlatformPrice, formatNumber(price))
+			label.Text = string.format(Strings.PlatformPrice, Money.Format(price))
 			label.TextColor3 = Color3.fromRGB(255, 214, 64)
 		else
 			label.Text = Strings.PlatformLocked

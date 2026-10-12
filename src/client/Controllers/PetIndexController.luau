@@ -14,6 +14,7 @@ local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
 local PetText = require(script.Parent.Parent.UI.PetText)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
@@ -182,7 +183,7 @@ local function showDetail(profile: Types.Profile)
 	end
 	nameLabel.Text = if known then entry.Name else Strings.IndexUnknown
 	rarityLabel.Text = (Strings.Rarity :: any)[entry.Rarity] or entry.Rarity
-	incomeLabel.Text = string.format(Strings.IndexIncome, PetText.Number(entry.Income))
+	incomeLabel.Text = string.format(Strings.IndexIncome, Money.Format(entry.Income))
 	local buffs = PetText.Buffs(kind :: string)
 	for index, label in buffLabels do
 		local buff = buffs[index]

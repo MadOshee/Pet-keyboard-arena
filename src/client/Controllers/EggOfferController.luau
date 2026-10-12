@@ -17,6 +17,7 @@ local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local EggRoller = require(ReplicatedStorage.Shared.Logic.EggRoller)
 local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
@@ -290,7 +291,7 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 		rerollButton.Text = string.format(Strings.RerollFree, profile.FreeRerolls)
 		rerollButton.BackgroundColor3 = Color3.fromRGB(60, 180, 90)
 	elseif cost then
-		rerollButton.Text = string.format(Strings.Reroll, cost)
+		rerollButton.Text = string.format(Strings.Reroll, Money.Format(cost))
 		rerollButton.BackgroundColor3 = if profile.Coins >= cost
 			then Color3.fromRGB(230, 160, 40)
 			else Color3.fromRGB(110, 100, 90)
@@ -338,7 +339,7 @@ local function onEggPicked(result: Types.EggPickedPayload)
 	if result.Where ~= "Coins" then
 		info = Strings.EggStored
 	else
-		info = string.format(Strings.ConvertedToCoins, result.Coins)
+		info = string.format(Strings.ConvertedToCoins, Money.Format(result.Coins))
 	end
 	showReveal(
 		AssetModels.Egg(result.Theme),
@@ -359,7 +360,7 @@ local function onHatched(result: Types.PetHatchedPayload)
 		string.format(Strings.Hatched, if entry then entry.Name else result.Kind),
 		`{rarityName} · {string.format(
 			Strings.PlatformIncome,
-			tostring(PetIncome.Rate(result.Kind, PetConfig :: any))
+			Money.Format(PetIncome.Rate(result.Kind, PetConfig :: any))
 		)}`,
 		""
 	)

@@ -7,7 +7,6 @@
 local OFFER_THEMES = table.freeze({
 	"Basic",
 	"Forest",
-	"Slime",
 	"Surfing",
 	"Arctic",
 	"Ice",

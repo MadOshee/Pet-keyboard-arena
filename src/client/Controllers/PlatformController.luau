@@ -20,6 +20,7 @@ local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
 local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
@@ -59,13 +60,6 @@ local actionButton: TextButton
 local takeButton: TextButton
 local noticeLabel: TextLabel
 local noticeToken = 0
-
--- 1500000 -> "1,500,000"
-local function formatNumber(value: number): string
-	local text = tostring(math.floor(value))
-	local result = string.reverse(text):gsub("(%d%d%d)", "%1,")
-	return (string.reverse(result):gsub("^,", ""))
-end
 
 local function formatDuration(seconds: number): string
 	seconds = math.max(0, math.ceil(seconds))
@@ -199,7 +193,7 @@ local function buildPicker(data: Types.Profile)
 		local entry = PetConfig.Pets[pet.Kind]
 		local income = string.format(
 			Strings.PlatformIncome,
-			formatNumber(PetIncome.Rate(pet.Kind, PetConfig :: any))
+			Money.Format(PetIncome.Rate(pet.Kind, PetConfig :: any))
 		)
 		addCard(
 			order,
@@ -301,7 +295,7 @@ local function render()
 			)
 			infoLabel.Text = string.format(
 				Strings.PlatformEarns,
-				formatNumber(PetIncome.Rate(pet.Kind, PetConfig :: any))
+				Money.Format(PetIncome.Rate(pet.Kind, PetConfig :: any))
 			)
 		end
 		takeButton.Visible = true
@@ -321,7 +315,7 @@ local function updateLive()
 	if slot == nil then
 		local price = platform:GetAttribute("Price")
 		if type(price) == "number" and price > 0 then
-			actionButton.Text = string.format(Strings.PlatformBuy, formatNumber(price))
+			actionButton.Text = string.format(Strings.PlatformBuy, Money.Format(price))
 		end
 		return
 	end
@@ -333,7 +327,7 @@ local function updateLive()
 			then Strings.PlatformSpeedUpFree
 			else string.format(
 				Strings.PlatformSpeedUp,
-				formatNumber(Incubation.SpeedUpCost(hatchAt, now, EggConfig))
+				Money.Format(Incubation.SpeedUpCost(hatchAt, now, EggConfig))
 			)
 	end
 end
@@ -440,7 +434,7 @@ local function update()
 end
 
 local function onOfflineIncome(result: Types.OfflineIncomePayload)
-	noticeLabel.Text = string.format(Strings.OfflineIncome, formatNumber(result.Coins))
+	noticeLabel.Text = string.format(Strings.OfflineIncome, Money.Format(result.Coins))
 	noticeLabel.Visible = true
 	Widgets.PlaySound("Success")
 	noticeToken += 1

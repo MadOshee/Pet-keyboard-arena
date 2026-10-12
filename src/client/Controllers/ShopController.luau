@@ -17,6 +17,7 @@ local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
 local Purchases = require(ReplicatedStorage.Shared.Logic.Purchases)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
@@ -78,7 +79,7 @@ end
 
 local function setCoinPrice(row: Row, price: number?, coins: number)
 	if price then
-		row.Button.Text = string.format(Strings.ShopBuy, price)
+		row.Button.Text = string.format(Strings.ShopBuy, Money.Format(price))
 		setEnabled(row, true, if coins >= price then GREEN else GREY)
 	else
 		row.Button.Text = Strings.ShopMaxed

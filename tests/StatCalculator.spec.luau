@@ -26,7 +26,7 @@ function tests.eachThemeBoostsItsStat()
 	}, PetConfig)
 	assert(near(stats.Coins, 0.05))
 	assert(near(stats.Speed, 0.02))
-	assert(near(stats.PaintRadius, 0.04)) -- 3% times 1.2 for the fifth egg
+	assert(near(stats.PaintRadius, 0.03)) -- 3% times 1.15 for the fourth egg
 	assert(stats.Luck == 0 and stats.Power == 0)
 end
 
@@ -50,10 +50,10 @@ end
 function tests.bonusesStack()
 	local stats = StatCalculator.Totals({
 		pet("Tiger", "Epic"),
-		pet("Lynx", "Uncommon"),
+		pet("Lynx", "Rare"),
 		pet("Deer", "Common"),
 	}, PetConfig)
-	assert(near(stats.Speed, 0.08 + 0.03 + 0.02))
+	assert(near(stats.Speed, 0.08 + 0.05 + 0.02))
 	assert(near(stats.PaintRadius, 0.07))
 end
 

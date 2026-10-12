@@ -5,6 +5,7 @@
 local EggConfig = require("../src/shared/Config/EggConfig")
 local PetConfig = require("../src/shared/Config/PetConfig")
 local EggRoller = require("../src/shared/Logic/EggRoller")
+local Money = require("../src/shared/Util/Money")
 
 local STAT_NAMES = {
 	Speed = "Speed",
@@ -23,12 +24,6 @@ local function percent(value: number): string
 	end
 	local text = string.format(`%.{decimals}f`, scaled):gsub("0+$", ""):gsub("%.$", "")
 	return text .. "%"
-end
-
-local function number(value: number): string
-	local text = tostring(math.floor(value))
-	local formatted = text:reverse():gsub("(%d%d%d)", "%1 "):reverse()
-	return (formatted:gsub("^ ", ""))
 end
 
 local themeWeights = EggConfig.ThemeWeights :: { [string]: number }
@@ -72,7 +67,7 @@ for index, rarity in PetConfig.Rarities do
 end
 print()
 print(
-	"| Яйцо | Питомец | Редкость | Доход на платформе, монет/с | Баффы при экипировке | Шанс за одно яйцо (поражение) |"
+	"| Яйцо | Питомец | Редкость | Доход на платформе | Баффы при экипировке | Шанс за одно яйцо (поражение) |"
 )
 print("|---|---|---|---|---|---|")
 for _, theme in EggConfig.OfferThemes do
@@ -96,7 +91,7 @@ for _, theme in EggConfig.OfferThemes do
 		end
 		local chance = hatchChance(theme, kind)
 		print(
-			`| {theme} | {entry.Name} | {entry.Rarity} | {number(entry.Income)} | {table.concat(
+			`| {theme} | {entry.Name} | {entry.Rarity} | {Money.Format(entry.Income)}/s | {table.concat(
 				buffs,
 				", "
 			)} | {percent(chance)} |`

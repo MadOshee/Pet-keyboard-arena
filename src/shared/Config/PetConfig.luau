@@ -1,6 +1,6 @@
 --!strict
 -- Pet kinds, themes, buffs and plot income (docs/design.md 4.3 "Питомцы",
--- 4.4; numbers in docs/pet-balance.md). Every egg and pet of the Pets & Eggs
+-- 4.4; numbers in docs/pet-balance.md). The eggs and pets of the Pets & Eggs
 -- pack. Each egg theme has a main stat, so picking an egg is a real choice
 -- (D2); an egg's best pet adds three stats, the next one two (Ivan).
 -- Model is the model name under ReplicatedStorage.Assets.Pets; the game
@@ -67,53 +67,26 @@ type EggSpec = {
 	Pets: { string },
 }
 
--- Every egg of the Pets & Eggs pack, cheapest first (EggConfig.OfferThemes
+-- The eggs of the Pets & Eggs pack, cheapest first (EggConfig.OfferThemes
 -- and ThemeWeights follow this order). Name is the egg model's name without
--- " Egg".
+-- " Egg". Ivan: every egg holds 8 pets, 2 Common, 2 Uncommon, 2 Rare, 1 Epic
+-- and 1 Legendary. The pack's eggs hold 4 to 11 pets, so extra pets moved
+-- to a close egg (Dark Dragon to Dark, the cubes to Glitch), the Slime egg
+-- went into Royal, and Rat, Bull and Inferno Cube are left out.
 local EGGS: { EggSpec } = {
 	{
 		Name = "Basic",
 		Stat = "Coins",
 		IncomeMultiplier = 1,
 		Extras = { "Speed", "Luck" },
-		Pets = {
-			"Doggy",
-			"Kitty",
-			"Bunny",
-			"Piggy",
-			"Chicken",
-			"Ducky",
-			"Rat",
-			"Bear",
-			"Fox",
-			"Cow",
-		},
+		Pets = { "Doggy", "Kitty", "Bunny", "Piggy", "Ducky", "Bear", "Fox", "Cow" },
 	},
 	{
 		Name = "Forest",
 		Stat = "Speed",
 		IncomeMultiplier = 1.2,
 		Extras = { "PaintRadius", "Coins" },
-		Pets = {
-			"Squirrel",
-			"Deer",
-			"Owl",
-			"Moose",
-			"Panda",
-			"Lynx",
-			"Eagle",
-			"Bull",
-			"Elephant",
-			"Tiger",
-			"Lion",
-		},
-	},
-	{
-		Name = "Slime",
-		Stat = "PaintRadius",
-		IncomeMultiplier = 1.4,
-		Extras = { "Speed", "Luck" },
-		Pets = { "Slime Cube", "Slime Doggy", "Slime Kitty", "Slime Bat" },
+		Pets = { "Squirrel", "Deer", "Owl", "Panda", "Lynx", "Elephant", "Tiger", "Lion" },
 	},
 	{
 		Name = "Surfing",
@@ -128,7 +101,6 @@ local EGGS: { EggSpec } = {
 			"Beach Boi",
 			"Bucket O' Shells",
 			"Seaweed Monster",
-			"Seaside Dogcat",
 			"Tidal God",
 		},
 	},
@@ -140,7 +112,6 @@ local EGGS: { EggSpec } = {
 		Pets = {
 			"Penguin",
 			"Snow Squirrel",
-			"Walrus",
 			"Arctic Fox",
 			"Polar Bear",
 			"Mammoth",
@@ -154,7 +125,16 @@ local EGGS: { EggSpec } = {
 		Stat = "Power",
 		IncomeMultiplier = 2.2,
 		Extras = { "PaintRadius", "Speed" },
-		Pets = { "Ice Doggy", "Ice Kitty", "Ice Golem", "Frost Wisp", "Frigidus" },
+		Pets = {
+			"Ice Doggy",
+			"Ice Kitty",
+			"Walrus",
+			"Moose",
+			"Eagle",
+			"Ice Golem",
+			"Frost Wisp",
+			"Frigidus",
+		},
 	},
 	{
 		Name = "Volcanic",
@@ -164,7 +144,6 @@ local EGGS: { EggSpec } = {
 		Pets = {
 			"Volcanic Doggy",
 			"Volcanic Kitty",
-			"Inferno Cube",
 			"Molten Piggy",
 			"Volcanic Golem",
 			"Molten Cow",
@@ -198,10 +177,8 @@ local EGGS: { EggSpec } = {
 			"Dragon",
 			"Bone Dragon",
 			"Ruby Dragon",
-			"Dark Dragon",
 			"Rex",
 			"Phoenix",
-			"Dark Phoenix",
 			"Hydra",
 			"Kitsune",
 			"King Hydra",
@@ -236,7 +213,6 @@ local EGGS: { EggSpec } = {
 			"Astronaut",
 			"Alien",
 			"Cool Sun",
-			"Cyber Comet",
 			"Planetarium",
 		},
 	},
@@ -250,6 +226,7 @@ local EGGS: { EggSpec } = {
 			"Cyborg Owl",
 			"Cyborg Deer",
 			"Cyborg Racoon",
+			"Cyber Comet",
 			"Omega One",
 			"Robotic Leviathan",
 			"Giant Robot",
@@ -295,7 +272,9 @@ local EGGS: { EggSpec } = {
 		Pets = {
 			"Sapphire Demon",
 			"Vesp",
+			"Dark Dragon",
 			"Dark Berserker",
+			"Dark Phoenix",
 			"Neon Abyss",
 			"Dark Defender",
 			"The Overseer",
@@ -322,7 +301,16 @@ local EGGS: { EggSpec } = {
 		Stat = "Luck",
 		IncomeMultiplier = 13,
 		Extras = { "Coins", "Speed" },
-		Pets = { "Virus Cube", "Tetra Cube", "Glitch", "Fracture", "Virus CORE", "CORE" },
+		Pets = {
+			"Virus Cube",
+			"Tetra Cube",
+			"Parade Cube",
+			"Patriot Cuboid",
+			"Glitch",
+			"Fracture",
+			"Virus CORE",
+			"CORE",
+		},
 	},
 	{
 		Name = "Patriotic",
@@ -332,8 +320,6 @@ local EGGS: { EggSpec } = {
 		Pets = {
 			"Patriotic Doggy",
 			"Patriotic Shock",
-			"Parade Cube",
-			"Patriot Cuboid",
 			"Patriotic Star",
 			"Patriotic Robot",
 			"Patriotic Mimic",
@@ -347,7 +333,16 @@ local EGGS: { EggSpec } = {
 		Stat = "Coins",
 		IncomeMultiplier = 17.5,
 		Extras = { "Speed", "PaintRadius" },
-		Pets = { "Mimic", "Sunny Bunny", "Sunny Bear", "Dogcat", "Unicorn", "Delightful Trio" },
+		Pets = {
+			"Mimic",
+			"Chicken",
+			"Sunny Bunny",
+			"Sunny Bear",
+			"Seaside Dogcat",
+			"Dogcat",
+			"Unicorn",
+			"Delightful Trio",
+		},
 	},
 	{
 		Name = "SpinToWin",
@@ -359,6 +354,7 @@ local EGGS: { EggSpec } = {
 			"Crystal Kitty",
 			"Crystal Bat",
 			"Crystal Butterfly",
+			"White Sparkletime",
 			"Crystal Cuboid",
 			"Amethyst Golem",
 			"Brilliant Gem",
@@ -369,7 +365,16 @@ local EGGS: { EggSpec } = {
 		Stat = "Coins",
 		IncomeMultiplier = 25,
 		Extras = { "Luck", "Power" },
-		Pets = { "Royal Heart", "Aureus", "Empyreus", "Queen Kitty" },
+		Pets = {
+			"Slime Cube",
+			"Slime Doggy",
+			"Slime Kitty",
+			"Slime Bat",
+			"Royal Heart",
+			"Aureus",
+			"Empyreus",
+			"Queen Kitty",
+		},
 	},
 	{
 		Name = "Sparkletime",
@@ -383,29 +388,15 @@ local EGGS: { EggSpec } = {
 			"Blue Sparkletime",
 			"Cyan Sparkletime",
 			"Green Sparkletime",
-			"White Sparkletime",
 			"Black Sparkletime",
 			"Gold Sparkletime",
 		},
 	},
 }
 
--- Rarity by place from the egg's best pet: the best is Legendary, the next
--- Epic, then about a fifth Rare, a quarter Uncommon and the rest Common.
-local function rarityAt(fromBest: number, count: number): string
-	local rare = math.max(1, math.round(count * 0.2))
-	local uncommon = math.max(1, math.round(count * 0.25))
-	if fromBest == 1 then
-		return "Legendary"
-	elseif fromBest == 2 then
-		return "Epic"
-	elseif fromBest <= 2 + rare then
-		return "Rare"
-	elseif fromBest <= 2 + rare + uncommon then
-		return "Uncommon"
-	end
-	return "Common"
-end
+-- Rarity of the pets in an egg, weakest first.
+local RARITY_BY_PLACE =
+	{ "Common", "Common", "Uncommon", "Uncommon", "Rare", "Rare", "Epic", "Legendary" }
 
 -- Whole percents.
 local function percent(value: number): number
@@ -429,10 +420,10 @@ for tier, egg in EGGS do
 	}
 	table.insert(THEME_ORDER, egg.Name)
 	local scale = 1 + BONUS_PER_EGG * (tier - 1)
-	local count = #egg.Pets
+	assert(#egg.Pets == #RARITY_BY_PLACE, egg.Name .. ": an egg holds 8 pets")
 	for order, name in egg.Pets do
-		local fromBest = count - order + 1
-		local rarity = rarityAt(fromBest, count)
+		local fromBest = #egg.Pets - order + 1
+		local rarity = RARITY_BY_PLACE[order]
 		local main = percent(BONUS[egg.Stat][rarity] * scale)
 		local buffs: { [string]: number } = { [egg.Stat] = main }
 		local extras = if fromBest == 1 then 2 elseif fromBest == 2 then 1 else 0

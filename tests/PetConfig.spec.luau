@@ -19,15 +19,19 @@ function tests.everyPackEggIsOffered()
 	end
 end
 
-function tests.everyEggHasALegendaryAndAnEpic()
+-- Ivan: 8 pets in every egg, 2 Common, 2 Uncommon, 2 Rare, 1 Epic, 1 Legendary.
+function tests.everyEggHoldsEightPetsByRarity()
+	local expected = { Common = 2, Uncommon = 2, Rare = 2, Epic = 1, Legendary = 1 }
 	for _, theme in EggConfig.OfferThemes do
-		local count = { Legendary = 0, Epic = 0 }
+		local count = { Common = 0, Uncommon = 0, Rare = 0, Epic = 0, Legendary = 0 }
 		for _, entry in PetConfig.Pets do
-			if entry.Theme == theme and count[entry.Rarity] then
+			if entry.Theme == theme then
 				count[entry.Rarity] += 1
 			end
 		end
-		assert(count.Legendary == 1 and count.Epic == 1, `{theme}: one Legendary and one Epic`)
+		for rarity, wanted in expected do
+			assert(count[rarity] == wanted, `{theme}: {count[rarity]} {rarity}, expected {wanted}`)
+		end
 	end
 end
 

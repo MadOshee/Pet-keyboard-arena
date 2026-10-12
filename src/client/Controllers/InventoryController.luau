@@ -15,6 +15,7 @@ local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
 local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local StatCalculator = require(ReplicatedStorage.Shared.Logic.StatCalculator)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
 local PetText = require(script.Parent.Parent.UI.PetText)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
@@ -119,7 +120,7 @@ local function buildCard(petId: string, pet: Types.PetInstance, equipped: boolea
 		local price = PetConfig.SellValue[pet.Rarity] or 0
 		sellButton.Text = if confirmPetId == petId
 			then Strings.ConfirmSell
-			else string.format(Strings.Sell, price)
+			else string.format(Strings.Sell, Money.Format(price))
 		sellButton.Activated:Connect(function()
 			if confirmPetId == petId then
 				confirmPetId = nil
@@ -135,7 +136,7 @@ local function buildCard(petId: string, pet: Types.PetInstance, equipped: boolea
 				if token == confirmToken and confirmPetId == petId then
 					confirmPetId = nil
 					if sellButton.Parent then
-						sellButton.Text = string.format(Strings.Sell, price)
+						sellButton.Text = string.format(Strings.Sell, Money.Format(price))
 					end
 				end
 			end)
@@ -196,7 +197,9 @@ local function refresh(profile: Types.Profile?)
 	slotsButton.Text = string.format(
 		Strings.BuyPetSlots,
 		EggConfig.PetSlotsStep,
-		Incubation.NextPetSlotsPrice(data.PetCapacity, PetConfig.StartCapacity, EggConfig)
+		Money.Format(
+			Incubation.NextPetSlotsPrice(data.PetCapacity, PetConfig.StartCapacity, EggConfig)
+		)
 	)
 	statsLabel.Text = statsText(data)
 	emptyLabel.Visible = #ids == 0

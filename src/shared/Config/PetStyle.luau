@@ -12,7 +12,6 @@ return table.freeze({
 	Theme = table.freeze({
 		Basic = Color3.fromRGB(255, 206, 84),
 		Forest = Color3.fromRGB(96, 196, 96),
-		Slime = Color3.fromRGB(120, 230, 90),
 		Surfing = Color3.fromRGB(70, 190, 230),
 		Arctic = Color3.fromRGB(120, 210, 245),
 		Ice = Color3.fromRGB(160, 225, 255),

@@ -1,6 +1,6 @@
 --!strict
 -- Texts about a pet kind shared by the inventory, the Pets index and the
--- platforms: its buffs ("+5% Speed") in PetConfig.StatOrder and its income.
+-- platforms: its buffs ("+5% Speed") in PetConfig.StatOrder.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -42,13 +42,6 @@ function PetText.BuffLines(kind: string): { string }
 		table.insert(lines, buff.Text)
 	end
 	return lines
-end
-
--- 1234567 -> "1,234,567".
-function PetText.Number(value: number): string
-	local text = tostring(math.floor(value))
-	local formatted = text:reverse():gsub("(%d%d%d)", "%1,"):reverse()
-	return (formatted:gsub("^,", ""))
 end
 
 return PetText

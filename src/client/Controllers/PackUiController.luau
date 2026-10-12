@@ -15,6 +15,7 @@ local TweenService = game:GetService("TweenService")
 
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
@@ -119,7 +120,7 @@ end
 local function updateCash(profile: Types.Profile?)
 	local label = cashLabel
 	if label and profile then
-		label.Text = tostring(profile.Coins)
+		label.Text = Money.Format(profile.Coins)
 		local top = label:FindFirstChild("Color")
 		if top and top:IsA("TextLabel") then
 			top.Text = label.Text
