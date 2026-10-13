@@ -15,14 +15,10 @@ return table.freeze({
 	BombRadius = 24,
 	LockRadius = 20,
 	LockSeconds = 4,
-	Colors = table.freeze({
-		Speed = Color3.fromRGB(255, 230, 60),
-		PaintBomb = Color3.fromRGB(255, 110, 200),
-		Lock = Color3.fromRGB(120, 230, 255),
-	}) :: { [string]: Color3 },
-	Labels = table.freeze({
-		Speed = "SPEED",
-		PaintBomb = "BOMB",
-		Lock = "LOCK",
-	}) :: { [string]: string },
+	-- Image asset ids of Ivan's icons shown above a power-up (2026-10-13).
+	Icons = table.freeze({
+		Speed = 0, -- red shoe
+		PaintBomb = 0, -- bomb
+		Lock = 0, -- padlock
+	}) :: { [string]: number },
 })
