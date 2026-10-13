@@ -171,7 +171,7 @@ return table.freeze({
 	RobuxPrice = utf8.char(0xE002) .. "%s",
 	TutorialSkip = "SKIP",
 	TutorialSteps = table.freeze({
-		"Walk into the portal and pick SOLO GAME or PARTY GAME",
+		"Walk into the portal and pick PvP",
 		"Run over the keys to paint them in your team's color",
 		"Pick one of the four eggs. Each theme gives a different bonus",
 		"Press MY BASE, step on a green button and put your egg on the platform",

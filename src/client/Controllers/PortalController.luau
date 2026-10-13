@@ -106,14 +106,21 @@ local function build()
 	local sword = Instance.new("ImageLabel")
 	sword.Name = "Sword"
 	sword.AnchorPoint = Vector2.new(0, 0.5)
-	sword.Position = UDim2.fromScale(0.06, 0.5)
-	sword.Size = UDim2.fromScale(0.7, 0.7)
+	sword.Position = UDim2.fromScale(0.04, 0.5)
+	sword.Size = UDim2.fromScale(0.6, 0.6)
 	sword.SizeConstraint = Enum.SizeConstraint.RelativeYY
 	sword.BackgroundTransparency = 1
 	sword.Image = IconConfig.Sword
 	sword.ScaleType = Enum.ScaleType.Fit
 	sword.ZIndex = 20
 	sword.Parent = pvp
+	-- The pack button centers its caption; move it right of the sword.
+	local container = pvp:FindFirstChild("Container")
+	local caption = container and container:FindFirstChild("Name")
+	if caption and caption:IsA("GuiObject") then
+		caption.Position = UDim2.fromScale(0.66, 0.5)
+		caption.Size = UDim2.fromScale(0.58, 0.7)
+	end
 
 	local party = choice("Party", Strings.PartyGame, Strings.PartyHint, 0.53, DIM_COLOR, "Party")
 	party.Interactable = false
@@ -185,6 +192,11 @@ local function collectAnimated(found: Model)
 		return
 	end
 	local swirl = primary :: BasePart
+	-- Studio loads the sign built by tools/build-world with TextScaled off.
+	local signText = swirl:FindFirstChild("Sign") and (swirl :: any).Sign:FindFirstChild("Text")
+	if signText and signText:IsA("TextLabel") then
+		signText.TextScaled = true
+	end
 	local spin = found:FindFirstChild("Spin")
 	if spin then
 		for _, descendant in spin:GetDescendants() do

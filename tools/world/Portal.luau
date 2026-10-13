@@ -50,7 +50,7 @@ return function(rbx: any, parent: any, base: any): any
 		Leaf = rgb(150, 214, 70),
 		Slate = rgb(52, 74, 96),
 		Gold = rgb(240, 196, 60),
-		Gate = rgb(150, 255, 240),
+		Gate = rgb(90, 230, 220),
 		GateCore = rgb(235, 255, 252),
 		Crystal = rgb(110, 235, 225),
 	}
@@ -362,10 +362,10 @@ return function(rbx: any, parent: any, base: any): any
 			gate * CFrame.Angles(0, math.rad(90), 0),
 			C.Gate
 		),
-		0.25
+		0.45
 	)
 	portal.PrimaryPart = swirl
-	light(swirl, C.Gate, 34, 3)
+	light(swirl, C.Gate, 16, 1)
 	sparkles(swirl, "Sparks", C.GateCore, C.Gate, 30, 3, 70, 0.7)
 
 	local spin = Instance.new("Model")
@@ -382,7 +382,7 @@ return function(rbx: any, parent: any, base: any): any
 				at * CFrame.new(1.2, 2.2, 0) * CFrame.Angles(0, 0, math.rad(-25)),
 				C.GateCore
 			),
-			0.55
+			0.7
 		)
 	end
 	local core = neon(
@@ -393,7 +393,7 @@ return function(rbx: any, parent: any, base: any): any
 			gate * CFrame.Angles(0, 0, math.rad(45)),
 			C.GateCore
 		),
-		0.35
+		0.55
 	)
 	sparkles(core, "Glow", C.GateCore, Color3.new(1, 1, 1), 12, 1, 180, 1)
 
@@ -414,7 +414,7 @@ return function(rbx: any, parent: any, base: any): any
 			),
 			0.1
 		)
-		light(crystal, C.Crystal, 10, 1.2)
+		light(crystal, C.Crystal, 8, 0.6)
 	end
 
 	-- Sign above the arch: the sword icon and "Play".
