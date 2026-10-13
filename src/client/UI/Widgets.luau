@@ -117,6 +117,36 @@ local function mirrorTopLayer(label: TextLabel)
 	end)
 end
 
+-- The pack's stud texture is tiled for wide buttons (a tile as tall as the
+-- face). On a tall button, such as an egg card, that stretches the studs
+-- down the face, so the tiles are kept no taller than they are wide.
+local function squareTiles(container: Instance?)
+	if container == nil or not container:IsA("GuiObject") then
+		return
+	end
+	local face = container :: GuiObject
+	local textures = face:FindFirstChild("Textures")
+	if textures == nil then
+		return
+	end
+	for _, child in (textures :: Instance):GetChildren() do
+		if child:IsA("ImageLabel") and child.ScaleType == Enum.ScaleType.Tile then
+			local image = child :: ImageLabel
+			local tile = image.TileSize
+			local function fit()
+				local size = image.AbsoluteSize
+				if size.Y <= 0 then
+					return
+				end
+				local height = math.min(tile.Y.Scale, tile.X.Scale * size.X / size.Y)
+				image.TileSize = UDim2.fromScale(tile.X.Scale, height)
+			end
+			image:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+			fit()
+		end
+	end
+end
+
 -- Hover grows a button a little (with the Hover sound on PC), a press shrinks it.
 function Widgets.AnimatePress(button: GuiButton)
 	local scale = button:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
@@ -233,6 +263,7 @@ function Widgets.Button(
 		button.Text = ""
 
 		local container = button:FindFirstChild("Container")
+		squareTiles(container)
 		local caption = container and container:FindFirstChild("Name")
 		local setText: (string) -> () = if caption
 			then twoLayerText(caption)

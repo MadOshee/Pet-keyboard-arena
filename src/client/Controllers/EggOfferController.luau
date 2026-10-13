@@ -41,6 +41,7 @@ local WHITE = Color3.new(1, 1, 1)
 local BLACK = Color3.new(0, 0, 0)
 local CASH_COLOR = Color3.fromRGB(7, 138, 0)
 local ROBUX_COLOR = Color3.fromRGB(60, 180, 90)
+local REROLL_BUTTON_SIZE = UDim2.fromScale(0.215, 0.12)
 -- The money button's face when there is no reroll to buy.
 local DISABLED_FACE =
 	ColorSequence.new(Color3.fromRGB(170, 170, 180), Color3.fromRGB(100, 100, 110))
@@ -57,23 +58,25 @@ type Card = {
 	Rings: { Frame },
 }
 
--- The cash reroll button's caption: "Reroll", the cash icon and the price.
-type RerollCaption = {
+-- A reroll button's caption row: the word, an optional icon and the price
+-- side by side ("Reroll [cash] $50", "Reroll ⬢10").
+type Caption = {
+	Row: Frame,
 	Word: TextLabel,
-	Icon: ImageLabel,
+	Icon: ImageLabel?,
 	Price: TextLabel,
-	Fit: () -> (),
 }
 
 local gui: ScreenGui
 local window: Frame
 local cards: { Card } = {}
 local rerollButton: TextButton
-local rerollCaption: RerollCaption
+local rerollCaption: Caption
+local captions: { Caption } = {}
 local rerollFace: UIGradient? = nil -- the money button's lime face
 local rerollFaceColor: ColorSequence? = nil
 local robuxRerollButton: TextButton
-local robuxPriceLabel: TextLabel? = nil
+local robuxCaption: Caption? = nil
 local robuxPrice: string? = nil
 local oddsLabel: TextLabel
 local warningLabel: TextLabel
@@ -232,10 +235,29 @@ local function rowLabel(label: TextLabel, row: Frame, order: number)
 	label.Parent = row
 end
 
--- "Reroll", the pack's cash icon and the price in the lime button's orange
--- text (Ivan's pictures: the "+5 Levels" button).
-local function buildRerollCaption(button: TextButton): RerollCaption
-	local container = button:FindFirstChild("Container") or button
+-- Both buttons' captions share one text size (Ivan): as tall as the rows,
+-- smaller when a long caption ("NO REROLLS LEFT") would not fit its button.
+local function setCaptionSize(size: number)
+	for _, caption in captions do
+		setTextSize(caption.Word, size)
+		setTextSize(caption.Price, size)
+	end
+end
+
+local function fitCaptions()
+	local height = math.huge
+	for _, caption in captions do
+		height = math.min(height, caption.Row.AbsoluteSize.Y)
+	end
+	setCaptionSize(math.max(math.floor(height * 0.95), 8))
+end
+
+local function buildCaption(
+	container: Instance,
+	word: TextLabel,
+	price: TextLabel,
+	icon: ImageLabel?
+): Caption
 	local row = Instance.new("Frame")
 	row.Name = "Caption"
 	row.BackgroundTransparency = 1
@@ -252,64 +274,80 @@ local function buildRerollCaption(button: TextButton): RerollCaption
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = row
 
+	rowLabel(word, row, 1)
+	rowLabel(price, row, 3)
+	if icon then
+		icon.LayoutOrder = 2
+		icon.Parent = row
+	end
+
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		local width = layout.AbsoluteContentSize.X
+		local room = row.AbsoluteSize.X
+		if width > room and room > 0 and word.TextSize > 8 then
+			setCaptionSize(math.max(math.floor(word.TextSize * room / width * 0.97), 8))
+		end
+	end)
+	row:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitCaptions)
+	local caption = { Row = row, Word = word, Icon = icon, Price = price }
+	table.insert(captions, caption)
+	return caption
+end
+
+-- "Reroll", the pack's cash icon and the price in the lime button's orange
+-- text (Ivan's pictures: the "+5 Levels" button).
+local function buildRerollCaption(button: TextButton): Caption
+	local container = button:FindFirstChild("Container") or button
 	-- The template's own two-layer text is the word; a copy is the price.
 	local source = container:FindFirstChild("Text")
 	local word = if source and source:IsA("TextLabel")
 		then source
-		else Widgets.Label("Text", row, UDim2.new(), UDim2.new())
+		else Widgets.Label("Text", container, UDim2.new(), UDim2.new())
 	local price = word:Clone()
 	word.Name = "Word"
 	price.Name = "Price"
-	rowLabel(word, row, 1)
-	rowLabel(price, row, 3)
 
 	local icon = Instance.new("ImageLabel")
 	icon.Name = "Cash"
 	icon.BackgroundTransparency = 1
 	icon.Image = CASH_IMAGE
 	icon.Size = UDim2.fromScale(1, 1.2)
-	icon.LayoutOrder = 2
 	icon.ZIndex = 5
-	icon.Parent = row
 	local square = Instance.new("UIAspectRatioConstraint")
 	square.AspectRatio = 1
 	square.DominantAxis = Enum.DominantAxis.Height
 	square.Parent = icon
-
-	-- Text as tall as the row, smaller when a long caption ("NO REROLLS
-	-- LEFT") would not fit the button's width.
-	local function setSize(size: number)
-		setTextSize(word, size)
-		setTextSize(price, size)
-	end
-	local function fit()
-		setSize(math.max(math.floor(row.AbsoluteSize.Y * 0.95), 8))
-	end
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		local width = layout.AbsoluteContentSize.X
-		local room = row.AbsoluteSize.X
-		if width > room and room > 0 and word.TextSize > 8 then
-			setSize(math.max(math.floor(word.TextSize * room / width * 0.97), 8))
-		end
-	end)
-	row:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
-	fit()
 
 	local face = container:FindFirstChildOfClass("UIGradient")
 	if face and container ~= button then
 		rerollFace = face
 		rerollFaceColor = face.Color
 	end
-	return { Word = word, Icon = icon, Price = price, Fit = fit }
+	return buildCaption(container, word, price, icon)
 end
 
--- The Robux price under the rainbow button, as the pack writes it.
+-- "Reroll" in the rainbow button's white text with the pack's green Robux
+-- price to its right, like the money button (Ivan).
+local function buildRobuxCaption(button: TextButton): Caption
+	local container = button:FindFirstChild("Container") or button
+	local name = container:FindFirstChild("Name")
+	local word = if name and name:IsA("TextLabel")
+		then name
+		else Widgets.Label("Name", container, UDim2.new(), UDim2.new())
+	local found = button:FindFirstChild("Price")
+	local price = if found and found:IsA("TextLabel") then found else word:Clone()
+	word.Name = "Word"
+	price.Name = "Price"
+	Widgets.SetText(word, Strings.Reroll)
+	return buildCaption(container, word, price, nil)
+end
+
+-- The Robux price on the rainbow button, as the pack writes it.
 local function showRobuxPrice(price: string)
-	local label = robuxPriceLabel
-	if label then
-		Widgets.SetText(label, string.format(Strings.RobuxPrice, price))
-	else
-		robuxRerollButton.Text = Strings.Reroll .. " " .. string.format(Strings.RobuxPrice, price)
+	local caption = robuxCaption
+	if caption then
+		Widgets.SetText(caption.Price, string.format(Strings.RobuxPrice, price))
+		fitCaptions()
 	end
 end
 
@@ -334,10 +372,11 @@ end
 local function build()
 	gui = Widgets.ScreenGui("EggOffer", 5)
 
+	-- 20% smaller than the first version (Ivan).
 	window = Widgets.Panel(
 		"Window",
 		gui,
-		UDim2.fromScale(0.8, 0.62),
+		UDim2.fromScale(0.64, 0.496),
 		UDim2.fromScale(0.5, 0.5),
 		Color3.fromRGB(255, 140, 0)
 	)
@@ -345,9 +384,18 @@ local function build()
 	window.Visible = false
 	Widgets.AspectRatio(window, 1.9)
 
-	local title =
-		Widgets.Label("Title", window, UDim2.fromScale(0.7, 0.1), UDim2.fromScale(0.03, 0.03))
-	title.TextXAlignment = Enum.TextXAlignment.Left
+	-- The title in the middle of the orange bar (Ivan).
+	local bar = window:FindFirstChild("Top")
+	local title = if bar
+		then Widgets.Label("Title", bar, UDim2.fromScale(0.9, 0.7), UDim2.fromScale(0.5, 0.46))
+		else Widgets.Label(
+			"Title",
+			window,
+			UDim2.fromScale(0.94, 0.1),
+			UDim2.fromScale(0.5, 0.08)
+		)
+	title.AnchorPoint = Vector2.new(0.5, 0.5)
+	title.ZIndex = 2
 	title.Text = Strings.EggOfferTitle
 
 	local row = Instance.new("Frame")
@@ -386,12 +434,13 @@ local function build()
 	window:GetPropertyChangedSignal("AbsoluteSize"):Connect(sizeOdds)
 	sizeOdds()
 
+	-- Two reroll buttons of one size side by side (Ivan).
 	rerollButton = Widgets.PackButton(
 		"LevelButton",
 		"Reroll",
 		window,
-		UDim2.fromScale(0.28, 0.11),
-		UDim2.fromScale(0.49, 0.82),
+		REROLL_BUTTON_SIZE,
+		UDim2.fromScale(0.52, 0.82),
 		CASH_COLOR
 	)
 	rerollCaption = buildRerollCaption(rerollButton)
@@ -404,24 +453,20 @@ local function build()
 	end)
 
 	-- Robux reroll next to it, the rainbow "X2 Money" button with the green
-	-- Robux price under it (Ivan's pictures); the odds stay visible before
-	-- the purchase. Until Ivan creates the product it only says so.
+	-- Robux price (Ivan's pictures); the odds stay visible before the
+	-- purchase. Until Ivan creates the product it shows the planned price
+	-- and only says so when clicked.
 	robuxRerollButton = Widgets.PackButton(
 		"RobuxButton",
 		"RobuxReroll",
 		window,
-		UDim2.fromScale(0.17, 0.1),
-		UDim2.fromScale(0.8, 0.8),
+		REROLL_BUTTON_SIZE,
+		UDim2.fromScale(0.755, 0.82),
 		ROBUX_COLOR
 	)
-	local robuxContainer = robuxRerollButton:FindFirstChild("Container")
-	local robuxName = robuxContainer and robuxContainer:FindFirstChild("Name")
-	local priceLabel = robuxRerollButton:FindFirstChild("Price")
-	if robuxName and robuxName:IsA("TextLabel") and priceLabel and priceLabel:IsA("TextLabel") then
-		Widgets.SetText(robuxName, Strings.Reroll)
-		robuxPriceLabel = priceLabel
-	end
-	showRobuxPrice("")
+	robuxCaption = buildRobuxCaption(robuxRerollButton)
+	local planned = ShopConfig.Products.Reroll.Robux
+	showRobuxPrice(if planned then tostring(planned) else "")
 	robuxRerollButton.Activated:Connect(function()
 		local id = ShopConfig.Products.Reroll.Id
 		if id ~= 0 then
@@ -472,7 +517,7 @@ local function setPreview(holder: Frame, model: Model?, color: Color3)
 	AssetModels.Viewport(holder, model, color)
 end
 
--- Rich text: each rarity name in its color.
+-- Rich text: each rarity and its chance in the rarity's color.
 local function oddsText(offer: Types.EggOffer): string
 	local odds = EggRoller.Odds(EggRoller.Weights(offer.Context :: any, EggConfig))
 	local parts = {}
@@ -483,7 +528,7 @@ local function oddsText(offer: Types.EggOffer): string
 			else tostring(math.floor(chance + 0.5))
 		local color = (PetStyle.Rarity[rarity] or WHITE):ToHex()
 		local name = (Strings.Rarity :: any)[rarity] or rarity
-		table.insert(parts, `<font color="#{color}">{name}</font> {shown}%`)
+		table.insert(parts, `<font color="#{color}">{name} {shown}%</font>`)
 	end
 	return string.format(Strings.Odds, table.concat(parts, " · "))
 end
@@ -493,9 +538,12 @@ end
 local function setRerollCaption(word: string, price: string?, enabled: boolean)
 	Widgets.SetText(rerollCaption.Word, word)
 	Widgets.SetText(rerollCaption.Price, price or "")
-	rerollCaption.Icon.Visible = price ~= nil
+	local icon = rerollCaption.Icon
+	if icon then
+		icon.Visible = price ~= nil
+	end
 	rerollCaption.Price.Visible = price ~= nil
-	rerollCaption.Fit()
+	fitCaptions()
 	local face = rerollFace
 	if face then
 		face.Color = if enabled then rerollFaceColor or face.Color else DISABLED_FACE
