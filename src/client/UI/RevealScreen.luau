@@ -99,7 +99,7 @@ local function build()
 	stage.Name = "Stage"
 	stage.BackgroundTransparency = 1
 	stage.AnchorPoint = Vector2.new(0.5, 0.5)
-	stage.Position = UDim2.fromScale(0.5, 0.42)
+	stage.Position = UDim2.fromScale(0.5, 0.43)
 	stage.Size = UDim2.fromScale(0.5, 0.5)
 	stage.SizeConstraint = Enum.SizeConstraint.RelativeYY
 	stage.Parent = root
@@ -131,7 +131,7 @@ local function build()
 		table.insert(sparkles, sparkle)
 	end
 
-	heading = popLabel("Heading", UDim2.fromScale(0.5, 0.055), UDim2.fromScale(0.5, 0.11))
+	heading = popLabel("Heading", UDim2.fromScale(0.5, 0.055), UDim2.fromScale(0.5, 0.155))
 	heading.TextColor3 = GOLD
 	title, titleScale = popLabel("Title", UDim2.fromScale(0.7, 0.095), UDim2.fromScale(0.5, 0.715))
 
@@ -150,9 +150,9 @@ local function build()
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = lines
 
-	note = popLabel("Note", UDim2.fromScale(0.6, 0.035), UDim2.fromScale(0.5, 0.9))
+	note = popLabel("Note", UDim2.fromScale(0.6, 0.033), UDim2.fromScale(0.5, 0.855))
 	note.TextColor3 = Color3.fromRGB(255, 190, 110)
-	closeHint = popLabel("Close", UDim2.fromScale(0.4, 0.03), UDim2.fromScale(0.5, 0.95))
+	closeHint = popLabel("Close", UDim2.fromScale(0.4, 0.028), UDim2.fromScale(0.5, 0.895))
 	closeHint.TextColor3 = Color3.fromRGB(200, 205, 225)
 
 	root.Activated:Connect(function()
@@ -212,6 +212,8 @@ local function addLine(line: Line, order: number)
 		local label = Widgets.MoneyLabel("Money", lines, UDim2.fromScale(1, 0.42), UDim2.new())
 		label.LayoutOrder = order
 		label.ZIndex = 5
+		-- The pack's money text is left-aligned for the cash counter.
+		label.TextXAlignment = Enum.TextXAlignment.Center
 		Widgets.SetText(label, line.Text)
 	else
 		local label = Widgets.Label("Text", lines, UDim2.fromScale(1, 0.36), UDim2.new())

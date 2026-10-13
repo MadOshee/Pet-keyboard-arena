@@ -116,8 +116,8 @@ local function watchPlatform(platform: BasePart, plot: Model)
 	end
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "PlatformLabel"
-	billboard.Size = UDim2.fromScale(8, 3.4)
-	billboard.StudsOffset = Vector3.new(0, 6, 0)
+	billboard.Size = UDim2.fromScale(11, 4.6)
+	billboard.StudsOffset = Vector3.new(0, 6.5, 0)
 	billboard.MaxDistance = 90
 	billboard.LightInfluence = 0
 	billboard.Adornee = platform
@@ -138,6 +138,7 @@ local function watchPlatform(platform: BasePart, plot: Model)
 	sub.LayoutOrder = 2
 	local money = Widgets.MoneyLabel("Money", stack, UDim2.fromScale(1, 0.3), UDim2.new())
 	money.LayoutOrder = 3
+	money.TextXAlignment = Enum.TextXAlignment.Center
 	billboard.Parent = player:WaitForChild("PlayerGui")
 
 	local entry: Watched = {

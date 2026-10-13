@@ -781,8 +781,9 @@ local function build()
 	oddsLabel:GetPropertyChangedSignal("TextBounds"):Connect(sizeOdds)
 	sizeOdds()
 
+	-- Between the eggs and the buttons, where the tutorial hint never covers it.
 	warningLabel =
-		Widgets.Label("Warning", content, UDim2.fromScale(0.6, 0.03), UDim2.fromScale(0.5, 0.89))
+		Widgets.Label("Warning", content, UDim2.fromScale(0.6, 0.034), UDim2.fromScale(0.5, 0.665))
 	warningLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 	warningLabel.TextColor3 = Color3.fromRGB(255, 170, 80)
 	warningLabel.Text = Strings.EggStorageFullWarning

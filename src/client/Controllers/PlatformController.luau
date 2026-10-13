@@ -236,6 +236,7 @@ local function addCard(
 			UDim2.fromScale(0.07, 0.855)
 		)
 		income.ZIndex = 4
+		income.TextXAlignment = Enum.TextXAlignment.Center
 		Widgets.SetText(income, money)
 	else
 		sub.Position = UDim2.fromScale(0.07, 0.78)
@@ -646,7 +647,9 @@ local function build()
 	list.CanvasSize = UDim2.new()
 	list.AutomaticCanvasSize = Enum.AutomaticSize.X
 	list.ScrollingDirection = Enum.ScrollingDirection.X
-	list.ScrollBarThickness = 8
+	list.ScrollBarThickness = 6
+	list.ScrollBarImageColor3 = Color3.fromRGB(150, 200, 255)
+	list.ScrollBarImageTransparency = 0.3
 	list.Parent = window
 	local row = Instance.new("UIListLayout")
 	row.FillDirection = Enum.FillDirection.Horizontal
