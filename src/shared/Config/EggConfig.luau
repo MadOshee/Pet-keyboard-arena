@@ -53,8 +53,6 @@ return table.freeze({
 
 	-- Coins for the 1st..5th reroll of one offer; no more rerolls after that.
 	RerollCosts = table.freeze({ 50, 100, 200, 400, 800 }),
-	-- Unpicked offers auto-pick the rarest egg after this many seconds.
-	OfferSeconds = 30,
 
 	-- Incubation time by rarity (D3), counted in real time, offline too.
 	HatchSeconds = table.freeze({

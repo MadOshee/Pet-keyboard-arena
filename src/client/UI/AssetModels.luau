@@ -46,9 +46,19 @@ function AssetModels.Pet(kind: string): Model?
 	return if template then prepare(template:Clone()) else nil
 end
 
+-- Pack eggs are modelled facing +X of their pivot (the Surfing egg's
+-- glasses, the Space egg's window, the Season 1 badge; checked in Studio,
+-- 2026-10-13), so their pivot is turned to face -Z like everything else.
+local EGG_TURN = CFrame.Angles(0, -math.pi / 2, 0)
+
 function AssetModels.Egg(theme: string): Model?
 	local template = findTemplate("Eggs", EggConfig.ModelName(theme))
-	return if template then prepare(template:Clone()) else nil
+	if template == nil then
+		return nil
+	end
+	local model = prepare((template :: Model):Clone())
+	model.WorldPivot *= EGG_TURN
+	return model
 end
 
 -- The direction a model faces (see Shared/Util/ModelFront).

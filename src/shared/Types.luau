@@ -54,7 +54,6 @@ export type EggOffer = {
 	OfferId: string,
 	Eggs: { EggInstance },
 	RerollCount: number,
-	ExpiresAt: number, -- os.time(); clients compare with GetServerTimeNow()
 	Context: OfferContext,
 }
 
