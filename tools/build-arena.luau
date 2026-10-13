@@ -31,9 +31,9 @@ local KEY_HEIGHT = 1.4
 local PITCH = 2.2
 -- The arena in keys, centered on ArenaConfig.CenterX/CenterZ: it floats far
 -- away from the hub islands, players are teleported there. Ivan doubled
--- both sides on 2026-10-13 (was 57 x 35).
-local ARENA_COLS = 114
-local ARENA_ROWS = 70
+-- both sides on 2026-10-13 (was 57 x 35), then asked for 30% less (x0.7).
+local ARENA_COLS = 80
+local ARENA_ROWS = 49
 local OX, OZ = ArenaConfig.CenterX, ArenaConfig.CenterZ
 
 local LETTERS = string.split("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "")

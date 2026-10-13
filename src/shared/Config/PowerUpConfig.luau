@@ -10,9 +10,10 @@ return table.freeze({
 	MaxActive = 3,
 	PickupRadius = 5, -- studs, checked on the server
 	SpeedMultiplier = 1.6, -- on top of pets; the pet cap does not apply
-	SpeedSeconds = 5,
-	BombRadius = 12,
-	LockRadius = 12,
+	-- Ivan 2026-10-13: longer speed boost, much wider bomb, wider lock (were 5, 12, 12).
+	SpeedSeconds = 10,
+	BombRadius = 24,
+	LockRadius = 20,
 	LockSeconds = 4,
 	Colors = table.freeze({
 		Speed = Color3.fromRGB(255, 230, 60),

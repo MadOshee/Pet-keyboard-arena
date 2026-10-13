@@ -135,8 +135,11 @@ local function updateScore()
 	local blueCount = if type(blue) == "number" then blue else 0
 	local total = redCount + blueCount
 	refs.RedFill.Size = UDim2.fromScale(if total > 0 then redCount / total else 0.5, 1)
-	refs.RedScore.Text = tostring(redCount)
-	refs.BlueScore.Text = tostring(blueCount)
+	-- Each team's share of all arena keys, in percent (Ivan 2026-10-13).
+	local keys = ReplicatedStorage:GetAttribute("ScoreTotal")
+	local keyCount = if type(keys) == "number" and keys > 0 then keys else math.max(total, 1)
+	refs.RedScore.Text = string.format("%d%%", math.floor(redCount / keyCount * 100 + 0.5))
+	refs.BlueScore.Text = string.format("%d%%", math.floor(blueCount / keyCount * 100 + 0.5))
 end
 
 local function updateTeam()
@@ -187,6 +190,7 @@ function HudController:Start()
 
 	ReplicatedStorage:GetAttributeChangedSignal("ScoreRed"):Connect(updateScore)
 	ReplicatedStorage:GetAttributeChangedSignal("ScoreBlue"):Connect(updateScore)
+	ReplicatedStorage:GetAttributeChangedSignal("ScoreTotal"):Connect(updateScore)
 	ReplicatedStorage:GetAttributeChangedSignal("Winner"):Connect(onWinner)
 	player:GetAttributeChangedSignal("Team"):Connect(function()
 		updateTeam()

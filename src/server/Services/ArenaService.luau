@@ -300,6 +300,8 @@ end
 local function syncScore()
 	ReplicatedStorage:SetAttribute("ScoreRed", scoreRed)
 	ReplicatedStorage:SetAttribute("ScoreBlue", scoreBlue)
+	-- The HUD shows each team's share of the whole arena.
+	ReplicatedStorage:SetAttribute("ScoreTotal", #keyParts)
 	scoreDirty = false
 end
 

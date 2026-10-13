@@ -20,7 +20,7 @@
     },
     "StarterPlayer": {
       "$properties": {
-        "CharacterWalkSpeed": 32
+        "CharacterWalkSpeed": 22.4
       },
       "StarterPlayerScripts": {
         "Client": {
