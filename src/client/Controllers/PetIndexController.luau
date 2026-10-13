@@ -25,15 +25,16 @@ local PackUiController = require(script.Parent.PackUiController)
 local WINDOW_NAME = "Pets"
 -- One egg row, in fractions of the row's width: the egg card on the left,
 -- its pets in COLUMNS columns on the right, the progress bar under them.
-local COLUMNS = 3
+-- 8 pets per egg: two rows of four (Ivan, 2026-10-13).
+local COLUMNS = 4
 local EGG_WIDTH = 0.21
-local EGG_HEIGHT = 0.46
+local EGG_HEIGHT = 0.39
 local PETS_LEFT = 0.225
-local CARD_WIDTH = 0.245
-local CARD_HEIGHT = 0.19
-local CARD_STEP_X = 0.26
-local CARD_STEP_Y = 0.2
-local BAR_HEIGHT = 0.06
+local CARD_WIDTH = 0.185
+local CARD_HEIGHT = 0.16
+local CARD_STEP_X = 0.195
+local CARD_STEP_Y = 0.17
+local BAR_HEIGHT = 0.05
 -- A pet has at most three buffs (Ivan).
 local MAX_BUFFS = 3
 
@@ -313,9 +314,8 @@ local function buildSection(list: ScrollingFrame, theme: string, order: number)
 	count.ZIndex = 30
 	table.insert(sections, { Kinds = kinds, Fill = fill, Count = count })
 
-	-- Eggs have 4 to 11 pets, so rows differ in height. An aspect constraint
-	-- cannot size a row inside an auto-sized canvas: everything is placed in
-	-- pixels from the list width.
+	-- An aspect constraint cannot size a row inside an auto-sized canvas:
+	-- everything is placed in pixels from the list width.
 	local rows = math.max(math.ceil(#kinds / COLUMNS), 1)
 	local function resize()
 		local width = list.AbsoluteSize.X * 0.97

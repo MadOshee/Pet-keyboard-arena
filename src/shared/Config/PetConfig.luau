@@ -47,13 +47,14 @@ local BONUS: { [string]: { [string]: number } } = {
 local BONUS_PER_EGG = 0.05
 local EXTRA_SHARE = 0.5
 
--- Coins per second on a platform by rarity, times the egg's multiplier.
+-- Coins per second on a platform by rarity, times the egg's multiplier
+-- (5 times more since 2026-10-13, Ivan).
 local RARITY_INCOME: { [string]: number } = {
-	Common = 1,
-	Uncommon = 3,
-	Rare = 10,
-	Epic = 40,
-	Legendary = 200,
+	Common = 5,
+	Uncommon = 15,
+	Rare = 50,
+	Epic = 200,
+	Legendary = 1000,
 }
 
 type EggSpec = {

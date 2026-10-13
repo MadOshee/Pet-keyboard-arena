@@ -1,7 +1,8 @@
 --!strict
 -- HUD built in code: phase + timer and team score bar (shown while queued or
--- in a match), coins, the LEAVE QUEUE button and a banner for round results
--- and refused requests. Joining the queue happens at the hub portal
+-- in a match), the LEAVE QUEUE button and a banner for round results and
+-- refused requests. Money shows only in the pack's bottom-left cash counter
+-- (PackUiController; Ivan, 2026-10-13). Joining the queue happens at the hub portal
 -- (PortalController). Uses Scale sizes so it fits phones, tablets and PC,
 -- and the UI pack look through Widgets.
 
@@ -15,7 +16,6 @@ local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Money = require(ReplicatedStorage.Shared.Util.Money)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
-local DataController = require(script.Parent.DataController)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 
 local player = Players.LocalPlayer
@@ -30,7 +30,6 @@ type Refs = {
 	RedFill: Frame,
 	RedScore: TextLabel,
 	BlueScore: TextLabel,
-	CoinsLabel: TextLabel,
 	ReadyButton: TextButton,
 	Banner: TextLabel,
 }
@@ -65,10 +64,6 @@ local function build(): Refs
 
 	local teamLabel = Widgets.Label("Team", top, UDim2.fromScale(1, 0.2), UDim2.fromScale(0, 0.82))
 
-	local coinsLabel =
-		Widgets.MoneyLabel("Coins", gui, UDim2.fromScale(0.2, 0.06), UDim2.fromScale(0.78, 0.03))
-	coinsLabel.TextXAlignment = Enum.TextXAlignment.Right
-
 	local readyButton = Widgets.Button(
 		"Ready",
 		gui,
@@ -95,7 +90,6 @@ local function build(): Refs
 		RedFill = redFill,
 		RedScore = redScore,
 		BlueScore = blueScore,
-		CoinsLabel = coinsLabel,
 		ReadyButton = readyButton,
 		Banner = banner,
 	}
@@ -165,12 +159,6 @@ local function updateReady()
 	refs.ScoreBar.Visible = inMatch
 end
 
-local function updateCoins(profile: Types.Profile?)
-	refs.CoinsLabel.Text = if profile
-		then string.format(Strings.Coins, Money.Format(profile.Coins))
-		else ""
-end
-
 local function onWinner()
 	local winner = ReplicatedStorage:GetAttribute("Winner")
 	if winner == "Red" or winner == "Blue" or winner == "Draw" then
@@ -205,7 +193,6 @@ function HudController:Start()
 		updateReady()
 	end)
 	player:GetAttributeChangedSignal("Ready"):Connect(updateReady)
-	DataController.Changed:Connect(updateCoins)
 	ClientNet.On("RoundResult", onRoundResult)
 	ClientNet.On("ActionResult", function(_action: string, reason: string)
 		local text = (Strings.Errors :: any)[reason]
@@ -227,7 +214,6 @@ function HudController:Start()
 	updateScore()
 	updateTeam()
 	updateReady()
-	updateCoins(DataController:Get())
 end
 
 return HudController

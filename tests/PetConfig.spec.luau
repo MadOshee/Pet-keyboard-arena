@@ -111,8 +111,10 @@ function tests.rarerEggsAndPetsEarnMore()
 			assert(best(theme, "Legendary") > best(cheaper, "Legendary"), `{theme}: earns more`)
 		end
 	end
-	-- The best pet of the rarest egg earns thousands per second.
-	assert(best("Sparkletime") >= 5000)
+	-- Ivan, 2026-10-13: five times the first table. The weakest pet earns
+	-- $5/s, the best pet of the rarest egg tens of thousands.
+	assert(best("Basic", "Common") == 5)
+	assert(best("Sparkletime") >= 25000)
 end
 
 function tests.rerollCostsGrow()
