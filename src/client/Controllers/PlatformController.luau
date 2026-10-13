@@ -22,6 +22,7 @@ local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Money = require(ReplicatedStorage.Shared.Util.Money)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
+local Glow = require(script.Parent.Parent.UI.Glow)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
@@ -34,6 +35,29 @@ local RELEASE_TWEEN = TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirec
 local STAND_MARGIN = 0.6 -- studs around the pad that still count as on it
 local STAND_HEIGHT = 7 -- the character root is at most this far above the pad
 local OFFLINE_NOTICE_SECONDS = 7
+local WHITE = Color3.new(1, 1, 1)
+local NAVY = Color3.fromRGB(20, 24, 54)
+local GOLD = Color3.fromRGB(255, 214, 64)
+local HINT_COLOR = Color3.fromRGB(190, 210, 255)
+local CARD_STROKE = 2.5
+local CARD_STROKE_HOVER = 4
+local COUNT_COLOR = Color3.fromRGB(235, 70, 90)
+-- Where the hint line and the buttons go (in parts of the window).
+local INFO_TOP = {
+	Position = UDim2.fromScale(0.04, 0.17),
+	Size = UDim2.fromScale(0.92, 0.075),
+	Align = Enum.TextXAlignment.Left,
+}
+local INFO_SIDE = {
+	Position = UDim2.fromScale(0.4, 0.36),
+	Size = UDim2.fromScale(0.56, 0.08),
+	Align = Enum.TextXAlignment.Center,
+}
+local SIDE_FIRST = UDim2.fromScale(0.43, 0.5)
+local SIDE_SECOND = UDim2.fromScale(0.43, 0.73)
+local BUY_POSITION = UDim2.fromScale(0.25, 0.42)
+local BUTTON_SIZE = UDim2.fromScale(0.5, 0.19)
+local EQUIPPED_COLOR = Color3.fromRGB(60, 180, 90)
 
 local PlatformController = {}
 
@@ -54,6 +78,8 @@ local gui: ScreenGui
 local window: Frame
 local titleLabel: TextLabel
 local infoLabel: TextLabel
+local nameLabel: TextLabel
+local previewGlow: Glow.Glow
 local list: ScrollingFrame
 local preview: Frame
 local actionButton: TextButton
@@ -99,35 +125,128 @@ local function clearList()
 end
 
 local function clearPreview()
-	for _, child in preview:GetChildren() do
-		child:Destroy()
+	local holder = preview:FindFirstChild("Model")
+	if holder then
+		holder:Destroy()
 	end
 end
 
+-- A color for a card's face: the rarity color sunk into the window's navy.
+local function cardFace(color: Color3): (Color3, Color3)
+	return NAVY:Lerp(color, 0.55), NAVY:Lerp(color, 0.2)
+end
+
+-- A small rounded tag in a card's top corner ("x2", "Equipped").
+local function addTag(card: GuiObject, text: string, color: Color3, right: boolean)
+	local tag = Instance.new("Frame")
+	tag.Name = "Tag"
+	tag.BackgroundColor3 = color
+	tag.BorderSizePixel = 0
+	tag.AnchorPoint = Vector2.new(if right then 1 else 0, 0)
+	tag.Position = UDim2.fromScale(if right then 0.95 else 0.05, 0.04)
+	tag.Size = UDim2.fromScale(0, 0.12)
+	tag.AutomaticSize = Enum.AutomaticSize.X
+	tag.ZIndex = 6
+	tag.Parent = card
+	Widgets.Corner(tag, 0.5)
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, 6)
+	padding.PaddingRight = UDim.new(0, 6)
+	padding.Parent = tag
+	local label = Widgets.Label("Text", tag, UDim2.fromScale(0, 0.86), UDim2.fromScale(0, 0.07))
+	label.AutomaticSize = Enum.AutomaticSize.X
+	label.TextScaled = false
+	label.ZIndex = 7
+	label.Text = text
+	local function size()
+		label.TextSize = math.max(math.floor(tag.AbsoluteSize.Y * 0.78), 8)
+	end
+	tag:GetPropertyChangedSignal("AbsoluteSize"):Connect(size)
+	size()
+end
+
+-- One egg or pet in the picker (Ivan: smaller models, no gray tile): a
+-- face in the rarity's color with a soft glow behind the model, the name,
+-- the rarity and, for a pet, its money per second.
 local function addCard(
 	order: number,
 	model: Model?,
 	color: Color3,
 	title: string,
-	subtitle: string,
+	rarity: string,
+	money: string?,
+	tags: { { Text: string, Color: Color3, Right: boolean } },
 	onPick: () -> ()
 )
-	local card =
-		Widgets.Button(`Card{order}`, list, UDim2.new(), UDim2.new(), Color3.fromRGB(52, 56, 80))
+	local card = Instance.new("TextButton")
+	card.Name = `Card{order}`
+	card.Text = ""
+	card.AutoButtonColor = false
+	card.BackgroundColor3 = WHITE
+	card.BorderSizePixel = 0
 	card.LayoutOrder = order
-	Widgets.Stroke(card, color, 2)
+	card.Parent = list
+	Widgets.Corner(card, 0.12)
+	local top, bottom = cardFace(color)
+	local face = Instance.new("UIGradient")
+	face.Rotation = 90
+	face.Color = ColorSequence.new(top, bottom)
+	face.Parent = card
+	local stroke = Widgets.Stroke(card, color, CARD_STROKE)
+	Widgets.AnimatePress(card)
+	card.MouseEnter:Connect(function()
+		stroke.Thickness = CARD_STROKE_HOVER
+	end)
+	card.MouseLeave:Connect(function()
+		stroke.Thickness = CARD_STROKE
+	end)
+
+	local stage = Instance.new("Frame")
+	stage.Name = "Stage"
+	stage.BackgroundTransparency = 1
+	stage.AnchorPoint = Vector2.new(0.5, 0)
+	stage.Position = UDim2.fromScale(0.5, 0.06)
+	stage.Size = UDim2.fromScale(0.9, 0.5)
+	stage.ZIndex = 2
+	stage.Parent = card
+	Glow.new(stage, color, 1.1, false, 2)
 	local holder = Instance.new("Frame")
+	holder.Name = "Model"
 	holder.BackgroundTransparency = 1
-	holder.Size = UDim2.fromScale(0.9, 0.55)
-	holder.Position = UDim2.fromScale(0.05, 0.04)
-	holder.Parent = card
+	holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	holder.Position = UDim2.fromScale(0.5, 0.5)
+	holder.Size = UDim2.fromScale(0.78, 0.78)
+	holder.ZIndex = 3
+	holder.Parent = stage
 	AssetModels.Viewport(holder, model, color)
-	local name = Widgets.Label("Name", card, UDim2.fromScale(0.9, 0.18), UDim2.fromScale(0.05, 0.6))
+
+	local name = Widgets.Label("Name", card, UDim2.fromScale(0.9, 0.13), UDim2.fromScale(0.05, 0.6))
+	name.ZIndex = 4
 	name.Text = title
-	local sub = Widgets.Label("Sub", card, UDim2.fromScale(0.9, 0.16), UDim2.fromScale(0.05, 0.8))
-	sub.Text = subtitle
+	local sub =
+		Widgets.Label("Rarity", card, UDim2.fromScale(0.86, 0.1), UDim2.fromScale(0.07, 0.74))
+	sub.ZIndex = 4
+	sub.Text = rarity
 	sub.TextColor3 = color
-	card.Activated:Connect(onPick)
+	if money then
+		local income = Widgets.MoneyLabel(
+			"Money",
+			card,
+			UDim2.fromScale(0.86, 0.1),
+			UDim2.fromScale(0.07, 0.855)
+		)
+		income.ZIndex = 4
+		Widgets.SetText(income, money)
+	else
+		sub.Position = UDim2.fromScale(0.07, 0.78)
+	end
+	for _, tag in tags do
+		addTag(card, tag.Text, tag.Color, tag.Right)
+	end
+	card.Activated:Connect(function()
+		Widgets.PlaySound("Click")
+		onPick()
+	end)
 end
 
 -- The picker: stored eggs (one card per theme and rarity) and inventory pets.
@@ -163,10 +282,13 @@ local function buildPicker(data: Types.Profile)
 		addCard(
 			order,
 			AssetModels.Egg(group.Theme),
-			PetStyle.Rarity[group.Rarity] or Color3.new(1, 1, 1),
-			string.format(Strings.EggTheme, group.Theme)
-				.. (if group.Count > 1 then ` x{group.Count}` else ""),
+			PetStyle.Rarity[group.Rarity] or WHITE,
+			string.format(Strings.EggTheme, group.Theme),
 			rarityName,
+			nil,
+			if group.Count > 1
+				then { { Text = `x{group.Count}`, Color = COUNT_COLOR, Right = true } }
+				else {},
 			function()
 				send("PlaceEgg", group.Id)
 			end
@@ -198,11 +320,13 @@ local function buildPicker(data: Types.Profile)
 		addCard(
 			order,
 			AssetModels.Pet(pet.Kind),
-			PetStyle.Rarity[pet.Rarity] or Color3.new(1, 1, 1),
+			PetStyle.Rarity[pet.Rarity] or WHITE,
 			if entry then entry.Name else pet.Kind,
+			(Strings.Rarity :: any)[pet.Rarity] or pet.Rarity,
+			income,
 			if table.find(data.Equipped, id)
-				then `{income} · {Strings.PlatformEquipped}`
-				else income,
+				then { { Text = Strings.PlatformEquipped, Color = EQUIPPED_COLOR, Right = false } }
+				else {},
 			function()
 				send("PlacePet", id)
 			end
@@ -215,7 +339,29 @@ end
 local function showPreview(model: Model?, color: Color3)
 	clearPreview()
 	preview.Visible = true
-	AssetModels.Viewport(preview, model, color)
+	Glow.SetColor(previewGlow, color)
+	local holder = Instance.new("Frame")
+	holder.Name = "Model"
+	holder.BackgroundTransparency = 1
+	holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	holder.Position = UDim2.fromScale(0.5, 0.5)
+	holder.Size = UDim2.fromScale(0.8, 0.8)
+	holder.ZIndex = 3
+	holder.Parent = preview
+	AssetModels.Viewport(holder, model, color)
+end
+
+-- The hint line: across the top under the title, or beside the preview.
+local function placeInfo(place: { Position: UDim2, Size: UDim2, Align: Enum.TextXAlignment })
+	infoLabel.Position = place.Position
+	infoLabel.Size = place.Size
+	infoLabel.TextXAlignment = place.Align
+end
+
+local function showName(text: string, color: Color3)
+	nameLabel.Visible = true
+	nameLabel.Text = text
+	nameLabel.TextColor3 = color
 end
 
 -- Rebuilds the window for the open platform when what it shows changed;
@@ -264,16 +410,19 @@ local function render()
 	titleLabel.Text = string.format(Strings.PlatformTitle, index)
 	list.Visible = false
 	preview.Visible = false
+	nameLabel.Visible = false
 	actionButton.Visible = false
 	takeButton.Visible = false
 	clearList()
 	clearPreview()
+	placeInfo(INFO_TOP)
 
 	if state == "Locked" then
 		local price = platform:GetAttribute("Price")
 		if type(price) == "number" and price > 0 then
-			infoLabel.Text = ""
+			infoLabel.Text = Strings.PlatformBuyHint
 			actionButton.Visible = true
+			actionButton.Position = BUY_POSITION
 		else
 			infoLabel.Text = if owned < EggConfig.MaxIncubators
 				then string.format(Strings.PlatformBuyFirst, index - 1)
@@ -283,22 +432,29 @@ local function render()
 		buildPicker(profile)
 	elseif state == "Egg" then
 		local egg = slot.Egg :: Types.EggInstance
-		showPreview(AssetModels.Egg(egg.Theme), PetStyle.Rarity[egg.Rarity] or Color3.new(1, 1, 1))
+		local color = PetStyle.Rarity[egg.Rarity] or WHITE
+		showPreview(AssetModels.Egg(egg.Theme), color)
+		showName(string.format(Strings.EggTheme, egg.Theme), color)
+		placeInfo(INFO_SIDE)
 		actionButton.Visible = true
+		actionButton.Position = SIDE_FIRST
 		takeButton.Visible = true
+		takeButton.Position = SIDE_SECOND
 	else
 		local pet = profile.Pets[slot.PetId :: string]
 		if pet then
-			showPreview(
-				AssetModels.Pet(pet.Kind),
-				PetStyle.Rarity[pet.Rarity] or Color3.new(1, 1, 1)
-			)
+			local color = PetStyle.Rarity[pet.Rarity] or WHITE
+			local entry = PetConfig.Pets[pet.Kind]
+			showPreview(AssetModels.Pet(pet.Kind), color)
+			showName(if entry then entry.Name else pet.Kind, color)
+			placeInfo(INFO_SIDE)
 			infoLabel.Text = string.format(
 				Strings.PlatformEarns,
 				Money.Format(PetIncome.Rate(pet.Kind, PetConfig :: any))
 			)
 		end
 		takeButton.Visible = true
+		takeButton.Position = SIDE_FIRST
 	end
 end
 
@@ -450,25 +606,43 @@ local function build()
 	-- Above the HUD windows, so a pack window left open never covers it.
 	gui = Widgets.ScreenGui("Platform", 6)
 
-	window = Widgets.Panel("Window", gui, UDim2.fromScale(0.5, 0.42), UDim2.fromScale(0.5, 0.97))
+	-- A dark navy window with a soft light edge (Ivan: no gray), above the
+	-- level bar.
+	window = Instance.new("Frame")
+	window.Name = "Window"
 	window.AnchorPoint = Vector2.new(0.5, 1)
+	window.Position = UDim2.fromScale(0.5, 0.885)
+	window.Size = UDim2.fromScale(0.56, 0.4)
+	window.BackgroundColor3 = WHITE
+	window.BorderSizePixel = 0
 	window.Visible = false
-	window.BackgroundTransparency = math.min(window.BackgroundTransparency, 0.15)
-	Widgets.AspectRatio(window, 2.1)
+	window.Parent = gui
+	Widgets.AspectRatio(window, 2.3)
+	Widgets.Corner(window, 0.08)
+	local windowFace = Instance.new("UIGradient")
+	windowFace.Rotation = 90
+	windowFace.Color = ColorSequence.new(Color3.fromRGB(44, 52, 112), Color3.fromRGB(16, 18, 42))
+	windowFace.Transparency = NumberSequence.new(0.06, 0.12)
+	windowFace.Parent = window
+	local edge = Widgets.Stroke(window, Color3.fromRGB(150, 175, 255), 3)
+	edge.Transparency = 0.35
 
 	titleLabel =
-		Widgets.Label("Title", window, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.03, 0.03))
+		Widgets.Label("Title", window, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.04, 0.045))
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	infoLabel =
-		Widgets.Label("Info", window, UDim2.fromScale(0.9, 0.09), UDim2.fromScale(0.05, 0.17))
-	infoLabel.TextColor3 = Color3.fromRGB(200, 220, 255)
+	titleLabel.TextColor3 = GOLD
+	infoLabel = Widgets.Label("Info", window, INFO_TOP.Size, INFO_TOP.Position)
+	infoLabel.TextColor3 = HINT_COLOR
+	nameLabel =
+		Widgets.Label("Name", window, UDim2.fromScale(0.56, 0.14), UDim2.fromScale(0.4, 0.18))
+	nameLabel.Visible = false
 
 	list = Instance.new("ScrollingFrame")
 	list.Name = "List"
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.Size = UDim2.fromScale(0.94, 0.68)
-	list.Position = UDim2.fromScale(0.03, 0.29)
+	list.Position = UDim2.fromScale(0.03, 0.28)
 	list.CanvasSize = UDim2.new()
 	list.AutomaticCanvasSize = Enum.AutomaticSize.X
 	list.ScrollingDirection = Enum.ScrollingDirection.X
@@ -476,15 +650,20 @@ local function build()
 	list.Parent = window
 	local row = Instance.new("UIListLayout")
 	row.FillDirection = Enum.FillDirection.Horizontal
-	row.Padding = UDim.new(0, 8)
+	row.Padding = UDim.new(0, 10)
+	row.VerticalAlignment = Enum.VerticalAlignment.Center
+	local inset = Instance.new("UIPadding")
+	inset.PaddingLeft = UDim.new(0, 6)
+	inset.PaddingRight = UDim.new(0, 6)
+	inset.Parent = list
 	row.SortOrder = Enum.SortOrder.LayoutOrder
 	row.Parent = list
 	-- Cards are as tall as the list and a bit narrower than tall. Sized in
 	-- pixels: scale sizes inside a scrolling list follow its canvas, not the
 	-- visible frame, and collapsed to nothing in Play.
 	local function sizeCard(card: GuiObject)
-		local height = list.AbsoluteSize.Y * 0.9
-		card.Size = UDim2.fromOffset(height * 0.8, height)
+		local height = list.AbsoluteSize.Y * 0.86
+		card.Size = UDim2.fromOffset(height * 0.78, height)
 	end
 	list.ChildAdded:Connect(function(child)
 		if child:IsA("GuiObject") then
@@ -502,18 +681,14 @@ local function build()
 	preview = Instance.new("Frame")
 	preview.Name = "Preview"
 	preview.BackgroundTransparency = 1
-	preview.Size = UDim2.fromScale(0.3, 0.62)
-	preview.Position = UDim2.fromScale(0.05, 0.3)
+	preview.Size = UDim2.fromScale(0.3, 0.7)
+	preview.Position = UDim2.fromScale(0.05, 0.22)
 	preview.Visible = false
 	preview.Parent = window
+	previewGlow = Glow.new(preview, WHITE, 1, true, 1)
 
-	actionButton = Widgets.Button(
-		"Action",
-		window,
-		UDim2.fromScale(0.5, 0.2),
-		UDim2.fromScale(0.42, 0.36),
-		Color3.fromRGB(64, 170, 90)
-	)
+	actionButton =
+		Widgets.Button("Action", window, BUTTON_SIZE, SIDE_FIRST, Color3.fromRGB(64, 170, 90))
 	actionButton.Visible = false
 	actionButton.Activated:Connect(function()
 		local platform = openPlatform
@@ -524,13 +699,8 @@ local function build()
 		local slot = (data :: Types.Profile).Incubators[platformIndex(platform :: BasePart)]
 		send(if slot == nil then "Buy" else "SpeedUp")
 	end)
-	takeButton = Widgets.Button(
-		"Take",
-		window,
-		UDim2.fromScale(0.5, 0.2),
-		UDim2.fromScale(0.42, 0.66),
-		Color3.fromRGB(150, 90, 90)
-	)
+	takeButton =
+		Widgets.Button("Take", window, BUTTON_SIZE, SIDE_SECOND, Color3.fromRGB(150, 90, 90))
 	takeButton.Text = Strings.PlatformTake
 	takeButton.Visible = false
 	takeButton.Activated:Connect(function()

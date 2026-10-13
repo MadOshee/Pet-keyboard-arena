@@ -54,6 +54,8 @@ local SOON_BUTTONS: { [string]: true } = { Rebirth = true }
 local DIM = 0.55 -- share of black mixed into every colour
 local SOON_COLOR = Color3.fromRGB(255, 220, 60)
 local BLACK = Color3.new(0, 0, 0)
+-- Above the egg screen (EggOffer, 5) while only the money counter shows.
+local OFFER_DISPLAY_ORDER = 6
 -- My Base made smaller (Ivan), about the size Party and Upgrades had.
 local BASE_SIZE = UDim2.fromScale(0.33, 0.7)
 
@@ -66,6 +68,11 @@ local gui: ScreenGui? = nil
 local windowsGui: ScreenGui? = nil
 local cashLabel: TextLabel? = nil
 local levelBar: Frame? = nil
+-- The HUD corner holding the money counter, and the counter's "+" button.
+local cashCorner: GuiObject? = nil
+local cashPlus: GuiObject? = nil
+-- HUD pieces hidden under the egg screen, with how visible they were.
+local hiddenForOffer: { [GuiObject]: boolean } = {}
 local openPositions: { [GuiObject]: UDim2 } = {}
 local current: GuiObject? = nil
 local animating = false
@@ -245,6 +252,37 @@ local function trimHud(hud: Instance)
 	end
 end
 
+-- Hides every HUD piece but the money counter (and its "+" shop button),
+-- or brings them back as they were.
+local function setCashOnly(screen: ScreenGui, on: boolean)
+	local hud = screen:FindFirstChild("HUD")
+	if on == (next(hiddenForOffer) ~= nil) or hud == nil then
+		return
+	end
+	if on then
+		local hide: { GuiObject } = {}
+		for _, child in (hud :: Instance):GetChildren() do
+			if child:IsA("GuiObject") and child ~= cashCorner then
+				table.insert(hide, child)
+			end
+		end
+		if cashPlus then
+			table.insert(hide, cashPlus :: GuiObject)
+		end
+		for _, object in hide do
+			hiddenForOffer[object] = object.Visible
+			object.Visible = false
+		end
+		screen.DisplayOrder = OFFER_DISPLAY_ORDER
+	else
+		for object, visible in hiddenForOffer do
+			object.Visible = visible
+		end
+		table.clear(hiddenForOffer)
+		screen.DisplayOrder = 0
+	end
+end
+
 function PackUiController:Init()
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
 	local ui = assets and assets:FindFirstChild("UI")
@@ -281,6 +319,17 @@ function PackUiController:Init()
 	if amount and amount:IsA("TextLabel") then
 		cashLabel = amount
 	end
+	local corner: Instance? = cashFrame
+	while corner and corner.Parent ~= hud do
+		corner = corner.Parent
+	end
+	if corner and corner:IsA("GuiObject") then
+		cashCorner = corner
+	end
+	local plus = cashFrame and cashFrame:FindFirstChild("Shop")
+	if plus and plus:IsA("GuiObject") then
+		cashPlus = plus
+	end
 	screen.Parent = player:WaitForChild("PlayerGui")
 	layer.Parent = screen.Parent
 	gui = screen
@@ -314,15 +363,17 @@ function PackUiController:Start()
 	end
 	local screen = gui :: ScreenGui
 	local function updateVisible()
-		-- Hidden during a match and under the egg screen.
+		-- Hidden during a match. Under the egg screen only the money counter
+		-- stays, drawn above the screen's dimming (Ivan).
 		local inLobby = player:GetAttribute("Team") == nil
-		local visible = inLobby and not EggOfferController:IsShown()
-		if not visible then
+		local offer = EggOfferController:IsShown()
+		if not inLobby or offer then
 			closeNow()
 		end
-		screen.Enabled = visible
+		screen.Enabled = inLobby
+		setCashOnly(screen, inLobby and offer)
 		if windowsGui then
-			windowsGui.Enabled = visible
+			windowsGui.Enabled = inLobby and not offer
 		end
 	end
 	player:GetAttributeChangedSignal("Team"):Connect(updateVisible)

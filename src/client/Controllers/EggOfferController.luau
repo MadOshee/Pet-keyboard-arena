@@ -1,5 +1,5 @@
 --!strict
--- The egg offer (pick 1 of 4, reroll) and the reveals for a picked
+-- The egg offer (pick 1 of 4, reroll) and the reveals (UI/RevealScreen) for a picked
 -- egg and a hatched pet (docs/design.md 4.3 "Яйца"). It only shows what the server put in the
 -- profile's PendingOffer and sends the offer id plus a slot number; the
 -- server decides everything else.
@@ -27,13 +27,13 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local Money = require(ReplicatedStorage.Shared.Util.Money)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
+local RevealScreen = require(script.Parent.Parent.UI.RevealScreen)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
 
 local player = Players.LocalPlayer
 
-local REVEAL_SECONDS = 5
 local NOTE_SECONDS = 2.5
 local CASH_IMAGE = "rbxassetid://82091418744362"
 local WHITE = Color3.new(1, 1, 1)
@@ -70,6 +70,10 @@ local SPIN_TIMEOUT = 3 -- no answer: stop on the eggs we have
 local BOUNCE = 1.2 -- ease-out-back overshoot
 local BOUNCE_SPEED = BOUNCE + 3 -- that easing's slope at the start
 local LABEL_POP = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+-- A refused reroll shakes its button.
+local SHAKE_STEPS = 6
+local SHAKE_OFFSET = 0.008 -- of the content width
+local SHAKE_TWEEN = TweenInfo.new(0.05, Enum.EasingStyle.Sine)
 
 local EggOfferController = {}
 
@@ -142,11 +146,6 @@ local shownResult: Types.RoundResultPayload? = nil
 local warningLabel: TextLabel
 local noteToken = 0
 local noteShowing = false
-local reveal: TextButton
-local revealPreview: Frame
-local revealTitle: TextLabel
-local revealInfo: TextLabel
-local revealNote: TextLabel
 
 local shownOfferId: string? = nil
 local shownRerollCount = 0
@@ -166,7 +165,6 @@ local function startWaiting()
 		end
 	end)
 end
-local revealToken = 0
 
 -- True when a picked egg would turn into coins: egg storage is full.
 local function eggWouldBeLost(profile: Types.Profile): boolean
@@ -578,6 +576,50 @@ local function loadRobuxPrice()
 	end)
 end
 
+-- Why the money reroll cannot run now, or nil when it can.
+local function rerollRefusal(): string?
+	local found = DataController:Get()
+	if found == nil or (found :: Types.Profile).PendingOffer == nil then
+		return nil
+	end
+	local profile = found :: Types.Profile
+	local offer = profile.PendingOffer :: Types.EggOffer
+	local cost = EggConfig.RerollCosts[offer.RerollCount + 1]
+	if cost == nil then
+		return Strings.Errors.RerollLimit
+	end
+	if profile.FreeRerolls <= 0 and profile.Coins < cost then
+		return Strings.Errors.NotEnoughCoins
+	end
+	return nil
+end
+
+-- A quick left-right shake of a button whose action was refused.
+local shakeHomes: { [GuiObject]: UDim2 } = {}
+local shakeTokens: { [GuiObject]: number } = {}
+local function shake(button: GuiObject)
+	local token = (shakeTokens[button] or 0) + 1
+	shakeTokens[button] = token
+	local home = shakeHomes[button] or button.Position
+	shakeHomes[button] = home
+	task.spawn(function()
+		for step = 1, SHAKE_STEPS do
+			if shakeTokens[button] ~= token then
+				return
+			end
+			local side = if step % 2 == 1 then 1 else -1
+			local push = SHAKE_OFFSET * (1 - (step - 1) / SHAKE_STEPS)
+			TweenService:Create(button, SHAKE_TWEEN, {
+				Position = home + UDim2.fromScale(side * push, 0),
+			}):Play()
+			task.wait(SHAKE_TWEEN.Time)
+		end
+		if shakeTokens[button] == token then
+			button.Position = home
+		end
+	end)
+end
+
 local function build()
 	gui = Widgets.ScreenGui("EggOffer", 5)
 	gui.IgnoreGuiInset = true
@@ -666,6 +708,15 @@ local function build()
 		if waiting or shownOfferId == nil or isSpinning() then
 			return
 		end
+		-- No spin without money or rerolls (Ivan): the button shakes and the
+		-- note says why. The server checks again anyway.
+		local refusal = rerollRefusal()
+		if refusal then
+			Widgets.PlaySound("Error")
+			shake(rerollButton)
+			flashNote(refusal)
+			return
+		end
 		startWaiting()
 		startSpin()
 		ClientNet.Fire("EggReroll", shownOfferId)
@@ -736,44 +787,7 @@ local function build()
 	warningLabel.TextColor3 = Color3.fromRGB(255, 170, 80)
 	warningLabel.Text = Strings.EggStorageFullWarning
 
-	reveal = Widgets.Button(
-		"Reveal",
-		gui,
-		UDim2.fromScale(0.36, 0.5),
-		UDim2.fromScale(0.5, 0.5),
-		Color3.fromRGB(34, 36, 52)
-	)
-	reveal.AnchorPoint = Vector2.new(0.5, 0.5)
-	reveal.AutoButtonColor = false
-	reveal.Visible = false
-	Widgets.AspectRatio(reveal, 0.9)
-	revealPreview = Instance.new("Frame")
-	revealPreview.Name = "PreviewHolder"
-	revealPreview.BackgroundTransparency = 1
-	revealPreview.Size = UDim2.fromScale(0.8, 0.5)
-	revealPreview.Position = UDim2.fromScale(0.1, 0.04)
-	revealPreview.Parent = reveal
-	revealTitle =
-		Widgets.Label("Title", reveal, UDim2.fromScale(0.9, 0.13), UDim2.fromScale(0.05, 0.56))
-	revealInfo =
-		Widgets.Label("Info", reveal, UDim2.fromScale(0.9, 0.1), UDim2.fromScale(0.05, 0.7))
-	revealNote =
-		Widgets.Label("Note", reveal, UDim2.fromScale(0.9, 0.07), UDim2.fromScale(0.05, 0.82))
-	revealNote.TextColor3 = Color3.fromRGB(255, 200, 120)
-	local close =
-		Widgets.Label("Close", reveal, UDim2.fromScale(0.9, 0.05), UDim2.fromScale(0.05, 0.92))
-	close.TextColor3 = Color3.fromRGB(170, 170, 190)
-	close.Text = Strings.TapToClose
-	reveal.Activated:Connect(function()
-		reveal.Visible = false
-	end)
-
 	gui.Parent = player:WaitForChild("PlayerGui")
-end
-
-local function setPreview(holder: Frame, model: Model?, color: Color3)
-	holder:ClearAllChildren()
-	AssetModels.Viewport(holder, model, color)
 end
 
 -- Rich text: each rarity and its chance in the rarity's color.
@@ -924,56 +938,43 @@ local function onRoundResult(result: Types.RoundResultPayload)
 	end
 end
 
-local function showReveal(model: Model?, color: Color3, title: string, info: string, note: string)
-	setPreview(revealPreview, model, color)
-	revealTitle.Text = title
-	revealTitle.TextColor3 = color
-	revealInfo.Text = info
-	revealNote.Text = note
-	reveal.Visible = true
-
-	revealToken += 1
-	local token = revealToken
-	task.delay(REVEAL_SECONDS, function()
-		if token == revealToken then
-			reveal.Visible = false
-		end
-	end)
-end
-
 local function onEggPicked(result: Types.EggPickedPayload)
 	-- No rarity here either: the pet's rarity shows when it hatches.
-	local color = PetStyle.Theme[result.Theme] or WHITE
-	local title = string.format(Strings.EggTheme, result.Theme)
-	local info: string
-	if result.Where ~= "Coins" then
-		info = Strings.EggStored
-	else
-		info = string.format(Strings.ConvertedToCoins, Money.Format(result.Coins))
-	end
-	showReveal(
-		AssetModels.Egg(result.Theme),
-		color,
-		title,
-		info,
-		if result.AutoPicked then Strings.AutoPicked else ""
-	)
+	local info = if result.Where ~= "Coins"
+		then Strings.EggStored
+		else string.format(Strings.ConvertedToCoins, Money.Format(result.Coins))
+	RevealScreen.Show({
+		Model = AssetModels.Egg(result.Theme),
+		Color = PetStyle.Theme[result.Theme] or WHITE,
+		Heading = Strings.RevealNewEgg,
+		Title = string.format(Strings.EggTheme, result.Theme),
+		Lines = { { Text = info } },
+		Note = if result.AutoPicked then Strings.AutoPicked else nil,
+		Close = Strings.TapToClose,
+	})
 end
 
 local function onHatched(result: Types.PetHatchedPayload)
 	local entry = PetConfig.Pets[result.Kind]
-	local color = PetStyle.Rarity[result.Rarity] or Color3.new(1, 1, 1)
+	local color = PetStyle.Rarity[result.Rarity] or WHITE
 	local rarityName = (Strings.Rarity :: any)[result.Rarity] or result.Rarity
-	showReveal(
-		AssetModels.Pet(result.Kind),
-		color,
-		string.format(Strings.Hatched, if entry then entry.Name else result.Kind),
-		`{rarityName} · {string.format(
-			Strings.PlatformIncome,
-			Money.Format(PetIncome.Rate(result.Kind, PetConfig :: any))
-		)}`,
-		""
-	)
+	RevealScreen.Show({
+		Model = AssetModels.Pet(result.Kind),
+		Color = color,
+		Heading = Strings.RevealNewPet,
+		Title = if entry then entry.Name else result.Kind,
+		Lines = {
+			{ Text = rarityName, Color = color, Style = "Pill" },
+			{
+				Text = string.format(
+					Strings.PlatformIncome,
+					Money.Format(PetIncome.Rate(result.Kind, PetConfig :: any))
+				),
+				Style = "Money",
+			},
+		},
+		Close = Strings.TapToClose,
+	})
 end
 
 function EggOfferController:IsShown(): boolean
