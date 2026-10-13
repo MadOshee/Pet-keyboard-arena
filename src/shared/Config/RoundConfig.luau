@@ -1,5 +1,5 @@
 --!strict
--- Round timing, team sizes and coin rewards (docs/design.md 4.3, 4.5).
+-- Round timing, team sizes, coin and XP rewards (docs/design.md 4.3, 4.5).
 -- Replicated to clients: nothing secret, and the server never trusts a
 -- client-reported value from here.
 
@@ -20,12 +20,29 @@ return table.freeze({
 	-- A participant who painted fewer keys is treated as AFK: no reward.
 	MinKeysForReward = 3,
 
+	-- Money and XP doubled by Ivan 2026-10-13 (bonus +1 per key, not per 2).
 	Coins = table.freeze({
-		Win = 40,
-		Draw = 40,
-		Lose = 20,
-		KeysPerBonusCoin = 2,
-		MaxBonusCoins = 30,
+		Win = 80,
+		Draw = 80,
+		Lose = 40,
+		KeysPerBonusCoin = 1,
+		MaxBonusCoins = 60,
 		MaxMultiplier = 2,
+	}),
+
+	-- XP after a rewarded round and the level it adds up to (Ivan
+	-- 2026-10-13: the round rewards window shows money and XP).
+	XP = table.freeze({
+		Win = 100,
+		Draw = 70,
+		Lose = 50,
+		KeysPerBonusXP = 1,
+		MaxBonusXP = 50,
+	}),
+	Levels = table.freeze({
+		Base = 100,
+		Step = 50,
+		-- Round money +10% for every level above 1 (Ivan 2026-10-13).
+		CoinBonusPerLevel = 0.1,
 	}),
 })

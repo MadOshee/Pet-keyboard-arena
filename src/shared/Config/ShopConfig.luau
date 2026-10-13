@@ -5,7 +5,7 @@
 -- No requires or Roblox types: Lune tests load this file directly.
 
 export type Pass = { Id: number, Order: number }
-export type Product = { Id: number, Order: number, Coins: number? }
+export type Product = { Id: number, Order: number, Coins: number?, Robux: number? }
 
 local GAME_PASSES: { [string]: Pass } = {
 	VIP = { Id = 0, Order = 1 }, -- VIP tag over the head, +1 incubator
@@ -15,7 +15,9 @@ local GAME_PASSES: { [string]: Pass } = {
 
 local PRODUCTS: { [string]: Product } = {
 	SpeedUpEgg = { Id = 0, Order = 1 }, -- finishes the egg with the most time left
-	Reroll = { Id = 0, Order = 2 }, -- one reroll without coins
+	-- One reroll without coins. Robux: the planned price, shown until the
+	-- product exists (Ivan: 10 for now).
+	Reroll = { Id = 0, Order = 2, Robux = 10 },
 	LuckPotion = { Id = 0, Order = 3 }, -- +Luck for the next egg offers
 	Coins1000 = { Id = 0, Order = 4, Coins = 1000 },
 	Coins5000 = { Id = 0, Order = 5, Coins = 5000 },

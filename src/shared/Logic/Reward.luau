@@ -1,5 +1,5 @@
 --!strict
--- Round outcome and coin formulas (docs/design.md 4.5). Pure Luau, tested
+-- Round outcome, coin and XP formulas (docs/design.md 4.5). Pure Luau, tested
 -- with Lune. The config table is RoundConfig.Coins.
 
 export type CoinConfig = {
@@ -9,6 +9,14 @@ export type CoinConfig = {
 	KeysPerBonusCoin: number,
 	MaxBonusCoins: number,
 	MaxMultiplier: number,
+}
+
+export type XPConfig = {
+	Win: number,
+	Draw: number,
+	Lose: number,
+	KeysPerBonusXP: number,
+	MaxBonusXP: number,
 }
 
 local Reward = {}
@@ -46,6 +54,15 @@ function Reward.Coins(
 	local bonus = math.min(math.floor(keysPainted / config.KeysPerBonusCoin), config.MaxBonusCoins)
 	local cappedMultiplier = math.clamp(multiplier, 1, config.MaxMultiplier)
 	return math.floor((base + bonus) * cappedMultiplier)
+end
+
+-- XP for a round: by outcome plus a capped bonus for painted keys.
+function Reward.XP(outcome: "Win" | "Lose" | "Draw", keysPainted: number, config: XPConfig): number
+	local base = if outcome == "Win"
+		then config.Win
+		elseif outcome == "Draw" then config.Draw
+		else config.Lose
+	return base + math.min(math.floor(keysPainted / config.KeysPerBonusXP), config.MaxBonusXP)
 end
 
 -- A player's share of the best painter on their team, 0..1.

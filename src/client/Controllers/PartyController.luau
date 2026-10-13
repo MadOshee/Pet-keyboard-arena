@@ -156,17 +156,21 @@ end
 local function build()
 	local gui = Widgets.ScreenGui("Party", 3)
 
-	local toggle = Widgets.Button(
+	local toggle = Widgets.MenuButton(
 		"PartyButton",
-		gui,
-		UDim2.fromScale(0.1, 0.08),
-		UDim2.fromScale(0.015, 0.35),
-		Color3.fromRGB(60, 140, 220)
+		Strings.PartyButton,
+		"Rebirth",
+		Color3.fromRGB(190, 60, 255),
+		3
 	)
-	toggle.Text = Strings.PartyButton
-	Widgets.AspectRatio(toggle, 2.2)
 
-	window = Widgets.Panel("Window", gui, UDim2.fromScale(0.42, 0.62), UDim2.fromScale(0.5, 0.5))
+	window = Widgets.Panel(
+		"Window",
+		gui,
+		UDim2.fromScale(0.42, 0.62),
+		UDim2.fromScale(0.5, 0.5),
+		Color3.fromRGB(140, 40, 220)
+	)
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
 	window.Visible = false
 	Widgets.AspectRatio(window, 1)
@@ -250,10 +254,7 @@ local function build()
 	decline.Text = Strings.Decline
 
 	toggle.Activated:Connect(function()
-		window.Visible = not window.Visible
-		if window.Visible then
-			refreshParty()
-		end
+		PartyController:Toggle()
 	end)
 	close.Activated:Connect(function()
 		window.Visible = false
@@ -269,6 +270,14 @@ local function build()
 	end)
 
 	gui.Parent = player:WaitForChild("PlayerGui")
+end
+
+-- Opens or closes the party window (PARTY button, the pack's top Party button).
+function PartyController:Toggle()
+	window.Visible = not window.Visible
+	if window.Visible then
+		refreshParty()
+	end
 end
 
 function PartyController:Init()

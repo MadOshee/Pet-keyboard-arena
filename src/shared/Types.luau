@@ -12,13 +12,14 @@ export type Outcome = "Win" | "Lose" | "Draw"
 -- teleport to the arena.
 export type RoundPhase = "Intermission" | "Starting" | "Countdown" | "Playing" | "Results"
 export type QueueMode = "Solo" | "Party"
-export type Stat = "Speed" | "PaintRadius" | "Luck" | "Coins"
+export type Stat = "Speed" | "PaintRadius" | "Luck" | "Power" | "Coins"
 
 -- Totals of equipped pet bonuses as fractions (0.1 = +10%), already capped.
 export type Stats = {
 	Speed: number,
 	PaintRadius: number,
 	Luck: number,
+	Power: number, -- bat hit strength
 	Coins: number,
 }
 
@@ -53,13 +54,13 @@ export type EggOffer = {
 	OfferId: string,
 	Eggs: { EggInstance },
 	RerollCount: number,
-	ExpiresAt: number, -- os.time(); clients compare with GetServerTimeNow()
 	Context: OfferContext,
 }
 
 export type Profile = {
 	SchemaVersion: number,
 	Coins: number,
+	XP: number, -- total XP; the level comes from Logic/Levels
 	Pets: { [string]: PetInstance }, -- key: unique pet id
 	Equipped: { string }, -- up to PetConfig.MaxEquipped pet ids
 	PetCapacity: number,
@@ -85,8 +86,10 @@ export type Profile = {
 -- Sent to a participant after each round (RoundResult remote).
 export type RoundResultPayload = {
 	Outcome: Outcome,
+	Winner: Winner,
 	KeysPainted: number,
 	Coins: number,
+	XP: number,
 	Rewarded: boolean,
 }
 

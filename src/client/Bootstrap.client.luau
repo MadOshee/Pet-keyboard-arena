@@ -10,18 +10,25 @@ local Loader = require(ReplicatedStorage.Shared.Util.Loader)
 local CONTROLLER_ORDER: { string } = {
 	"DataController",
 	"HudController",
+	"PackUiController",
 	"KeyPressController",
 	"EggOfferController",
 	"InventoryController",
+	"PetIndexController",
+	"BackpackController",
 	"PetFollowController",
 	"BatController",
+	"BatPoseController",
+	"MovementController",
 	"EffectsController",
+	"SoundController",
 	"PlotController",
 	"PlatformController",
 	"PartyController",
 	"PortalController",
 	"ShopController",
 	"TutorialController",
+	"FeedbackController",
 }
 
 local controllersFolder = script.Parent:FindFirstChild("Controllers")

@@ -2,7 +2,8 @@
 -- A player's final bonuses from equipped pets, capped (docs/design.md 4.4).
 -- Other services read the numbers they need from here instead of looking at
 -- pets directly: WalkSpeed and paint radius in the round, Luck for egg odds,
--- the coin multiplier for rewards and Power for team balance.
+-- the coin multiplier for rewards, bat Power for knockback, and the team
+-- balance weight.
 -- Arena power-ups add a temporary speed boost on top (outside the pet cap).
 
 local Players = game:GetService("Players")
@@ -81,8 +82,14 @@ function StatsService:GetCoinMultiplier(player: Player): number
 	return 1 + StatsService:GetStats(player).Coins
 end
 
+-- Bat Power bonus (0 = base knockback).
 function StatsService:GetPower(player: Player): number
-	return StatCalculator.Power(StatsService:GetStats(player))
+	return StatsService:GetStats(player).Power
+end
+
+-- How strong the player's pets make them, for team balance.
+function StatsService:GetTeamWeight(player: Player): number
+	return StatCalculator.TeamWeight(StatsService:GetStats(player))
 end
 
 return StatsService

@@ -4,7 +4,7 @@
 -- in front of it and picks what to put there (PlatformController); this
 -- service checks and applies the request. An egg hatches on its own when
 -- its time comes and the pet takes the platform. Pets on platforms earn
--- PetConfig.IncomePerSecond coins every second, and on joining the player
+-- their kind's Income (PetConfig) coins every second, and on joining the player
 -- gets what they earned while away (capped, see PetIncome).
 --
 -- Platforms are Profile.Incubators (the name predates them). Income is paid
@@ -68,26 +68,36 @@ local function settle(data: Types.Profile, now: number): ({ Types.PetHatchedPayl
 		local egg = slot.Egg
 		if egg ~= nil and slot.HatchAt ~= nil and (slot.HatchAt :: number) <= now then
 			local hatchAt = slot.HatchAt :: number
-			local kind = EggRoller.RollPet(PetConfig.Pets :: any, egg.Theme, egg.Rarity, rng)
-			local petId = kind and PetService:AddToProfile(data, kind, egg.Rarity, true)
+			local kind = EggRoller.RollPet(
+				PetConfig.Pets :: any,
+				egg.Theme,
+				egg.Rarity,
+				rng,
+				PetConfig.Rarities
+			)
+			-- Small eggs lack some rarities: the pet keeps its own rarity.
+			local rarity: Types.Rarity = if kind
+				then PetConfig.Pets[kind].Rarity :: Types.Rarity
+				else egg.Rarity
+			local petId = kind and PetService:AddToProfile(data, kind, rarity, true)
 			if kind and petId then
 				slot.Egg = nil
 				slot.HatchAt = nil
 				slot.PetId = petId
-				table.insert(hatched, { Kind = kind, Rarity = egg.Rarity, PetId = petId })
-				table.insert(earners, { Rarity = egg.Rarity :: string, From = hatchAt })
+				table.insert(hatched, { Kind = kind, Rarity = rarity, PetId = petId })
+				table.insert(earners, { Kind = kind :: string, From = hatchAt })
 			end
 		elseif slot.PetId ~= nil then
 			local pet = data.Pets[slot.PetId :: string]
 			if pet then
-				table.insert(earners, { Rarity = pet.Rarity :: string })
+				table.insert(earners, { Kind = pet.Kind })
 			else
 				slot.PetId = nil -- the pet is gone (for example a removed kind)
 			end
 		end
 	end
 	local coins = if data.IncomeAt > 0
-		then PetIncome.Earned(earners, data.IncomeAt, now, PetConfig)
+		then PetIncome.Earned(earners, data.IncomeAt, now, PetConfig :: any)
 		else 0
 	data.Coins += coins
 	data.IncomeAt = now

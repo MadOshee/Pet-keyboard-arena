@@ -46,9 +46,19 @@ function AssetModels.Pet(kind: string): Model?
 	return if template then prepare(template:Clone()) else nil
 end
 
+-- Pack eggs are modelled facing +X of their pivot (the Surfing egg's
+-- glasses, the Space egg's window, the Season 1 badge; checked in Studio,
+-- 2026-10-13), so their pivot is turned to face -Z like everything else.
+local EGG_TURN = CFrame.Angles(0, -math.pi / 2, 0)
+
 function AssetModels.Egg(theme: string): Model?
 	local template = findTemplate("Eggs", EggConfig.ModelName(theme))
-	return if template then prepare(template:Clone()) else nil
+	if template == nil then
+		return nil
+	end
+	local model = prepare((template :: Model):Clone())
+	model.WorldPivot *= EGG_TURN
+	return model
 end
 
 -- The direction a model faces (see Shared/Util/ModelFront).
@@ -69,8 +79,81 @@ function AssetModels.FitHeight(model: Model, height: number)
 	end
 end
 
+-- Where the camera looks from, relative to the model's center: front,
+-- slightly right and above.
+local VIEW_DIRECTION = Vector3.new(0.25, 0.2, -1).Unit
+local FIELD_OF_VIEW = 40
+-- Room around the model, so it never touches the frame's edge.
+local MARGIN = 1.04
+
+local directions: { [ViewportFrame]: Vector3 } = setmetatable({}, { __mode = "k" }) :: any
+
+-- Moves the camera so every corner of every part of the model fits the
+-- viewport at its current width / height (the parts' boxes hug the model
+-- tighter than the model's own box).
+local function fit(viewport: ViewportFrame)
+	local camera = viewport.CurrentCamera
+	local found = viewport:FindFirstChildOfClass("Model")
+	if not (camera and found) then
+		return
+	end
+	local model = found :: Model
+	local pixels = viewport.AbsoluteSize
+	local aspect = if pixels.X > 0 and pixels.Y > 0 then pixels.X / pixels.Y else 1
+	-- Corners of the visible parts (an invisible root or hitbox is left out).
+	local corners: { Vector3 } = {}
+	local function addBox(box: CFrame, size: Vector3)
+		for _, x in { -0.5, 0.5 } do
+			for _, y in { -0.5, 0.5 } do
+				for _, z in { -0.5, 0.5 } do
+					table.insert(corners, box:PointToWorldSpace(size * Vector3.new(x, y, z)))
+				end
+			end
+		end
+	end
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and part.Transparency < 1 then
+			addBox(part.CFrame, part.Size)
+		end
+	end
+	if #corners == 0 then
+		local box, size = model:GetBoundingBox()
+		addBox(box, size)
+	end
+	local low, high = corners[1], corners[1]
+	for _, corner in corners do
+		low, high = low:Min(corner), high:Max(corner)
+	end
+	local center = (low + high) / 2
+
+	local back = directions[viewport] or VIEW_DIRECTION
+	local view = CFrame.lookAt(Vector3.zero, -back)
+	local tanY = math.tan(math.rad(camera.FieldOfView / 2))
+	local tanX = tanY * aspect
+	local need = 0
+	for _, corner in corners do
+		local offset = corner - center
+		local depth = offset:Dot(back)
+		need = math.max(
+			need,
+			depth + math.abs(offset:Dot(view.RightVector)) / tanX,
+			depth + math.abs(offset:Dot(view.UpVector)) / tanY
+		)
+	end
+	camera.CFrame = CFrame.lookAt(center + back * need * MARGIN, center)
+end
+
+-- Frames the viewport's model again, for example after turning it.
+-- `direction` points from the model to the camera (default: the front).
+function AssetModels.Frame(viewport: ViewportFrame, direction: Vector3?)
+	if direction then
+		directions[viewport] = direction.Unit
+	end
+	fit(viewport)
+end
+
 -- Shows `model` (or a colored ball when nil) inside a ViewportFrame that
--- fills `parent`, seen from the model's front.
+-- fills `parent`, seen from the model's front and fitted inside it.
 function AssetModels.Viewport(
 	parent: GuiObject,
 	model: Model?,
@@ -80,8 +163,10 @@ function AssetModels.Viewport(
 	viewport.Name = "Preview"
 	viewport.Size = UDim2.fromScale(1, 1)
 	viewport.BackgroundTransparency = 1
-	viewport.Ambient = Color3.fromRGB(200, 200, 200)
+	-- Light from the camera's side and less flat ambient: clearer shapes.
+	viewport.Ambient = Color3.fromRGB(165, 165, 165)
 	viewport.LightColor = Color3.new(1, 1, 1)
+	viewport.LightDirection = Vector3.new(-0.3, -1, 0.6).Unit
 
 	local shown: Model = model or Instance.new("Model")
 	if model == nil then
@@ -96,15 +181,15 @@ function AssetModels.Viewport(
 	shown:PivotTo(CFrame.new() * AssetModels.FrontCorrection(shown))
 	shown.Parent = viewport
 
-	local center, size = shown:GetBoundingBox()
-	local distance = math.max(size.X, size.Y, size.Z) * 1.4
 	local camera = Instance.new("Camera")
-	camera.FieldOfView = 40
-	camera.CFrame =
-		CFrame.lookAt(center.Position + Vector3.new(0.35, 0.3, -1).Unit * distance, center.Position)
+	camera.FieldOfView = FIELD_OF_VIEW
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 	viewport.Parent = parent
+	viewport:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		fit(viewport)
+	end)
+	fit(viewport)
 	return viewport
 end
 

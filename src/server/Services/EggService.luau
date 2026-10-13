@@ -1,10 +1,10 @@
 --!strict
--- Egg offers after a round (1 of 4, rerolls for coins, auto-pick on
--- timeout), egg storage, platform purchases and speed-ups (docs/design.md
--- 4.3 "Яйца", D3, sections 9-10). A picked egg goes into egg storage; the
--- player puts it on a platform of the plot (PlatformService), where it
--- hatches. Each call checks the profile itself, so the world never decides
--- a result.
+-- Egg offers after a round (1 of 4, rerolls for coins; the offer waits
+-- until the player picks, Ivan 2026-10-13), egg storage, platform
+-- purchases and speed-ups (docs/design.md 4.3 "Яйца", D3, sections 9-10).
+-- A picked egg goes into egg storage; the player puts it on a platform of
+-- the plot (PlatformService), where it hatches. Each call checks the
+-- profile itself, so the world never decides a result.
 --
 -- The offer lives in the profile (PendingOffer), so leaving the game does
 -- not lose it, and the client sees it through DataSync. Every pick and
@@ -13,7 +13,6 @@
 -- pets or charge twice.
 
 local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
@@ -28,7 +27,6 @@ local NetService = require(script.Parent.NetService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
 local OFFER_ID_MAX_LENGTH = 64
-local EXPIRY_CHECK_SECONDS = 1
 
 local EggService = {}
 
@@ -62,7 +60,6 @@ local function newOffer(context: Types.OfferContext, rerollCount: number): Types
 		OfferId = HttpService:GenerateGUID(false),
 		Eggs = eggs :: any,
 		RerollCount = rerollCount,
-		ExpiresAt = os.time() + EggConfig.OfferSeconds,
 		Context = context,
 	}
 end
@@ -163,25 +160,6 @@ local function onReroll(player: Player, offerId: unknown)
 	end)
 end
 
-local function autoPickExpired()
-	local now = os.time()
-	for _, player in Players:GetPlayers() do
-		local offer = EggService:GetOffer(player)
-		if offer and now >= offer.ExpiresAt then
-			-- One broken saved offer must not stop expiry for everyone.
-			local ok, err = pcall(function()
-				pick(player, EggRoller.BestSlot(offer.Eggs :: any, PetConfig.Rarities), true)
-			end)
-			if not ok then
-				warn(`[EggService] auto-pick failed for {player.UserId}: {err}`)
-				PlayerDataService:Update(player, function(profile)
-					profile.PendingOffer = nil
-				end)
-			end
-		end
-	end
-end
-
 function EggService:Init() end
 
 function EggService:Start()
@@ -194,13 +172,6 @@ function EggService:Start()
 			EggService:BuyPetSlots(player)
 		else
 			refuse(player, "BuyUpgrade", "Unknown")
-		end
-	end)
-
-	task.spawn(function()
-		while true do
-			task.wait(EXPIRY_CHECK_SECONDS)
-			autoPickExpired()
 		end
 	end)
 end

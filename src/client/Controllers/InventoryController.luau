@@ -15,7 +15,9 @@ local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
 local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local StatCalculator = require(ReplicatedStorage.Shared.Logic.StatCalculator)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
+local PetText = require(script.Parent.Parent.UI.PetText)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
@@ -23,7 +25,6 @@ local DataController = require(script.Parent.DataController)
 local player = Players.LocalPlayer
 
 local CONFIRM_SECONDS = 3
-local STAT_ORDER = { "Speed", "PaintRadius", "Luck", "Coins" }
 
 local InventoryController = {}
 
@@ -40,10 +41,6 @@ local confirmPetId: string? = nil
 local builtKey: string? = nil
 local confirmToken = 0
 
-local function percent(value: number): number
-	return math.floor(value * 100 + 0.5)
-end
-
 local function rarityRank(rarity: string): number
 	return table.find(PetConfig.Rarities, rarity) or 0
 end
@@ -58,11 +55,10 @@ local function statsText(profile: Types.Profile): string
 	end
 	local stats = StatCalculator.Totals(equipped :: any, PetConfig :: any) :: any
 	local parts = {}
-	for _, stat in STAT_ORDER do
-		table.insert(
-			parts,
-			string.format(Strings.Bonus, percent(stats[stat]), (Strings.StatName :: any)[stat])
-		)
+	for _, stat in PetConfig.StatOrder do
+		if stats[stat] > 0 then
+			table.insert(parts, PetText.Bonus(stat, stats[stat]))
+		end
 	end
 	return string.format(Strings.EquippedCount, #equipped, PetConfig.MaxEquipped)
 		.. "   "
@@ -99,10 +95,7 @@ local function buildCard(petId: string, pet: Types.PetInstance, equipped: boolea
 	rarity.TextColor3 = rarityColor
 	local bonus =
 		Widgets.Label("Bonus", card, UDim2.fromScale(0.9, 0.09), UDim2.fromScale(0.05, 0.65))
-	local stat, value = StatCalculator.PetBonus(pet :: any, PetConfig :: any)
-	bonus.Text = if stat
-		then string.format(Strings.Bonus, percent(value), (Strings.StatName :: any)[stat] or stat)
-		else ""
+	bonus.Text = table.concat(PetText.BuffLines(pet.Kind), " ")
 
 	local equipButton = Widgets.Button(
 		"Equip",
@@ -127,7 +120,7 @@ local function buildCard(petId: string, pet: Types.PetInstance, equipped: boolea
 		local price = PetConfig.SellValue[pet.Rarity] or 0
 		sellButton.Text = if confirmPetId == petId
 			then Strings.ConfirmSell
-			else string.format(Strings.Sell, price)
+			else string.format(Strings.Sell, Money.Format(price))
 		sellButton.Activated:Connect(function()
 			if confirmPetId == petId then
 				confirmPetId = nil
@@ -143,7 +136,7 @@ local function buildCard(petId: string, pet: Types.PetInstance, equipped: boolea
 				if token == confirmToken and confirmPetId == petId then
 					confirmPetId = nil
 					if sellButton.Parent then
-						sellButton.Text = string.format(Strings.Sell, price)
+						sellButton.Text = string.format(Strings.Sell, Money.Format(price))
 					end
 				end
 			end)
@@ -204,7 +197,9 @@ local function refresh(profile: Types.Profile?)
 	slotsButton.Text = string.format(
 		Strings.BuyPetSlots,
 		EggConfig.PetSlotsStep,
-		Incubation.NextPetSlotsPrice(data.PetCapacity, PetConfig.StartCapacity, EggConfig)
+		Money.Format(
+			Incubation.NextPetSlotsPrice(data.PetCapacity, PetConfig.StartCapacity, EggConfig)
+		)
 	)
 	statsLabel.Text = statsText(data)
 	emptyLabel.Visible = #ids == 0
@@ -213,17 +208,21 @@ end
 local function build()
 	gui = Widgets.ScreenGui("Inventory", 3)
 
-	local toggle = Widgets.Button(
+	local toggle = Widgets.MenuButton(
 		"PetsButton",
-		gui,
-		UDim2.fromScale(0.1, 0.08),
-		UDim2.fromScale(0.015, 0.45),
-		Color3.fromRGB(120, 90, 220)
+		Strings.PetsButton,
+		"Index",
+		Color3.fromRGB(40, 150, 255),
+		2
 	)
-	toggle.Text = Strings.PetsButton
-	Widgets.AspectRatio(toggle, 2.2)
 
-	window = Widgets.Panel("Window", gui, UDim2.fromScale(0.72, 0.72), UDim2.fromScale(0.5, 0.5))
+	window = Widgets.Panel(
+		"Window",
+		gui,
+		UDim2.fromScale(0.72, 0.72),
+		UDim2.fromScale(0.5, 0.5),
+		Color3.fromRGB(30, 120, 230)
+	)
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
 	window.Visible = false
 	Widgets.AspectRatio(window, 1.6)
@@ -278,15 +277,20 @@ local function build()
 	emptyLabel.Text = Strings.NoPets
 
 	toggle.Activated:Connect(function()
-		window.Visible = not window.Visible
-		builtKey = nil
-		refresh(DataController:Get())
+		InventoryController:Toggle()
 	end)
 	close.Activated:Connect(function()
 		window.Visible = false
 	end)
 
 	gui.Parent = player:WaitForChild("PlayerGui")
+end
+
+-- Opens or closes the pets window (PETS button, the pack's Backpack button).
+function InventoryController:Toggle()
+	window.Visible = not window.Visible
+	builtKey = nil
+	refresh(DataController:Get())
 end
 
 function InventoryController:Init()
