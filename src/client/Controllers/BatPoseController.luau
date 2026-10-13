@@ -12,7 +12,10 @@
 -- across the front and a follow-through back to the shoulder.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+
+local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 
@@ -71,7 +74,8 @@ local SWING: { { any } } = {
 local SWING_SECONDS = 0.6
 
 -- Running motion.
-local RUN_SPEED = 14 -- studs/s at which the run motion is at full strength
+-- Studs/s at which the run motion is at full strength: a bit under the walk speed.
+local RUN_SPEED = ArenaConfig.BaseWalkSpeed * 0.875
 -- Radians of the step cycle per stud run, so the bounce keeps pace with the legs.
 local STEP_RATE = 0.575
 local LEAN = 10 -- degrees forward at full run

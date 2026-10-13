@@ -27,7 +27,7 @@ local STUCK_SECONDS = 2
 local STUCK_DISTANCE = 1
 local ARRIVE_DISTANCE = 2
 local SWING_INTERVAL = 3 -- bots swing at most this often
-local SWING_REACH = BatConfig.Range - 1
+local SWING_REACH = BatConfig.BotReach
 local SPAWN_SPREAD = 12
 -- Default Roblox R15 walk animation; bots glide if it fails to load.
 local WALK_ANIMATION = "rbxassetid://507777826"

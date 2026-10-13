@@ -200,7 +200,7 @@ function BatService:Start()
 	end)
 
 	-- Extra requests are dropped by the server-side cooldown anyway.
-	NetService:On("BatSwing", { PerSecond = 4, Burst = 4 }, function(player)
+	NetService:On("BatSwing", { PerSecond = 8, Burst = 8 }, function(player)
 		swing(player)
 	end)
 

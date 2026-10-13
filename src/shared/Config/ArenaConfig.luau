@@ -18,7 +18,9 @@ return table.freeze({
 	BasePaintRadius = 3, -- studs from the player to a key's edge
 	MaxPaintHeight = 6, -- studs above the key tops; higher jumps do not paint
 
-	BaseWalkSpeed = 16,
+	-- Twice the Roblox default (Ivan 2026-10-13). StarterPlayer.CharacterWalkSpeed
+	-- in default.project.json matches it, so the hub speed is the same.
+	BaseWalkSpeed = 32,
 
 	-- Falling off: a participant this far past the last key (studs), or this
 	-- far below the key tops, is off the arena. After FallSeconds off it they
