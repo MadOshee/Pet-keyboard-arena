@@ -32,6 +32,7 @@ return table.freeze({
 		"ActionResult", -- (action: string, reason: Types.ActionError) refusals only
 		"BatSwingFx", -- (attacker: Model) character of a player or bot, to all
 		"KnockedOut", -- (victim: Model, attacker: Model, direction: Vector3, seconds) to all
+		"ArenaRespawn", -- () to a player dropped in above the arena after falling off
 		"PartyUpdate", -- (party: Types.PartyPayload) to each player
 		"PowerUpEvent", -- (kind: string, userId: number, position: Vector3) to all
 	}),

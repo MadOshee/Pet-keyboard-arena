@@ -18,6 +18,8 @@ local CONTROLLER_ORDER: { string } = {
 	"BackpackController",
 	"PetFollowController",
 	"BatController",
+	"BatPoseController",
+	"MovementController",
 	"EffectsController",
 	"PlotController",
 	"PlatformController",

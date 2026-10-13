@@ -20,6 +20,14 @@ return table.freeze({
 
 	BaseWalkSpeed = 16,
 
+	-- Falling off: a participant this far past the last key (studs), or this
+	-- far below the key tops, is off the arena. After FallSeconds off it they
+	-- drop in again RespawnHeight studs above their team's side.
+	EdgeMargin = 1,
+	FallDepth = 4,
+	FallSeconds = 1,
+	RespawnHeight = 25,
+
 	-- Where players come back after a match: the hub plaza in front of the
 	-- portal, by the SpawnLocation (default.project.json).
 	LobbyX = 0,

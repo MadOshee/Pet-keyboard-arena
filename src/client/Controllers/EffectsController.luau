@@ -1,6 +1,7 @@
 --!strict
--- Visual and sound feedback for the bat and power-ups, the local victim's
--- knock-back flight, and sounds and confetti for game events (round won,
+-- Visual and sound feedback for the bat (a gust of wind in the hit cone)
+-- and power-ups, the local victim's knock-back flight, the drop back in
+-- after falling off the arena, and sounds and confetti for game events (round won,
 -- egg picked, pet hatched, refused action, party invite). All cosmetic: the
 -- server already decided every outcome.
 
@@ -12,12 +13,16 @@ local TweenService = game:GetService("TweenService")
 local BatConfig = require(ReplicatedStorage.Shared.Config.BatConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local Types = require(ReplicatedStorage.Shared.Types)
+local WindGust = require(script.Parent.Parent.Fx.WindGust)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 
 local player = Players.LocalPlayer
 
-local TRAIL_SECONDS = 0.3
+-- The strike part of the swing (BatPoseController.SWING): the trail and
+-- the wind start with the bat moving forward.
+local STRIKE_DELAY = 0.1
+local TRAIL_SECONDS = 0.24
 local POPUP_SECONDS = 1.5
 local SPIN_SPEED = 2 -- radians per second
 local BOB_HEIGHT = 0.4
@@ -77,11 +82,17 @@ local function onSwing(attacker: Model?)
 		return
 	end
 	local bat = found :: Model
+	local root = (attacker :: Model):FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		WindGust.Play(root, STRIKE_DELAY)
+	end
 	local trail = bat:FindFirstChild("SwingTrail", true)
 	if trail and trail:IsA("Trail") then
-		trail.Enabled = true
-		task.delay(TRAIL_SECONDS, function()
-			trail.Enabled = false
+		task.delay(STRIKE_DELAY, function()
+			trail.Enabled = true
+			task.delay(TRAIL_SECONDS, function()
+				trail.Enabled = false
+			end)
 		end)
 	end
 	playSound("Click", bat.PrimaryPart)
@@ -116,6 +127,16 @@ local function onKnockedOut(victim: Model?, attacker: Model?, direction: Vector3
 	local humanoid = (character :: Model):FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+	end
+end
+
+-- The server dropped us in above the arena after a fall: stop falling at
+-- full speed, so the drop starts gently.
+local function onArenaRespawn()
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		root.AssemblyLinearVelocity = Vector3.zero
 	end
 end
 
@@ -230,6 +251,7 @@ end
 function EffectsController:Start()
 	ClientNet.On("BatSwingFx", onSwing)
 	ClientNet.On("KnockedOut", onKnockedOut)
+	ClientNet.On("ArenaRespawn", onArenaRespawn)
 	ClientNet.On("PowerUpEvent", onPowerUp)
 	ClientNet.On("RoundResult", onRoundResult)
 	ClientNet.On("PetHatched", onHatched)

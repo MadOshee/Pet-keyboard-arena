@@ -71,14 +71,13 @@ end
 local function run()
 	local arena = workspace:WaitForChild("Arena")
 	local keysFolder = arena:WaitForChild("Keys")
-	local decorFolder = arena:WaitForChild("Decor")
 
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { keysFolder, decorFolder }
+	params.FilterDescendantsInstances = { keysFolder }
 	local overlap = OverlapParams.new()
 	overlap.FilterType = Enum.RaycastFilterType.Include
-	overlap.FilterDescendantsInstances = { keysFolder, decorFolder }
+	overlap.FilterDescendantsInstances = { keysFolder }
 
 	local direction = Vector3.new(0, -RAY_LENGTH, 0)
 	local function characters(): { Model }

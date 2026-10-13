@@ -81,9 +81,9 @@ return table.freeze({
 	Sell = "SELL %s",
 	ConfirmSell = "SURE?",
 	-- Bat and power-ups (stage 3)
-	BatButton = "BAT",
+	BatButton = "Hit",
 	BatHint = "Click or press F to swing the bat",
-	KnockedOut = "Knocked out!",
+	KnockedOut = "Bonk!",
 	YouKnocked = "Hit!",
 	PowerUpPicked = table.freeze({
 		Speed = "Speed boost!",
