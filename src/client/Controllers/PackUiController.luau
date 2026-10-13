@@ -3,7 +3,8 @@
 -- see every piece in the game and pick what stays. HUD buttons open the pack
 -- window with the same name (Shop, Rebirth, Pets, Backpack, Daily,
 -- Upgrades); one window is open at a time. Some HUD pieces are hidden until
--- the release update (HIDDEN_HUD); the level bar shows the real level. Real so far: coins in the cash
+-- the release update (HIDDEN_HUD), Rebirth is dimmed with "Soon" and does
+-- nothing (SOON_BUTTONS); the level bar shows the real level. Real so far: coins in the cash
 -- counter, MY BASE takes you to your plot, PETS (PetIndexController) and
 -- BACKPACK (BackpackController) are filled by their controllers, PARTY (the
 -- pack's top-left stock shop button) opens our party window. Other windows
@@ -32,7 +33,8 @@ local CLOSE_TWEEN = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirecti
 local HIDDEN_POSITION = UDim2.fromScale(0.5, 1.5)
 -- Pack HUD pieces hidden until the release update (Ivan 2026-10-13): the
 -- level shop buttons, Daily Rewards, Party, Upgrades, the boost icons at the
--- bottom right and the X2 Money / X2 Luck buttons.
+-- bottom right and the X2 Money / X2 Luck buttons; then the x3 Multiplier
+-- label, Friend Boost, the rebirth counter and the Starter Pack.
 local HIDDEN_HUD: { { string } } = {
 	{ "Bottom", "Products" },
 	{ "Left", "Daily" },
@@ -41,7 +43,16 @@ local HIDDEN_HUD: { { string } } = {
 	{ "BottomRight" },
 	{ "Right", "X2Money" },
 	{ "Right", "X2Luck" },
+	{ "Right", "StarterPack" },
+	{ "Bottom", "MultFrame" },
+	{ "BottomLeft", "Boost" },
+	{ "BottomLeft", "RebirthFrame" },
 }
+-- HUD buttons for features of a later update: dimmed, "Soon", not pressable.
+local SOON_BUTTONS: { [string]: true } = { Rebirth = true }
+local DIM = 0.55 -- share of black mixed into every colour
+local SOON_COLOR = Color3.fromRGB(255, 220, 60)
+local BLACK = Color3.new(0, 0, 0)
 -- My Base made smaller (Ivan), about the size Party and Upgrades had.
 local BASE_SIZE = UDim2.fromScale(0.33, 0.7)
 
@@ -102,7 +113,46 @@ local function toggle(window: GuiObject)
 	animating = false
 end
 
+local function dimSequence(sequence: ColorSequence): ColorSequence
+	local points = {}
+	for _, point in sequence.Keypoints do
+		table.insert(points, ColorSequenceKeypoint.new(point.Time, point.Value:Lerp(BLACK, DIM)))
+	end
+	return ColorSequence.new(points)
+end
+
+local function dim(button: GuiButton)
+	button.Interactable = false
+	button.AutoButtonColor = false
+	button.BackgroundColor3 = button.BackgroundColor3:Lerp(BLACK, DIM)
+	-- A gradient already tints its parent, so a part with one is dimmed once.
+	for _, part in button:GetDescendants() do
+		if part:IsA("UIGradient") then
+			part.Color = dimSequence(part.Color)
+		elseif part:IsA("UIStroke") then
+			part.Color = part.Color:Lerp(BLACK, DIM)
+		elseif part:FindFirstChildOfClass("UIGradient") then
+			continue
+		elseif part:IsA("ImageLabel") then
+			part.ImageColor3 = part.ImageColor3:Lerp(BLACK, DIM)
+		elseif part:IsA("TextLabel") then
+			part.TextColor3 = part.TextColor3:Lerp(BLACK, DIM)
+		end
+	end
+	local soon =
+		Widgets.Label("Soon", button, UDim2.fromScale(1.2, 0.42), UDim2.fromScale(0.5, 0.45))
+	soon.AnchorPoint = Vector2.new(0.5, 0.5)
+	soon.Rotation = -12
+	soon.ZIndex = 30
+	soon.TextColor3 = SOON_COLOR
+	soon.Text = Strings.Soon
+end
+
 local function wireButton(button: GuiButton, windows: Instance, hud: Instance)
+	if SOON_BUTTONS[button.Name] and button:IsDescendantOf(hud) then
+		dim(button)
+		return
+	end
 	Widgets.AnimatePress(button)
 	button.MouseButton1Down:Connect(function()
 		Widgets.PlaySound("Click")

@@ -55,6 +55,7 @@ return table.freeze({
 	RoundRewards = "Rewards",
 	XPGained = "+%d XP",
 	Level = "Level %d",
+	Soon = "Soon",
 	XPProgress = "%d/%d XP",
 	-- Feedback button and window (Ivan 2026-10-13)
 	FeedbackButton = "Feedback",
