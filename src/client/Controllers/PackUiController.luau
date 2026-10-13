@@ -7,11 +7,14 @@
 -- nothing (SOON_BUTTONS); the level bar shows the real level. Real so far: coins in the cash
 -- counter, MY BASE takes you to your plot, PETS (PetIndexController) and
 -- BACKPACK (BackpackController) are filled by their controllers, PARTY (the
--- pack's top-left stock shop button) opens our party window. Other windows
+-- pack's top-left stock shop button) opens our party window. The SHOP stall
+-- on every base opens the pack's Shop window too (click or its prompt).
+-- Other windows
 -- still show the pack's samples. Hidden during a match. Replaces the pack's
 -- own LocalScript, which is not imported.
 
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -295,6 +298,34 @@ function PackUiController:GetWindow(name: string): GuiObject?
 	return if window and window:IsA("GuiObject") then window else nil
 end
 
+-- Opens the pack window `name` unless it is already open.
+function PackUiController:Open(name: string)
+	local window = PackUiController:GetWindow(name)
+	if window and current ~= window and gui and (gui :: ScreenGui).Enabled then
+		task.spawn(toggle, window)
+	end
+end
+
+-- The SHOP stall on each base (tools/build-world: Islands.*.Shop, with a
+-- ClickDetector and a ProximityPrompt named "Shop") opens the Shop window.
+local function wireShopStalls()
+	ProximityPromptService.PromptTriggered:Connect(function(prompt)
+		if prompt.Name == "Shop" then
+			PackUiController:Open("Shop")
+		end
+	end)
+	task.spawn(function()
+		local islands = workspace:WaitForChild("World"):WaitForChild("Islands")
+		for _, descendant in islands:GetDescendants() do
+			if descendant:IsA("ClickDetector") and descendant.Name == "Shop" then
+				descendant.MouseClick:Connect(function()
+					PackUiController:Open("Shop")
+				end)
+			end
+		end
+	end)
+end
+
 function PackUiController:IsOpen(name: string): boolean
 	return current ~= nil and (current :: GuiObject).Name == name
 end
@@ -335,6 +366,7 @@ function PackUiController:Start()
 	updateCash(DataController:Get())
 	updateLevel(DataController:Get())
 	hideMenuColumn()
+	wireShopStalls()
 end
 
 return PackUiController

@@ -13,9 +13,9 @@ return table.freeze({
 	ArenaBusy = "Arena busy, you play next",
 	-- Portal on the hub island
 	PortalTitle = "Join a match",
-	SoloGame = "SOLO GAME",
+	SoloGame = "PvP",
 	PartyGame = "PARTY GAME",
-	SoloHint = "Play on your own",
+	SoloHint = "Fight other players",
 	PartyHint = "Play with your party on one team",
 	MatchIn = "Match in %d",
 	Queued = "You are in the queue",

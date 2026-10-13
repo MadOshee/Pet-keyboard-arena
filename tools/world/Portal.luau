@@ -15,8 +15,7 @@
 -- `rbx` carries the Roblox types (Lune or Studio), `base` is the CFrame of
 -- the ground under the stage center; the gate faces its +Z (the spawn).
 
--- Ivan's sword icon (docs: "Sword 2nd Outline"), uploaded to Roblox.
-local SWORD_ICON = "rbxassetid://0"
+local IconConfig = require("../../src/shared/Config/IconConfig")
 
 local TIERS = { -- outer radius and band width of each stage step, bottom up
 	{ Radius = 18, Band = 3 },
@@ -429,7 +428,7 @@ return function(rbx: any, parent: any, base: any): any
 	icon.Name = "Sword"
 	icon.Size = UDim2.fromScale(0.3, 1)
 	icon.BackgroundTransparency = 1
-	icon.Image = SWORD_ICON
+	icon.Image = IconConfig.Sword
 	icon.ScaleType = Enum.ScaleType.Fit
 	icon.Parent = sign
 	local signText = Instance.new("TextLabel")
