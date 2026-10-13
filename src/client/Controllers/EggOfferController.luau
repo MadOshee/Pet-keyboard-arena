@@ -42,6 +42,12 @@ local BLACK = Color3.new(0, 0, 0)
 local CASH_COLOR = Color3.fromRGB(7, 138, 0)
 local ROBUX_COLOR = Color3.fromRGB(60, 180, 90)
 local REROLL_BUTTON_SIZE = UDim2.fromScale(0.215, 0.12)
+local XP_COLOR = Color3.fromRGB(120, 200, 255)
+local TEAM_COLORS: { [string]: Color3 } = {
+	Red = Color3.fromRGB(255, 80, 80),
+	Blue = Color3.fromRGB(80, 160, 255),
+	Draw = Color3.fromRGB(255, 255, 255),
+}
 -- The money button's face when there is no reroll to buy.
 local DISABLED_FACE =
 	ColorSequence.new(Color3.fromRGB(170, 170, 180), Color3.fromRGB(100, 100, 110))
@@ -65,6 +71,7 @@ type Caption = {
 	Word: TextLabel,
 	Icon: ImageLabel?,
 	Price: TextLabel,
+	Scale: UIScale?, -- the button's hover and press scale
 }
 
 local gui: ScreenGui
@@ -79,6 +86,13 @@ local robuxRerollButton: TextButton
 local robuxCaption: Caption? = nil
 local robuxPrice: string? = nil
 local oddsLabel: TextLabel
+local winnerLabel: TextLabel
+local rewardsPanel: Frame
+local rewardMoney: TextLabel
+local rewardXp: TextLabel
+-- The last round's result, shown with the offer it brought.
+local pendingResult: Types.RoundResultPayload? = nil
+local shownResult: Types.RoundResultPayload? = nil
 local warningLabel: TextLabel
 local noteToken = 0
 local noteShowing = false
@@ -244,15 +258,20 @@ local function setCaptionSize(size: number)
 	end
 end
 
+-- Sized from the rows without the hover or press scale, so the text does
+-- not jump while a button grows (Ivan).
 local function fitCaptions()
 	local height = math.huge
 	for _, caption in captions do
-		height = math.min(height, caption.Row.AbsoluteSize.Y)
+		local scale = caption.Scale
+		local factor = if scale and scale.Scale > 0 then scale.Scale else 1
+		height = math.min(height, caption.Row.AbsoluteSize.Y / factor)
 	end
-	setCaptionSize(math.max(math.floor(height * 0.95), 8))
+	setCaptionSize(math.max(math.floor(height * 0.95 + 0.01), 8))
 end
 
 local function buildCaption(
+	button: TextButton,
 	container: Instance,
 	word: TextLabel,
 	price: TextLabel,
@@ -288,8 +307,13 @@ local function buildCaption(
 			setCaptionSize(math.max(math.floor(word.TextSize * room / width * 0.97), 8))
 		end
 	end)
-	row:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitCaptions)
-	local caption = { Row = row, Word = word, Icon = icon, Price = price }
+	local caption = {
+		Row = row,
+		Word = word,
+		Icon = icon,
+		Price = price,
+		Scale = button:FindFirstChildOfClass("UIScale"),
+	}
 	table.insert(captions, caption)
 	return caption
 end
@@ -323,7 +347,7 @@ local function buildRerollCaption(button: TextButton): Caption
 		rerollFace = face
 		rerollFaceColor = face.Color
 	end
-	return buildCaption(container, word, price, icon)
+	return buildCaption(button, container, word, price, icon)
 end
 
 -- "Reroll" in the rainbow button's white text with the pack's green Robux
@@ -339,7 +363,7 @@ local function buildRobuxCaption(button: TextButton): Caption
 	word.Name = "Word"
 	price.Name = "Price"
 	Widgets.SetText(word, Strings.Reroll)
-	return buildCaption(container, word, price, nil)
+	return buildCaption(button, container, word, price, nil)
 end
 
 -- The Robux price on the rainbow button, as the pack writes it.
@@ -440,9 +464,12 @@ local function build()
 		"Reroll",
 		window,
 		REROLL_BUTTON_SIZE,
-		UDim2.fromScale(0.52, 0.82),
+		UDim2.fromScale(0.6275, 0.88),
 		CASH_COLOR
 	)
+	-- Centred so a hover or press grows the button evenly around its middle,
+	-- like the pack's buttons.
+	rerollButton.AnchorPoint = Vector2.new(0.5, 0.5)
 	rerollCaption = buildRerollCaption(rerollButton)
 	rerollButton.Activated:Connect(function()
 		if waiting or shownOfferId == nil then
@@ -461,10 +488,56 @@ local function build()
 		"RobuxReroll",
 		window,
 		REROLL_BUTTON_SIZE,
-		UDim2.fromScale(0.755, 0.82),
+		UDim2.fromScale(0.8625, 0.88),
 		ROBUX_COLOR
 	)
+	robuxRerollButton.AnchorPoint = Vector2.new(0.5, 0.5)
 	robuxCaption = buildRobuxCaption(robuxRerollButton)
+	window:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		task.defer(fitCaptions)
+	end)
+	task.defer(fitCaptions)
+
+	-- Above the window: which team won the round. Under it: a small window
+	-- with the money and XP the round gave (Ivan).
+	winnerLabel =
+		Widgets.Label("Winner", window, UDim2.fromScale(0.8, 0.13), UDim2.fromScale(0.5, -0.025))
+	winnerLabel.AnchorPoint = Vector2.new(0.5, 1)
+	winnerLabel.Visible = false
+	rewardsPanel =
+		Widgets.Panel("Rewards", window, UDim2.fromScale(0.4, 0.13), UDim2.fromScale(0.5, 1.03))
+	rewardsPanel.AnchorPoint = Vector2.new(0.5, 0)
+	rewardsPanel.Visible = false
+	local rewardsRow = Instance.new("Frame")
+	rewardsRow.Name = "Row"
+	rewardsRow.BackgroundTransparency = 1
+	rewardsRow.AnchorPoint = Vector2.new(0.5, 0.5)
+	rewardsRow.Position = UDim2.fromScale(0.5, 0.5)
+	rewardsRow.Size = UDim2.fromScale(0.9, 0.62)
+	rewardsRow.Parent = rewardsPanel
+	local rewardsLayout = Instance.new("UIListLayout")
+	rewardsLayout.FillDirection = Enum.FillDirection.Horizontal
+	rewardsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	rewardsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	rewardsLayout.Padding = UDim.new(0.06, 0)
+	rewardsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	rewardsLayout.Parent = rewardsRow
+	local cash = Instance.new("ImageLabel")
+	cash.Name = "Cash"
+	cash.BackgroundTransparency = 1
+	cash.Image = CASH_IMAGE
+	cash.Size = UDim2.fromScale(1, 1.1)
+	cash.LayoutOrder = 1
+	cash.Parent = rewardsRow
+	local cashSquare = Instance.new("UIAspectRatioConstraint")
+	cashSquare.AspectRatio = 1
+	cashSquare.DominantAxis = Enum.DominantAxis.Height
+	cashSquare.Parent = cash
+	rewardMoney = Widgets.MoneyLabel("Money", rewardsRow, UDim2.fromScale(0.36, 1), UDim2.new())
+	rewardMoney.LayoutOrder = 2
+	rewardXp = Widgets.Label("XP", rewardsRow, UDim2.fromScale(0.36, 1), UDim2.new())
+	rewardXp.LayoutOrder = 3
+	rewardXp.TextColor3 = XP_COLOR
 	local planned = ShopConfig.Products.Reroll.Robux
 	showRobuxPrice(if planned then tostring(planned) else "")
 	robuxRerollButton.Activated:Connect(function()
@@ -533,8 +606,8 @@ local function oddsText(offer: Types.EggOffer): string
 	return string.format(Strings.Odds, table.concat(parts, " · "))
 end
 
--- The money button's caption; without a price it shows only `word`. A
--- gray face when there is nothing to buy.
+-- The money button's caption; without a price it shows only `word`. Lime
+-- green even when money is short (Ivan); gray only with no reroll left.
 local function setRerollCaption(word: string, price: string?, enabled: boolean)
 	Widgets.SetText(rerollCaption.Word, word)
 	Widgets.SetText(rerollCaption.Price, price or "")
@@ -585,7 +658,7 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 	if cost and profile.FreeRerolls > 0 then
 		setRerollCaption(string.format(Strings.RerollFree, profile.FreeRerolls), nil, true)
 	elseif cost then
-		setRerollCaption(Strings.Reroll, Money.Format(cost), profile.Coins >= cost)
+		setRerollCaption(Strings.Reroll, Money.Format(cost), true)
 	else
 		setRerollCaption(Strings.RerollLimit, nil, false)
 	end
@@ -595,14 +668,51 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 	window.Visible = true
 end
 
+-- The winner and the round's rewards around the offer that round brought.
+local function showResult()
+	local result = shownResult
+	local visible = result ~= nil and window.Visible
+	winnerLabel.Visible = visible
+	rewardsPanel.Visible = visible
+	if result == nil then
+		return
+	end
+	local shown = result :: Types.RoundResultPayload
+	winnerLabel.Text = Strings.TeamWins[shown.Winner]
+	winnerLabel.TextColor3 = TEAM_COLORS[shown.Winner] or WHITE
+	Widgets.SetText(rewardMoney, string.format(Strings.CoinsGained, Money.Format(shown.Coins)))
+	rewardXp.Text = string.format(Strings.XPGained, shown.XP)
+end
+
 local function onProfile(profile: Types.Profile)
 	waiting = false
 	local offer = profile.PendingOffer
 	if offer then
+		local isNew = offer.OfferId ~= shownOfferId
 		showOffer(profile, offer)
+		if isNew and pendingResult then
+			shownResult = pendingResult
+			pendingResult = nil
+		end
 	else
 		shownOfferId = nil
+		shownResult = nil
 		window.Visible = false
+	end
+	showResult()
+end
+
+-- The server makes the offer before it sends the result, so the result
+-- usually finds the window open; otherwise it waits for the next offer.
+local function onRoundResult(result: Types.RoundResultPayload)
+	if not result.Rewarded then
+		return
+	end
+	if window.Visible then
+		shownResult = result
+		showResult()
+	else
+		pendingResult = result
 	end
 end
 
@@ -666,6 +776,7 @@ function EggOfferController:Start()
 	DataController.Changed:Connect(onProfile)
 	ClientNet.On("EggPicked", onEggPicked)
 	ClientNet.On("PetHatched", onHatched)
+	ClientNet.On("RoundResult", onRoundResult)
 	-- A refused request (for example not enough coins) unlocks the buttons.
 	ClientNet.On("ActionResult", function()
 		waiting = false

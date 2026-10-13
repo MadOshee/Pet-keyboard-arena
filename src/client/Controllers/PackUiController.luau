@@ -2,7 +2,8 @@
 -- The whole Studs UI Pack screen (Assets.UI.GameUI), added as is so Ivan can
 -- see every piece in the game and pick what stays. HUD buttons open the pack
 -- window with the same name (Shop, Rebirth, Pets, Backpack, Daily,
--- Upgrades); one window is open at a time. Real so far: coins in the cash
+-- Upgrades); one window is open at a time. Some HUD pieces are hidden until
+-- the release update (HIDDEN_HUD); the level bar shows the real level. Real so far: coins in the cash
 -- counter, MY BASE takes you to your plot, PETS (PetIndexController) and
 -- BACKPACK (BackpackController) are filled by their controllers, PARTY (the
 -- pack's top-left stock shop button) opens our party window. Other windows
@@ -13,6 +14,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local RoundConfig = require(ReplicatedStorage.Shared.Config.RoundConfig)
+local Strings = require(ReplicatedStorage.Shared.Config.Strings)
+local Levels = require(ReplicatedStorage.Shared.Logic.Levels)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Money = require(ReplicatedStorage.Shared.Util.Money)
@@ -26,6 +30,20 @@ local player = Players.LocalPlayer
 local OPEN_TWEEN = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local CLOSE_TWEEN = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local HIDDEN_POSITION = UDim2.fromScale(0.5, 1.5)
+-- Pack HUD pieces hidden until the release update (Ivan 2026-10-13): the
+-- level shop buttons, Daily Rewards, Party, Upgrades, the boost icons at the
+-- bottom right and the X2 Money / X2 Luck buttons.
+local HIDDEN_HUD: { { string } } = {
+	{ "Bottom", "Products" },
+	{ "Left", "Daily" },
+	{ "Top", "Party" },
+	{ "Top", "Upgrades" },
+	{ "BottomRight" },
+	{ "Right", "X2Money" },
+	{ "Right", "X2Luck" },
+}
+-- My Base made smaller (Ivan), about the size Party and Upgrades had.
+local BASE_SIZE = UDim2.fromScale(0.33, 0.7)
 
 local PackUiController = {}
 
@@ -35,6 +53,7 @@ PackUiController.Opened = Signal.new() :: Signal.Signal<string>
 local gui: ScreenGui? = nil
 local windowsGui: ScreenGui? = nil
 local cashLabel: TextLabel? = nil
+local levelBar: Frame? = nil
 local openPositions: { [GuiObject]: UDim2 } = {}
 local current: GuiObject? = nil
 local animating = false
@@ -128,6 +147,53 @@ local function updateCash(profile: Types.Profile?)
 	end
 end
 
+local function setPackText(label: Instance?, text: string)
+	if label and label:IsA("TextLabel") then
+		Widgets.SetText(label, text)
+	end
+end
+
+-- The pack's level bar shows the real level and XP (Logic/Levels).
+local function updateLevel(profile: Types.Profile?)
+	if levelBar == nil or profile == nil then
+		return
+	end
+	local bar = levelBar :: Frame
+	local progress = Levels.FromXP((profile :: Types.Profile).XP or 0, RoundConfig.Levels)
+	setPackText(bar:FindFirstChild("Level"), string.format(Strings.Level, progress.Level))
+	setPackText(
+		bar:FindFirstChild("XP"),
+		string.format(Strings.XPProgress, progress.Into, progress.Need)
+	)
+	local fill = bar:FindFirstChild("Effect")
+	if fill and fill:IsA("GuiObject") then
+		fill.Size = UDim2.fromScale(progress.Into / progress.Need, 1)
+	end
+end
+
+local function trimHud(hud: Instance)
+	for _, path in HIDDEN_HUD do
+		local node: Instance? = hud
+		for _, name in path do
+			node = node and node:FindFirstChild(name)
+		end
+		if node and node:IsA("GuiObject") then
+			node.Visible = false
+		end
+	end
+	local top = hud:FindFirstChild("Top")
+	local base = top and top:FindFirstChild("Base")
+	if base and base:IsA("GuiObject") then
+		base.Size = BASE_SIZE
+	end
+	local bottom = hud:FindFirstChild("Bottom")
+	local barFrame = bottom and bottom:FindFirstChild("BarFrame")
+	local bar = barFrame and barFrame:FindFirstChild("Bar")
+	if bar and bar:IsA("Frame") then
+		levelBar = bar
+	end
+end
+
 function PackUiController:Init()
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
 	local ui = assets and assets:FindFirstChild("UI")
@@ -140,6 +206,7 @@ function PackUiController:Init()
 	screen.DisplayOrder = 0
 	local hud = screen:WaitForChild("HUD")
 	local windows = screen:WaitForChild("Main")
+	trimHud(hud)
 	-- Windows get their own layer above our menu column (DisplayOrder 2).
 	local layer = Widgets.ScreenGui("GameUIWindows", 3)
 	layer.ScreenInsets = screen.ScreenInsets
@@ -207,8 +274,12 @@ function PackUiController:Start()
 	end
 	player:GetAttributeChangedSignal("Team"):Connect(updateVisible)
 	updateVisible()
-	DataController.Changed:Connect(updateCash)
+	DataController.Changed:Connect(function(profile)
+		updateCash(profile)
+		updateLevel(profile)
+	end)
 	updateCash(DataController:Get())
+	updateLevel(DataController:Get())
 	hideMenuColumn()
 end
 

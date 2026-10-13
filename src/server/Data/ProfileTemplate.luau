@@ -14,6 +14,7 @@ local CURRENT_SCHEMA_VERSION = 1
 local template: Types.Profile = {
 	SchemaVersion = CURRENT_SCHEMA_VERSION,
 	Coins = 0,
+	XP = 0,
 	Pets = {},
 	Equipped = {},
 	PetCapacity = PetConfig.StartCapacity,

@@ -304,6 +304,11 @@ function Widgets.Button(
 	return button
 end
 
+-- Recolors a pack button or bar to `color`: face gradient, lip and outline.
+function Widgets.Paint(block: GuiObject, color: Color3)
+	paintBlock(block, color, darker(color))
+end
+
 -- Sets the text of a two-layer pack label (the dark label and its white
 -- "Color" copy).
 function Widgets.SetText(label: TextLabel, text: string)

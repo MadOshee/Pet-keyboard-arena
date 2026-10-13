@@ -1,6 +1,6 @@
 --!strict
 -- Pays out after each round (docs/design.md 4.5): coins (with the pet Coins
--- multiplier and the 2x pass) and an egg offer whose odds depend on the outcome, the
+-- multiplier and the 2x pass), XP and an egg offer whose odds depend on the outcome, the
 -- player's share of their team's painting, pet Luck and the luck potion. Listens to
 -- RoundService.RoundEnded, so a reward is tied to one RoundId and can only
 -- be granted once per participant.
@@ -42,6 +42,7 @@ local function rewardParticipant(
 	local rewarded = keys >= RoundConfig.MinKeysForReward
 	local multiplier = StatsService:GetCoinMultiplier(player)
 	local coins = if rewarded then Reward.Coins(outcome, keys, multiplier, RoundConfig.Coins) else 0
+	local xp = if rewarded then Reward.XP(outcome, keys, RoundConfig.XP) else 0
 	-- The 2x pass doubles the final sum (design 4.5).
 	if GamePassService:Owns(player, "DoubleCoins") then
 		coins *= ShopConfig.DoubleCoinsMultiplier
@@ -61,6 +62,7 @@ local function rewardParticipant(
 			data.Stats.Wins += 1
 		end
 		data.Coins += coins
+		data.XP += xp
 	end)
 
 	if usePotion then
@@ -79,8 +81,10 @@ local function rewardParticipant(
 
 	local payload: Types.RoundResultPayload = {
 		Outcome = outcome,
+		Winner = result.Winner,
 		KeysPainted = keys,
 		Coins = coins,
+		XP = xp,
 		Rewarded = rewarded,
 	}
 	NetService:FireClient("RoundResult", player, payload)

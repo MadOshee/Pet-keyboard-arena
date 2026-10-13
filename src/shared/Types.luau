@@ -60,6 +60,7 @@ export type EggOffer = {
 export type Profile = {
 	SchemaVersion: number,
 	Coins: number,
+	XP: number, -- total XP; the level comes from Logic/Levels
 	Pets: { [string]: PetInstance }, -- key: unique pet id
 	Equipped: { string }, -- up to PetConfig.MaxEquipped pet ids
 	PetCapacity: number,
@@ -85,8 +86,10 @@ export type Profile = {
 -- Sent to a participant after each round (RoundResult remote).
 export type RoundResultPayload = {
 	Outcome: Outcome,
+	Winner: Winner,
 	KeysPainted: number,
 	Coins: number,
+	XP: number,
 	Rewarded: boolean,
 }
 

@@ -21,6 +21,7 @@ return table.freeze({
 		"PartyRespond", -- (inviterUserId: number, accept: boolean)
 		"PartyLeave", -- ()
 		"TutorialDone", -- () the first-time tips were finished or skipped
+		"SendFeedback", -- (text: string) a message for the developers
 	}),
 	ServerToClient = table.freeze({
 		"DataSync", -- (profile: Types.Profile) full snapshot to the owner
