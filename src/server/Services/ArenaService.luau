@@ -258,6 +258,10 @@ local function paintTick()
 			local since = offArenaSince[participant]
 			if since == nil then
 				offArenaSince[participant] = now
+				local fallen = Participant.AsPlayer(participant)
+				if fallen then
+					NetService:FireClient("ArenaFell", fallen)
+				end
 			elseif now - since >= ArenaConfig.FallSeconds then
 				offArenaSince[participant] = nil
 				respawnAbove(participant, team)

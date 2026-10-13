@@ -156,7 +156,6 @@ local function swing(attacker: Participant.Participant)
 		return
 	end
 	nextSwingAt[attacker] = now + BatConfig.Cooldown
-	NetService:FireAllClients("BatSwingFx", Participant.Character(attacker))
 
 	local root = attackerRoot :: BasePart
 	local candidates: { BatTargeting.Candidate<Participant.Participant> } = {}
@@ -183,6 +182,8 @@ local function swing(attacker: Participant.Participant)
 		BatConfig.Range,
 		BatConfig.HalfAngle
 	)
+	-- Clients play the swing, and a hit or a miss sound.
+	NetService:FireAllClients("BatSwingFx", Participant.Character(attacker), target ~= nil)
 	if target then
 		knock(attacker, target, root, roots[target])
 	end

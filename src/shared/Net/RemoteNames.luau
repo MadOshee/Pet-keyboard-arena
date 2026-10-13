@@ -30,8 +30,9 @@ return table.freeze({
 		"PetHatched", -- (result: Types.PetHatchedPayload) to the owner
 		"OfflineIncome", -- (result: Types.OfflineIncomePayload) to the owner on join
 		"ActionResult", -- (action: string, reason: Types.ActionError) refusals only
-		"BatSwingFx", -- (attacker: Model) character of a player or bot, to all
+		"BatSwingFx", -- (attacker: Model, hit: boolean) character of a player or bot, to all
 		"KnockedOut", -- (victim: Model, attacker: Model, direction: Vector3, seconds) to all
+		"ArenaFell", -- () to a player who just fell off the arena
 		"ArenaRespawn", -- () to a player dropped in above the arena after falling off
 		"PartyUpdate", -- (party: Types.PartyPayload) to each player
 		"PowerUpEvent", -- (kind: string, userId: number, position: Vector3) to all

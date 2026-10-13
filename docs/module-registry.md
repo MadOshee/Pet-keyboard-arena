@@ -13,6 +13,7 @@
 | Util/Money | валюта $ | `Format(n)` («$1000», «$100 000»: пробел между тысячами от 10 000), `Number(n)`; все тексты с деньгами в интерфейсе идут через него (Strings с `%s`) | — |
 | Types | 0–2, карта | `Rarity`, `TeamId`, `Winner`, `Outcome`, `RoundPhase` (+ `Starting`), `QueueMode` (`Solo`/`Party`), `Stat`, `Stats`, `PetInstance`, `EggInstance`, `OfferContext`, `EggOffer`, `Profile`, `RoundResultPayload`, `PetHatchedPayload`, `OfflineIncomePayload`, `PlatformActionKind`, `ActionError` (+ `OnPlatform`, `EggsFull`, `Locked`); `Incubator` = платформа участка (`Egg`, `HatchAt`, `PetId`), в `Profile` поле `IncomeAt` | — |
 | Config/RoundConfig | 1, карта | тайминги фаз (`StartingSeconds` — отсчёт после входа в портал), размеры команд, `MinKeysForReward`, `Coins` (Win 80, Draw 80, Lose 40, +1 за клавишу, максимум +60), `XP` (за раунд: Win 100, Draw 70, Lose 50, +1 за клавишу, максимум +50; Иван удвоил 2026-10-13), `Levels` (`Base` 100, `Step` 50: уровню n нужно 100 + 50·(n−1) XP; `CoinBonusPerLevel` 0,1: +10% денег за раунд за каждый уровень выше 1) | — |
+| Config/SoundConfig | звуки | id музыки (`Music`: Hub, Queue, Arena, YouWin) и звуков (`Effects`: Countdown, Victory, Speed, BatHit, BatMiss, GotHit, Fall, Reward) с громкостью; `CountdownPlaySeconds` 4, `FastSeconds` 10, `FastPlaybackSpeed` 1.25, `BatHearDistance`, `FadeSeconds`. Hub, Arena и YouWin не грузятся (чужие закрытые ассеты), Ivan загрузит свои | — |
 | Config/ArenaConfig | 1, карта, арена x2 | размеры клавиш, частоты тиков, радиус кисти, скорость `BaseWalkSpeed` 22.4 (стандартная 16 x2, потом -30%; в хабе тоже: `StarterPlayer.CharacterWalkSpeed`), центр арены (`CenterZ` = 3000, далеко от хаба), точка возврата на площадь хаба, `PortalRadius`, `PortalServerRadius`; вылет с арены: `EdgeMargin`, `FallDepth`, `FallSeconds`, `RespawnHeight` | — |
 | Config/TeamColors | 1 | `Red`, `Blue`, `Neutral`, `KeyLabel`, `ForTeam(team)` | Types |
 | Config/Strings | 1–2 | тексты интерфейса (раунд, яйца, питомцы, ошибки) | — |
@@ -75,7 +76,7 @@
 
 ## Клиент (StarterPlayerScripts/Client)
 
-Порядок загрузки: DataController → HudController → PackUiController → KeyPressController → EggOfferController → InventoryController → PetIndexController → BackpackController → PetFollowController → BatController → BatPoseController → MovementController → EffectsController → PlotController → PlatformController → PartyController → PortalController → ShopController → TutorialController → FeedbackController.
+Порядок загрузки: DataController → HudController → PackUiController → KeyPressController → EggOfferController → InventoryController → PetIndexController → BackpackController → PetFollowController → BatController → BatPoseController → MovementController → EffectsController → SoundController → PlotController → PlatformController → PartyController → PortalController → ShopController → TutorialController → FeedbackController.
 
 | Модуль | Этап | Публичный интерфейс | Зависит от |
 |---|---|---|---|
@@ -102,7 +103,8 @@
 | Controllers/BatPoseController | арена x2 | только визуал у всех персонажей с битой (игроки и боты): бита на плече, бег с наклоном и покачиванием биты, удар по `BatSwingFx` (замах, удар вперёд, доводка влево); позы задаются `Transform` суставов (Motor6D или AnimationConstraint), загруженные анимации не нужны | ClientNet |
 | Controllers/MovementController | арена x2 | двойной прыжок с кольцом воздуха под ногами; не работает, пока летишь от удара | ClientNet |
 | Fx/WindGust | арена x2 | `Play(root, delay)`: порыв ветра (волнистые полосы и клубы воздуха) в конусе удара `BatConfig.Range` / `HalfAngle` | BatConfig |
-| Controllers/EffectsController | 3, 8 | след, ветер (WindGust) и звук удара, искры попадания, полёт своей жертвы, мягкое падение после `ArenaRespawn`, надписи «Hit!», «Bonk!», бонусов; вращение шаров-бонусов; звуки событий (победа Tada + конфетти, яйцо, питомец, эпический и легендарный с конфетти, отказ Error, приглашение Notification) | ClientNet, Widgets, BatConfig, WindGust |
+| Controllers/EffectsController | 3, 8 | след, ветер (WindGust) искры попадания, полёт своей жертвы, мягкое падение после `ArenaRespawn`, надписи «Hit!», «Bonk!», бонусов; вращение шаров-бонусов; звуки событий (победа Tada + конфетти, яйцо, питомец, эпический и легендарный с конфетти, отказ Error, приглашение Notification) | ClientNet, Widgets, BatConfig, WindGust |
+| Controllers/SoundController | звуки | музыка: хаб, поиск матча (`Ready`), на арене отсчёт 3-2-1 (4 с) и музыка арены (быстрее последние 10 с), Victory в конце раунда, потом YouWin по кругу, пока есть `PendingOffer`; звуки: попал/промах битой (из биты, слышно рядом), тебя ударили, вылет и появление (`ArenaFell`, `ArenaRespawn`), бонус скорости и его конец, новый уровень, выбор яйца, вылупление | SoundConfig, Levels, DataController |
 | Controllers/PetFollowController | 2, 8 | питомцы всех игроков бегут за ними (по атрибуту `EquippedPets`), шары-заглушки без ассетов; на телефоне и планшете частицы питомцев выключены | AssetModels, PetConfig |
 
 ## Remotes
@@ -128,8 +130,9 @@
 | SendFeedback | клиент → сервер | `(text: string)` пожелание игрока | 1/с, всплеск 2 (+ раз в 30 с на сервере) |
 | ActionResult | сервер → клиент | `(action: string, reason: ActionError)`, только отказы | — |
 | BatSwing | клиент → сервер | `()` | 4/с, всплеск 4 (+ перезарядка 1,5 с на сервере) |
-| BatSwingFx | сервер → всем | `(attacker: Model)` персонаж игрока или бота | — |
+| BatSwingFx | сервер → всем | `(attacker: Model, hit: boolean)` персонаж игрока или бота; `hit` — попал ли удар (звук) | — |
 | KnockedOut | сервер → всем | `(victim: Model, attacker: Model, direction: Vector3, seconds)` | — |
+| ArenaFell | сервер → клиент | `()` игроку, который только что вылетел с арены (звук) | — |
 | ArenaRespawn | сервер → клиент | `()` игроку, которого поставили над ареной после вылета | — |
 | PowerUpEvent | сервер → всем | `(kind, userId, position: Vector3)`, userId 0 у бота | — |
 

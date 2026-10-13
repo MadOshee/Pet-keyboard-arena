@@ -21,6 +21,7 @@ local CONTROLLER_ORDER: { string } = {
 	"BatPoseController",
 	"MovementController",
 	"EffectsController",
+	"SoundController",
 	"PlotController",
 	"PlatformController",
 	"PartyController",
