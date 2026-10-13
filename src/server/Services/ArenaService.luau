@@ -50,7 +50,7 @@ local keyMaterials: { Enum.Material } = {}
 local keyLockedUntil: { [number]: number } = {} -- locked keys keep their team
 local keyTopY = 0
 local bounds = { MinX = 0, MaxX = 0, MinZ = 0, MaxZ = 0, CenterZ = 0 }
-local random = Random.new()
+local respawnRandom = Random.new()
 
 local participants: { [Participant.Participant]: Types.TeamId } = {}
 local paintRadius: { [Participant.Participant]: number } = {}
@@ -223,7 +223,8 @@ local function respawnAbove(participant: Participant.Participant, team: Types.Te
 		return
 	end
 	local spread = (bounds.MaxZ - bounds.MinZ) * 0.6
-	local offset = Vector3.new(0, ArenaConfig.RespawnHeight, (random:NextNumber() - 0.5) * spread)
+	local offset =
+		Vector3.new(0, ArenaConfig.RespawnHeight, (respawnRandom:NextNumber() - 0.5) * spread)
 	local rootPart = root :: BasePart
 	local model = character :: Model
 	model:PivotTo(ArenaService:GetTeamSpawn(team) + offset)
