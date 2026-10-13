@@ -273,6 +273,46 @@ function Widgets.Button(
 	return button
 end
 
+-- Sets the text of a two-layer pack label (the dark label and its white
+-- "Color" copy).
+function Widgets.SetText(label: TextLabel, text: string)
+	twoLayerText(label)(text)
+end
+
+-- A copy of one of the pack's own buttons kept in Assets.UI (LevelButton:
+-- the lime "+5 Levels" button; RobuxButton: the rainbow "X2 Money" button
+-- with its green Robux price under it). Without the template it is a plain
+-- Widgets.Button in `color`. Callers fill the template's own labels.
+function Widgets.PackButton(
+	templateName: string,
+	name: string,
+	parent: Instance,
+	size: UDim2,
+	position: UDim2,
+	color: Color3
+): TextButton
+	local found = template(templateName)
+	if found == nil or not found:IsA("TextButton") then
+		return Widgets.Button(name, parent, size, position, color)
+	end
+	local button = (found :: TextButton):Clone()
+	button.Name = name
+	button.AnchorPoint = Vector2.zero
+	button.Size = size
+	button.Position = position
+	button.AutoButtonColor = false
+	-- The pack ships its buttons inactive; Activated only fires when Active.
+	button.Active = true
+	button.Selectable = true
+	button.Text = ""
+	Widgets.AnimatePress(button)
+	button.Activated:Connect(function()
+		Widgets.PlaySound("Click")
+	end)
+	button.Parent = parent
+	return button
+end
+
 -- A see-through pack window. With barColor it gets the pack title bar across
 -- its top BAR_HEIGHT, where callers put their Title label and close button.
 function Widgets.Panel(

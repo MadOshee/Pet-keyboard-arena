@@ -150,8 +150,9 @@ return table.freeze({
 		Coins15000 = "$15 000",
 	}),
 	RerollFree = "FREE REROLL (%d)",
-	-- U+E002 is the Robux sign in the game font.
-	RerollRobux = "Reroll " .. utf8.char(0xE002) .. "%s",
+	-- A Robux price as the UI pack writes it: U+E002 is the Robux sign in
+	-- the game font.
+	RobuxPrice = utf8.char(0xE002) .. "%s",
 	TutorialSkip = "SKIP",
 	TutorialSteps = table.freeze({
 		"Walk into the portal and pick SOLO GAME or PARTY GAME",
