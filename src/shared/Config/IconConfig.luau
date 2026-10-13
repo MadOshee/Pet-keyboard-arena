@@ -3,5 +3,5 @@
 -- and the PvP button). The source files are in assets/icons.
 
 return table.freeze({
-	Sword = "rbxassetid://0", -- assets/icons/sword.png
+	Sword = "rbxassetid://78753007412397", -- assets/icons/sword.png
 })
