@@ -19,6 +19,7 @@ local StatsService = require(script.Parent.StatsService)
 local CHECK_INTERVAL = 0.1
 local FLOAT_HEIGHT = 2.5
 local SIZE = 2.5
+local ICON_STUDS = 4.5
 
 type Active = {
 	Kind: string,
@@ -36,13 +37,13 @@ local running = false
 local roundToken = 0
 local spawnElapsed = 0
 
+-- Ivan's icons (bomb, shoe, lock) float above the key, always facing the
+-- camera. The part itself is invisible and only marks the spot.
 local function makePart(kind: string, position: Vector3): BasePart
 	local part = Instance.new("Part")
 	part.Name = kind
-	part.Shape = Enum.PartType.Ball
 	part.Size = Vector3.new(SIZE, SIZE, SIZE)
-	part.Material = Enum.Material.Neon
-	part.Color = PowerUpConfig.Colors[kind] or Color3.new(1, 1, 1)
+	part.Transparency = 1
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
@@ -51,19 +52,15 @@ local function makePart(kind: string, position: Vector3): BasePart
 	part:SetAttribute("PowerUp", kind)
 
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.fromScale(4, 1.2)
-	billboard.StudsOffset = Vector3.new(0, SIZE, 0)
-	billboard.AlwaysOnTop = true
-	billboard.MaxDistance = 120
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
-	label.TextColor3 = part.Color
-	label.TextStrokeTransparency = 0.2
-	label.Text = PowerUpConfig.Labels[kind] or kind
-	label.Parent = billboard
+	billboard.Name = "Icon"
+	billboard.Size = UDim2.fromScale(ICON_STUDS, ICON_STUDS)
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 150
+	local image = Instance.new("ImageLabel")
+	image.Size = UDim2.fromScale(1, 1)
+	image.BackgroundTransparency = 1
+	image.Image = `rbxassetid://{PowerUpConfig.Icons[kind]}`
+	image.Parent = billboard
 	billboard.Parent = part
 
 	part.Parent = folder

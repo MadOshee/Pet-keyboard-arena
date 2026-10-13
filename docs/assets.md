@@ -9,11 +9,13 @@
 | `Sounds.rbxm` | Folder `Sounds`: KeyPress, Click, Hover, Error, Success, Confetti, Purchase, Notification, LevelUp, Tada | Free Ocean Keyboard |
 | `Pets.rbxm` | Folder `Pets`, 171 модель питомца | Pets & Eggs |
 | `Eggs.rbxm` | Folder `Eggs`, 84 модели яиц (~28 тем) | Pets & Eggs |
-| `Bat.rbxm` | Model `Bat`: Handle, Taper, Barrel, Knob (сварены с Handle), Attachment `Grip` на Handle, `HitPoint` с ParticleEmitter `HitBurst` (выключен, вызывать `:Emit(20)`), Trail `SwingTrail` (выключен) | Сделана с нуля |
+| `Bat.rbxm` | Model `Bat` вдоль оси X: Handle (рукоять в красной ленте, PrimaryPart) с Attachment `Grip`, Knob, Tape1–4, Taper1–4, Barrel, Cap, золотые и тёмная полоски (все приварены к Handle обычными Weld), на Barrel `HitPoint` с ParticleEmitter `HitBurst` (выключен, вызывать `:Emit(20)`) и Trail `SwingTrail` (выключен) | Генерирует `lune run tools/build-bat` |
+| `UI.rbxm` | Folder `UI`: шаблоны `Window` (окно с полосой заголовка `Top`), `Button`, `MenuButton`, `Close`, `CashText`, `Bar`, `LevelButton` (лаймовая «+5 Levels» с оранжевым текстом), `RobuxButton` (радужная «X2 Money» с зелёной ценой Robux, иконка Rebirth); `Sounds` (11 звуков интерфейса: Click, Hover, Error, Buy, Success, Purchase…); `Icons` (Shop, Index, Pass, Rebirth, Settings); `GameUI` — весь экран пака целиком (HUD и 8 окон, окна скрыты, без картинки-образца `BackgroundImage (Delete)`). Собран из `StarterGui.GameUI` и `SoundService.SFX` пака без 3 его скриптов | Studs UI Pack 2 V1.3 |
 
 ## Как подключать
 - **Клавиша.** `ArenaService` ищет детали с тегом `ArenaKey` в `Workspace.Arena`. Клон `Assets.Key` масштабируется под `ArenaConfig.KeyUnit` через `Size`. В оригинале клавиша при нажатии опускается на 1.35 studs за 0.3 с (Quad Out) и играет `KeySound` с PlaybackSpeed 0.95–1.05. Это делает клиент, сервер это не трогает.
 - **Питомцы и яйца.** Модели называются так же, как в паке. Переименованы: `Dominus Egg*` → `Royal Egg*`, `Developer Pet` → `Coder Pet`. Таблица тем и предложенные ступени яиц: `/mnt/project-files/assets/pets-eggs-pack.md`.
+- **Интерфейс.** Всё строит `UI/Widgets` из шаблонов `Assets.UI`: цвет кнопки задаётся одним цветом, светлый верх, тёмная кромка и обводка считаются из него. Тексты пака двухслойные (тёмный `Name` и белый `Color` над ним), Widgets держит их одинаковыми. У шаблонов кнопок в паке `Active = false`, Widgets включает его, иначе `Activated` не срабатывает. Шаблоны используют новые `UIShadow` и `StrokeSizingMode`, поэтому нужен свежий Studio.
 - **Бита.** `PrimaryPart` = Handle, рукоять вниз по оси Y. Вешать на `RightHand` через `Grip`.
 
 ## Риски

@@ -1,9 +1,10 @@
 --!strict
--- Egg offers after a round (1 of 4, rerolls for coins, auto-pick on
--- timeout), egg storage and incubators (docs/design.md 4.3 "Яйца", D3,
--- sections 9-10). A picked egg goes straight into a free incubator when
--- there is one. PlotService turns incubator prompts into the calls below;
--- each checks the profile itself, so the world never decides a result.
+-- Egg offers after a round (1 of 4, rerolls for coins; the offer waits
+-- until the player picks, Ivan 2026-10-13), egg storage, platform
+-- purchases and speed-ups (docs/design.md 4.3 "Яйца", D3, sections 9-10).
+-- A picked egg goes into egg storage; the player puts it on a platform of
+-- the plot (PlatformService), where it hatches. Each call checks the
+-- profile itself, so the world never decides a result.
 --
 -- The offer lives in the profile (PendingOffer), so leaving the game does
 -- not lose it, and the client sees it through DataSync. Every pick and
@@ -12,7 +13,6 @@
 -- pets or charge twice.
 
 local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
@@ -20,20 +20,15 @@ local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local EggRoller = require(ReplicatedStorage.Shared.Logic.EggRoller)
 local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
-local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Guard = require(script.Parent.Parent.Util.Guard)
 local GamePassService = require(script.Parent.GamePassService)
 local NetService = require(script.Parent.NetService)
-local PetService = require(script.Parent.PetService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
 local OFFER_ID_MAX_LENGTH = 64
-local EXPIRY_CHECK_SECONDS = 1
 
 local EggService = {}
-
-EggService.PetHatched = Signal.new() :: Signal.Signal<Player, Types.PetHatchedPayload>
 
 local random = Random.new()
 local function rng(): number
@@ -65,27 +60,8 @@ local function newOffer(context: Types.OfferContext, rerollCount: number): Types
 		OfferId = HttpService:GenerateGUID(false),
 		Eggs = eggs :: any,
 		RerollCount = rerollCount,
-		ExpiresAt = os.time() + EggConfig.OfferSeconds,
 		Context = context,
 	}
-end
-
--- Puts `egg` into the first empty incubator. Returns its HatchAt, or nil
--- when every incubator is busy. Runs inside a profile Update.
-local function placeInFreeIncubator(
-	player: Player,
-	data: Types.Profile,
-	egg: Types.EggInstance
-): number?
-	for _, incubator in data.Incubators do
-		if incubator.Egg == nil then
-			local hatchAt = os.time() + hatchSeconds(player, egg.Rarity)
-			incubator.Egg = { Theme = egg.Theme, Rarity = egg.Rarity }
-			incubator.HatchAt = hatchAt
-			return hatchAt
-		end
-	end
-	return nil
 end
 
 local function countEggs(data: Types.Profile): number
@@ -97,7 +73,7 @@ local function countEggs(data: Types.Profile): number
 end
 
 -- Takes the egg in `slot` of the current offer and clears the offer. The egg
--- goes into a free incubator, else into egg storage, else becomes coins.
+-- goes into egg storage, or becomes coins when storage is full.
 local function pick(player: Player, slot: number, autoPicked: boolean)
 	local offer = EggService:GetOffer(player)
 	if offer == nil then
@@ -106,14 +82,10 @@ local function pick(player: Player, slot: number, autoPicked: boolean)
 	local egg = (offer :: Types.EggOffer).Eggs[slot]
 
 	local where: "Incubator" | "Storage" | "Coins" = "Coins"
-	local hatchAt: number? = nil
 	local coins = 0
 	PlayerDataService:Update(player, function(profile)
 		profile.PendingOffer = nil
-		hatchAt = placeInFreeIncubator(player, profile, egg)
-		if hatchAt then
-			where = "Incubator"
-		elseif countEggs(profile) < profile.EggCapacity then
+		if countEggs(profile) < profile.EggCapacity then
 			profile.Eggs[HttpService:GenerateGUID(false)] =
 				{ Theme = egg.Theme, Rarity = egg.Rarity }
 			where = "Storage"
@@ -128,7 +100,7 @@ local function pick(player: Player, slot: number, autoPicked: boolean)
 		Theme = egg.Theme,
 		Rarity = egg.Rarity,
 		Where = where,
-		HatchAt = hatchAt,
+		HatchAt = nil,
 		Coins = coins,
 		AutoPicked = autoPicked,
 	}
@@ -188,25 +160,6 @@ local function onReroll(player: Player, offerId: unknown)
 	end)
 end
 
-local function autoPickExpired()
-	local now = os.time()
-	for _, player in Players:GetPlayers() do
-		local offer = EggService:GetOffer(player)
-		if offer and now >= offer.ExpiresAt then
-			-- One broken saved offer must not stop expiry for everyone.
-			local ok, err = pcall(function()
-				pick(player, EggRoller.BestSlot(offer.Eggs :: any, PetConfig.Rarities), true)
-			end)
-			if not ok then
-				warn(`[EggService] auto-pick failed for {player.UserId}: {err}`)
-				PlayerDataService:Update(player, function(profile)
-					profile.PendingOffer = nil
-				end)
-			end
-		end
-	end
-end
-
 function EggService:Init() end
 
 function EggService:Start()
@@ -219,13 +172,6 @@ function EggService:Start()
 			EggService:BuyPetSlots(player)
 		else
 			refuse(player, "BuyUpgrade", "Unknown")
-		end
-	end)
-
-	task.spawn(function()
-		while true do
-			task.wait(EXPIRY_CHECK_SECONDS)
-			autoPickExpired()
 		end
 	end)
 end
@@ -248,75 +194,6 @@ local function incubatorAt(player: Player, index: number): (Types.Profile?, Type
 		return nil, nil
 	end
 	return data, (data :: Types.Profile).Incubators[index]
-end
-
--- Hatches a ready egg into a pet and refills the incubator from storage.
-function EggService:Collect(player: Player, index: number)
-	local data, incubator = incubatorAt(player, index)
-	if data == nil or incubator == nil then
-		return
-	end
-	local current = incubator :: Types.Incubator
-	local egg = current.Egg
-	if egg == nil or os.time() < (current.HatchAt or math.huge) then
-		refuse(player, "IncubatorCollect", "NotReady")
-		return
-	end
-	if PetService:Count(data :: Types.Profile) >= (data :: Types.Profile).PetCapacity then
-		refuse(player, "IncubatorCollect", "PetsFull")
-		return
-	end
-	local hatched = egg :: Types.EggInstance
-	local kind = assert(
-		EggRoller.RollPet(PetConfig.Pets :: any, hatched.Theme, hatched.Rarity, rng),
-		`PetConfig has no {hatched.Rarity} pet in theme {hatched.Theme}`
-	)
-
-	local petId: string? = nil
-	PlayerDataService:Update(player, function(profile)
-		local slot = profile.Incubators[index]
-		slot.Egg = nil
-		slot.HatchAt = nil
-		petId = PetService:AddToProfile(profile, kind, hatched.Rarity)
-		local nextId = Incubation.RarestEgg(profile.Eggs :: any, PetConfig.Rarities)
-		if nextId then
-			local nextEgg = profile.Eggs[nextId]
-			profile.Eggs[nextId] = nil
-			slot.Egg = nextEgg
-			slot.HatchAt = os.time() + hatchSeconds(player, nextEgg.Rarity)
-		end
-	end)
-
-	if petId then
-		local payload: Types.PetHatchedPayload =
-			{ Kind = kind, Rarity = hatched.Rarity, PetId = petId :: string }
-		NetService:FireClient("PetHatched", player, payload)
-		EggService.PetHatched:Fire(player, payload)
-	end
-end
-
--- Puts the rarest stored egg into an empty incubator.
-function EggService:PlaceStored(player: Player, index: number)
-	local data, incubator = incubatorAt(player, index)
-	if data == nil or incubator == nil then
-		return
-	end
-	if (incubator :: Types.Incubator).Egg ~= nil then
-		refuse(player, "IncubatorPlace", "Busy")
-		return
-	end
-	local eggId = Incubation.RarestEgg((data :: Types.Profile).Eggs :: any, PetConfig.Rarities)
-	if eggId == nil then
-		refuse(player, "IncubatorPlace", "NoEggs")
-		return
-	end
-	PlayerDataService:Update(player, function(profile)
-		local egg = profile.Eggs[eggId :: string]
-		profile.Eggs[eggId :: string] = nil
-		local slot = profile.Incubators[index]
-		slot.Egg = egg
-		slot.HatchAt = os.time() + hatchSeconds(player, egg.Rarity)
-	end)
 end
 
 -- Finishes an incubating egg now for coins.
@@ -350,7 +227,7 @@ function EggService:SpeedUp(player: Player, index: number)
 	end)
 end
 
--- Buys the next incubator; a stored egg moves into it right away.
+-- Buys the next platform.
 function EggService:BuyIncubator(player: Player)
 	local data = PlayerDataService:Get(player)
 	if data == nil then
@@ -367,15 +244,7 @@ function EggService:BuyIncubator(player: Player)
 	end
 	PlayerDataService:Update(player, function(profile)
 		profile.Coins -= price :: number
-		local slot: Types.Incubator = {}
-		table.insert(profile.Incubators, slot)
-		local eggId = Incubation.RarestEgg(profile.Eggs :: any, PetConfig.Rarities)
-		if eggId then
-			local egg = profile.Eggs[eggId]
-			profile.Eggs[eggId] = nil
-			slot.Egg = egg
-			slot.HatchAt = os.time() + hatchSeconds(player, egg.Rarity)
-		end
+		table.insert(profile.Incubators, {})
 	end)
 end
 
@@ -431,7 +300,7 @@ function EggService:GrantSpeedUp(data: Types.Profile)
 	end
 end
 
--- VIP pass: one free incubator, given once. With every incubator already
+-- VIP pass: one free platform, given once. With every incubator already
 -- bought, the player gets the price of the last one in coins instead.
 function EggService:GrantVipIncubator(player: Player)
 	local data = PlayerDataService:Get(player)
@@ -442,20 +311,17 @@ function EggService:GrantVipIncubator(player: Player)
 		profile.VipIncubator = true
 		for _ = 1, ShopConfig.VipExtraIncubators do
 			if #profile.Incubators < EggConfig.MaxIncubators then
-				local slot: Types.Incubator = {}
-				table.insert(profile.Incubators, slot)
-				local eggId = Incubation.RarestEgg(profile.Eggs :: any, PetConfig.Rarities)
-				if eggId then
-					local egg = profile.Eggs[eggId]
-					profile.Eggs[eggId] = nil
-					slot.Egg = egg
-					slot.HatchAt = os.time() + hatchSeconds(player, egg.Rarity)
-				end
+				table.insert(profile.Incubators, {})
 			else
 				profile.Coins += EggConfig.IncubatorPrices[#EggConfig.IncubatorPrices]
 			end
 		end
 	end)
+end
+
+-- Incubation time of an egg for this player (FastHatch pass included).
+function EggService:HatchSeconds(player: Player, rarity: string): number
+	return hatchSeconds(player, rarity)
 end
 
 function EggService:GetOffer(player: Player): Types.EggOffer?

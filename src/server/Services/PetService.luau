@@ -4,12 +4,15 @@
 -- (comma-separated PetConfig keys) so every client can draw them.
 -- Round participants cannot change pets: the "Team" attribute is set from
 -- Countdown to the end of Results, which also keeps team balance honest.
+-- Pets standing on plot platforms (Incubators[i].PetId) earn coins there:
+-- they cannot be equipped or sold and do not count towards PetCapacity.
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
+local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Guard = require(script.Parent.Parent.Util.Guard)
@@ -67,6 +70,10 @@ local function onEquip(player: Player, petId: unknown, equip: unknown)
 		refuse(player, "PetEquip", "NotOwned")
 		return
 	end
+	if equip and PetIncome.PlacedPets(data.Incubators :: any)[id] then
+		refuse(player, "PetEquip", "OnPlatform")
+		return
+	end
 	if inRound(player) then
 		refuse(player, "PetEquip", "InRound")
 		return
@@ -118,6 +125,10 @@ local function onSell(player: Player, petId: unknown)
 		refuse(player, "PetSell", "Equipped")
 		return
 	end
+	if PetIncome.PlacedPets(data.Incubators :: any)[id] then
+		refuse(player, "PetSell", "OnPlatform")
+		return
+	end
 
 	local value = PetConfig.SellValue[pet.Rarity] or 0
 	PlayerDataService:Update(player, function(profile)
@@ -146,24 +157,42 @@ function PetService:Start()
 	end
 end
 
+-- Pets in the inventory, without the ones standing on platforms.
 function PetService:Count(data: Types.Profile): number
+	local placed = PetIncome.PlacedPets(data.Incubators :: any)
 	local count = 0
-	for _ in data.Pets do
-		count += 1
+	for id in data.Pets do
+		if placed[id] == nil then
+			count += 1
+		end
 	end
 	return count
 end
 
 -- Adds a pet inside an existing PlayerDataService:Update mutator, so the
 -- caller's other changes (like clearing an egg offer) land atomically.
--- Returns the new pet id, or nil when the inventory is full.
-function PetService:AddToProfile(data: Types.Profile, kind: string, rarity: Types.Rarity): string?
-	if PetService:Count(data) >= data.PetCapacity then
+-- Returns the new pet id, or nil when the inventory is full. A pet that
+-- hatches on a platform stays there, so it skips the inventory limit.
+function PetService:AddToProfile(
+	data: Types.Profile,
+	kind: string,
+	rarity: Types.Rarity,
+	onPlatform: boolean?
+): string?
+	if not onPlatform and PetService:Count(data) >= data.PetCapacity then
 		return nil
 	end
 	local petId = HttpService:GenerateGUID(false)
 	data.Pets[petId] = { Kind = kind, Rarity = rarity, ObtainedAt = os.time() }
 	return petId
+end
+
+-- Mirrors the equipped pets to the player after a change made elsewhere.
+function PetService:PublishEquipped(player: Player)
+	local data = PlayerDataService:Get(player)
+	if data then
+		publishEquipped(player, data)
+	end
 end
 
 function PetService:GetEquipped(player: Player): { Types.PetInstance }

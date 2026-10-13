@@ -1,7 +1,8 @@
 --!strict
 -- First-time tips (docs/design.md 12, stage 7). Five steps, each advanced by
 -- something the player actually did: got ready, played a round, picked an
--- egg, hatched a pet, equipped it. Steps only move forward. SKIP or the last
+-- egg, put it on a platform and it hatched; the last tip about pet income
+-- closes by itself. Steps only move forward. SKIP or the last
 -- step tells the server, which stores Tutorial.Done so the tips never return.
 
 local Players = game:GetService("Players")
@@ -14,6 +15,21 @@ local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
 
 local player = Players.LocalPlayer
+
+local LAST_TIP_SECONDS = 10
+-- The "pick an egg" tip sits at the bottom, under the egg offer's buttons
+-- and odds; the others at the top.
+local PICK_EGG_STEP = 3
+local TOP = {
+	Size = UDim2.fromScale(0.5, 0.12),
+	Position = UDim2.fromScale(0.5, 0.13),
+	Anchor = Vector2.new(0.5, 0),
+}
+local BOTTOM = {
+	Size = UDim2.fromScale(0.36, 0.1),
+	Position = UDim2.fromScale(0.5, 0.99),
+	Anchor = Vector2.new(0.5, 1),
+}
 
 local TutorialController = {}
 
@@ -47,6 +63,10 @@ local function show()
 	end
 	stepLabel.Text = `{step}/{stepCount()}`
 	textLabel.Text = Strings.TutorialSteps[step]
+	local place = if step == PICK_EGG_STEP then BOTTOM else TOP
+	panel.Size = place.Size
+	panel.Position = place.Position
+	panel.AnchorPoint = place.Anchor
 	panel.Visible = true
 end
 
@@ -74,15 +94,13 @@ local function onProfile(profile: Types.Profile)
 	if profile.PendingOffer ~= nil then
 		advanceTo(3)
 	end
-	if #profile.Equipped > 0 and step >= 5 then
-		advanceTo(6)
-	end
 end
 
 function TutorialController:Init()
-	local gui = Widgets.ScreenGui("Tutorial", 4)
-	panel = Widgets.Panel("Tip", gui, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.5, 0.13))
-	panel.AnchorPoint = Vector2.new(0.5, 0)
+	-- Above the egg offer (5), so its dimming does not cover the tip.
+	local gui = Widgets.ScreenGui("Tutorial", 6)
+	panel = Widgets.Panel("Tip", gui, TOP.Size, TOP.Position)
+	panel.AnchorPoint = TOP.Anchor
 	panel.Visible = false
 	Widgets.AspectRatio(panel, 6)
 	Widgets.Stroke(panel, Color3.fromRGB(255, 220, 90), 2)
@@ -120,6 +138,9 @@ function TutorialController:Start()
 	end)
 	ClientNet.On("PetHatched", function()
 		advanceTo(5)
+		task.delay(LAST_TIP_SECONDS, function()
+			advanceTo(6)
+		end)
 	end)
 	DataController.Changed:Connect(onProfile)
 	local profile = DataController:Get()

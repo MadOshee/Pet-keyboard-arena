@@ -9,7 +9,21 @@ local CONFIG = {
 	MaxMultiplier = 2,
 }
 
+local XP_CONFIG = {
+	Win = 50,
+	Draw = 35,
+	Lose = 25,
+	KeysPerBonusXP = 2,
+	MaxBonusXP = 25,
+}
+
 local tests = {}
+
+function tests.xpByOutcomeWithCappedKeyBonus()
+	assert(Reward.XP("Win", 0, XP_CONFIG) == 50)
+	assert(Reward.XP("Draw", 9, XP_CONFIG) == 39)
+	assert(Reward.XP("Lose", 1000, XP_CONFIG) == 50)
+end
 
 function tests.decidesWinner()
 	assert(Reward.DecideWinner(10, 5) == "Red")

@@ -8,6 +8,10 @@
 -- Keys are any BaseParts tagged "ArenaKey" under Workspace.Arena. If none
 -- exist, a placeholder keyboard is generated, so an art model from the asset
 -- packs can replace it later just by tagging its keys.
+--
+-- A participant who leaves the arena (knocked over the edge by a bat or
+-- walked off) keeps flying for FallSeconds, then drops in again from above
+-- their team's side (Respawned signal, ArenaRespawn to the player).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -18,8 +22,10 @@ local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local ArenaGrid = require(ReplicatedStorage.Shared.Logic.ArenaGrid)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Participant = require(script.Parent.Parent.Util.Participant)
 local MovementGuard = require(script.Parent.MovementGuard)
+local NetService = require(script.Parent.NetService)
 local StatsService = require(script.Parent.StatsService)
 
 local KEY_TAG = "ArenaKey"
@@ -32,6 +38,9 @@ export type RoundScore = {
 
 local ArenaService = {}
 
+-- (participant) put back above the arena after falling off it.
+ArenaService.Respawned = Signal.new() :: Signal.Signal<Participant.Participant>
+
 local keyParts: { BasePart } = {}
 local keyRects: { ArenaGrid.KeyRect } = {}
 local keyBaseColors: { Color3 } = {}
@@ -40,12 +49,14 @@ local keyTeams: { [number]: Types.TeamId } = {}
 local keyMaterials: { Enum.Material } = {}
 local keyLockedUntil: { [number]: number } = {} -- locked keys keep their team
 local keyTopY = 0
-local bounds = { MinX = 0, MaxX = 0, CenterZ = 0 }
+local bounds = { MinX = 0, MaxX = 0, MinZ = 0, MaxZ = 0, CenterZ = 0 }
+local respawnRandom = Random.new()
 
 local participants: { [Participant.Participant]: Types.TeamId } = {}
 local paintRadius: { [Participant.Participant]: number } = {}
 local paintBlockedUntil: { [Participant.Participant]: number } = {}
 local keysPainted: { [Participant.Participant]: number } = {}
+local offArenaSince: { [Participant.Participant]: number } = {}
 local scoreRed, scoreBlue = 0, 0
 local active = false
 local scoreDirty = false
@@ -130,7 +141,7 @@ local function collectKeys()
 	if #keyParts == 0 then
 		error("ArenaService: no ArenaKey parts found under Workspace.Arena")
 	end
-	bounds = { MinX = minX, MaxX = maxX, CenterZ = (minZ + maxZ) / 2 }
+	bounds = { MinX = minX, MaxX = maxX, MinZ = minZ, MaxZ = maxZ, CenterZ = (minZ + maxZ) / 2 }
 	keyIndex = ArenaGrid.BuildIndex(keyRects, ArenaConfig.IndexCellSize)
 end
 
@@ -195,6 +206,38 @@ local function returnToSpawn(participant: Participant.Participant, team: Types.T
 	end
 end
 
+local function isOffArena(position: Vector3): boolean
+	local margin = ArenaConfig.EdgeMargin
+	return position.X < bounds.MinX - margin
+		or position.X > bounds.MaxX + margin
+		or position.Z < bounds.MinZ - margin
+		or position.Z > bounds.MaxZ + margin
+		or position.Y < keyTopY - ArenaConfig.FallDepth
+end
+
+-- Drops a participant who fell off back in from above their team's side.
+local function respawnAbove(participant: Participant.Participant, team: Types.TeamId)
+	local character = Participant.Character(participant)
+	local root = Participant.Root(participant)
+	if character == nil or root == nil then
+		return
+	end
+	local spread = (bounds.MaxZ - bounds.MinZ) * 0.6
+	local offset =
+		Vector3.new(0, ArenaConfig.RespawnHeight, (respawnRandom:NextNumber() - 0.5) * spread)
+	local rootPart = root :: BasePart
+	local model = character :: Model
+	model:PivotTo(ArenaService:GetTeamSpawn(team) + offset)
+	-- Bots are simulated here; a player's own client stops its fall.
+	rootPart.AssemblyLinearVelocity = Vector3.zero
+	local player = Participant.AsPlayer(participant)
+	if player then
+		MovementGuard:Reset(player)
+		NetService:FireClient("ArenaRespawn", player)
+	end
+	ArenaService.Respawned:Fire(participant)
+end
+
 local function paintTick()
 	local now = os.clock()
 	for index, untilTime in keyLockedUntil do
@@ -207,10 +250,28 @@ local function paintTick()
 	-- string types read from tables otherwise.
 	for participant: Participant.Participant, team: Types.TeamId in participants do
 		local root = Participant.Root(participant)
-		if root == nil or now < (paintBlockedUntil[participant] or 0) then
+		if root == nil then
 			continue
 		end
 		local position = (root :: BasePart).Position
+		if isOffArena(position) then
+			local since = offArenaSince[participant]
+			if since == nil then
+				offArenaSince[participant] = now
+				local fallen = Participant.AsPlayer(participant)
+				if fallen then
+					NetService:FireClient("ArenaFell", fallen)
+				end
+			elseif now - since >= ArenaConfig.FallSeconds then
+				offArenaSince[participant] = nil
+				respawnAbove(participant, team)
+			end
+			continue
+		end
+		offArenaSince[participant] = nil
+		if now < (paintBlockedUntil[participant] or 0) then
+			continue
+		end
 		-- Bots move on the server, so only players need the speed check.
 		local player = Participant.AsPlayer(participant)
 		local humanoid = Participant.Humanoid(participant)
@@ -243,6 +304,8 @@ end
 local function syncScore()
 	ReplicatedStorage:SetAttribute("ScoreRed", scoreRed)
 	ReplicatedStorage:SetAttribute("ScoreBlue", scoreBlue)
+	-- The HUD shows each team's share of the whole arena.
+	ReplicatedStorage:SetAttribute("ScoreTotal", #keyParts)
 	scoreDirty = false
 end
 
@@ -277,6 +340,7 @@ function ArenaService:Start()
 		participants[player] = nil
 		paintRadius[player] = nil
 		paintBlockedUntil[player] = nil
+		offArenaSince[player] = nil
 	end)
 end
 
@@ -289,6 +353,7 @@ function ArenaService:BeginRound(teams: { [Participant.Participant]: Types.TeamI
 	table.clear(keysPainted)
 	table.clear(paintRadius)
 	table.clear(paintBlockedUntil)
+	table.clear(offArenaSince)
 	for participant: Participant.Participant, team: Types.TeamId in teams do
 		participants[participant] = team
 		local player = Participant.AsPlayer(participant)
@@ -359,6 +424,11 @@ end
 -- A blocked participant (knocked out by a bat) paints nothing until then.
 function ArenaService:BlockPainting(participant: Participant.Participant, untilTime: number)
 	paintBlockedUntil[participant] = untilTime
+	-- The flight is faster than walking; the speed check starts over after it.
+	local player = Participant.AsPlayer(participant)
+	if player then
+		MovementGuard:Reset(player)
+	end
 end
 
 function ArenaService:IsPaintBlocked(participant: Participant.Participant): boolean
@@ -400,7 +470,7 @@ function ArenaService:GetTeamSpawn(team: Types.TeamId): CFrame
 	local inset = ArenaConfig.KeyUnit
 	local x = if team == "Red" then bounds.MinX + inset else bounds.MaxX - inset
 	local position = Vector3.new(x, keyTopY + 3, bounds.CenterZ)
-	local lookAt = Vector3.new(ArenaConfig.CenterX, position.Y, bounds.CenterZ)
+	local lookAt = Vector3.new((bounds.MinX + bounds.MaxX) / 2, position.Y, bounds.CenterZ)
 	return CFrame.lookAt(position, lookAt)
 end
 

@@ -1,52 +1,63 @@
 --!strict
--- Tracks who wants to play the next rounds (docs/design.md 4.3 "Готовность").
--- Ready is sticky until the player turns it off or is marked AFK, and is
--- mirrored to the "Ready" Player attribute for the HUD.
+-- The match queue (docs/design.md 4.3 "Готовность"). A player joins it at
+-- the portal on the hub island (PortalService) as "Solo" or "Party" and
+-- leaves it with the LEAVE button, when marked AFK, or after their match.
+-- Mirrored to the "Ready" and "QueueMode" Player attributes for the HUD.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
+local Types = require(ReplicatedStorage.Shared.Types)
 local Guard = require(script.Parent.Parent.Util.Guard)
 local NetService = require(script.Parent.NetService)
-local PlayerDataService = require(script.Parent.PlayerDataService)
 
 local ReadyService = {}
 
 ReadyService.ReadyChanged = Signal.new() :: Signal.Signal<Player, boolean>
 
-local ready: { [Player]: boolean } = {}
+local queued: { [Player]: Types.QueueMode } = {}
 
 function ReadyService:Init() end
 
 function ReadyService:Start()
+	-- Clients may only leave the queue here; joining goes through the portal.
 	NetService:On("SetReady", { PerSecond = 2, Burst = 4 }, function(player, value)
-		if not Guard.Boolean(value) or not PlayerDataService:IsLoaded(player) then
-			return
+		if Guard.Boolean(value) and value == false then
+			ReadyService:SetReady(player, false)
 		end
-		ReadyService:SetReady(player, value :: boolean)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
-		ready[player] = nil
+		queued[player] = nil
 	end)
 end
 
 function ReadyService:IsReady(player: Player): boolean
-	return ready[player] == true
+	return queued[player] ~= nil
 end
 
-function ReadyService:SetReady(player: Player, value: boolean)
-	if (ready[player] == true) == value then
+-- "Party" players go into the match together with their queued party.
+function ReadyService:GetMode(player: Player): Types.QueueMode?
+	return queued[player]
+end
+
+function ReadyService:SetReady(player: Player, value: boolean, mode: Types.QueueMode?)
+	local newMode: Types.QueueMode? = if value then mode or "Solo" else nil
+	if queued[player] == newMode then
 		return
 	end
-	if value then
-		ready[player] = true
+	local wasReady = queued[player] ~= nil
+	if newMode then
+		queued[player] = newMode
 	else
-		ready[player] = nil
+		queued[player] = nil
 	end
 	player:SetAttribute("Ready", value)
-	ReadyService.ReadyChanged:Fire(player, value)
+	player:SetAttribute("QueueMode", newMode)
+	if wasReady ~= value then
+		ReadyService.ReadyChanged:Fire(player, value)
+	end
 end
 
 return ReadyService

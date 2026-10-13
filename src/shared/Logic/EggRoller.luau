@@ -18,6 +18,11 @@ export type OddsConfig = {
 	ContributionBonus: number,
 }
 
+export type OfferConfig = OddsConfig & {
+	EggsPerOffer: number,
+	ThemeWeights: { [string]: number },
+}
+
 export type Egg = {
 	Theme: string,
 	Rarity: string,
@@ -75,18 +80,37 @@ function EggRoller.PickIndex(weights: { number }, rng: Rng): number
 	return #weights
 end
 
--- One egg per theme, each with its own rarity roll.
+-- EggsPerOffer eggs. Each rolls its theme by ThemeWeights (rarer eggs come
+-- up less often, repeats are fine) and its rarity by Weights. `themes` gives
+-- the theme order, cheapest first; the offer is sorted by it.
 function EggRoller.RollOffer(
 	context: Context,
 	themes: { string },
 	rarities: { string },
-	config: OddsConfig,
+	config: OfferConfig,
 	rng: Rng
 ): { Egg }
 	local weights = EggRoller.Weights(context, config)
-	local eggs = table.create(#themes)
+	local themeWeights = table.create(#themes)
 	for index, theme in themes do
-		eggs[index] = { Theme = theme, Rarity = rarities[EggRoller.PickIndex(weights, rng)] }
+		themeWeights[index] = config.ThemeWeights[theme] or 0
+	end
+	local picks = table.create(config.EggsPerOffer)
+	for index = 1, config.EggsPerOffer do
+		picks[index] = {
+			Theme = EggRoller.PickIndex(themeWeights, rng),
+			Rarity = EggRoller.PickIndex(weights, rng),
+		}
+	end
+	table.sort(picks, function(a, b)
+		if a.Theme ~= b.Theme then
+			return a.Theme < b.Theme
+		end
+		return a.Rarity < b.Rarity
+	end)
+	local eggs = table.create(#picks)
+	for index, pick in picks do
+		eggs[index] = { Theme = themes[pick.Theme], Rarity = rarities[pick.Rarity] }
 	end
 	return eggs
 end
@@ -103,15 +127,42 @@ function EggRoller.KindsFor(pets: { [string]: PetEntry }, theme: string, rarity:
 	return kinds
 end
 
--- A pet's rarity always equals its egg's rarity. Nil when the config has no
--- pet for that theme and rarity (the PetConfig test prevents that).
+-- The pets an egg of this theme and rarity can hatch. Small eggs have no
+-- pet of some rarities: then the nearest rarity in `rarities` order, the
+-- lower one on a tie. Empty when the theme has no pets at all.
+function EggRoller.HatchKinds(
+	pets: { [string]: PetEntry },
+	theme: string,
+	rarity: string,
+	rarities: { string }?
+): { string }
+	local kinds = EggRoller.KindsFor(pets, theme, rarity)
+	local order: { string } = rarities or {}
+	local rank = table.find(order, rarity)
+	if #kinds > 0 or rank == nil then
+		return kinds
+	end
+	local start = rank :: number
+	for step = 1, #order do
+		for _, near in { order[start - step], order[start + step] } :: { string } do
+			kinds = EggRoller.KindsFor(pets, theme, near)
+			if #kinds > 0 then
+				return kinds
+			end
+		end
+	end
+	return kinds
+end
+
+-- One of HatchKinds, all equally likely. Nil when the theme has no pets.
 function EggRoller.RollPet(
 	pets: { [string]: PetEntry },
 	theme: string,
 	rarity: string,
-	rng: Rng
+	rng: Rng,
+	rarities: { string }?
 ): string?
-	local kinds = EggRoller.KindsFor(pets, theme, rarity)
+	local kinds = EggRoller.HatchKinds(pets, theme, rarity, rarities)
 	if #kinds == 0 then
 		return nil
 	end

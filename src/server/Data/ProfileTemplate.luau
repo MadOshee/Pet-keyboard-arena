@@ -14,12 +14,14 @@ local CURRENT_SCHEMA_VERSION = 1
 local template: Types.Profile = {
 	SchemaVersion = CURRENT_SCHEMA_VERSION,
 	Coins = 0,
+	XP = 0,
 	Pets = {},
 	Equipped = {},
 	PetCapacity = PetConfig.StartCapacity,
 	Eggs = {},
 	EggCapacity = EggConfig.StartEggCapacity,
 	Incubators = {},
+	IncomeAt = 0,
 	-- PendingOffer stays nil until a rewarded round.
 	Stats = {
 		RoundsPlayed = 0,

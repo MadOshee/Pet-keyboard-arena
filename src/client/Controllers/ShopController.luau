@@ -16,6 +16,7 @@ local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
 local Purchases = require(ReplicatedStorage.Shared.Logic.Purchases)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Money = require(ReplicatedStorage.Shared.Util.Money)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
@@ -77,7 +78,7 @@ end
 
 local function setCoinPrice(row: Row, price: number?, coins: number)
 	if price then
-		row.Button.Text = string.format(Strings.ShopBuy, price)
+		row.Button.Text = string.format(Strings.ShopBuy, Money.Format(price))
 		setEnabled(row, true, if coins >= price then GREEN else GREY)
 	else
 		row.Button.Text = Strings.ShopMaxed
@@ -169,17 +170,16 @@ end
 function ShopController:Init()
 	local gui = Widgets.ScreenGui("Shop", 3)
 
-	local toggle = Widgets.Button(
-		"ShopButton",
-		gui,
-		UDim2.fromScale(0.1, 0.08),
-		UDim2.fromScale(0.015, 0.65),
-		Color3.fromRGB(230, 170, 50)
-	)
-	toggle.Text = Strings.ShopButton
-	Widgets.AspectRatio(toggle, 2.2)
+	local toggle =
+		Widgets.MenuButton("ShopButton", Strings.ShopButton, "Shop", Color3.fromRGB(255, 40, 90), 1)
 
-	window = Widgets.Panel("Window", gui, UDim2.fromScale(0.46, 0.66), UDim2.fromScale(0.5, 0.5))
+	window = Widgets.Panel(
+		"Window",
+		gui,
+		UDim2.fromScale(0.46, 0.66),
+		UDim2.fromScale(0.5, 0.5),
+		Color3.fromRGB(230, 40, 60)
+	)
 	window.AnchorPoint = Vector2.new(0.5, 0.5)
 	window.Visible = false
 	Widgets.AspectRatio(window, 1.1)
