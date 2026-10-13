@@ -2,9 +2,8 @@
 -- Music and game sounds Ivan picked (2026-10-13). Each is a Roblox audio
 -- asset id; SoundController plays them. Button sounds stay in the UI pack.
 --
--- Hub, Arena and YouWin did not load in Studio on 2026-10-13: those assets
--- are private to their owner. Ivan uploads the files himself and the new
--- ids go here.
+-- Hub, Arena and YouWin are Ivan's own uploads of the tracks he picked
+-- (the originals are private to their owner).
 
 export type SoundInfo = {
 	Id: number,
@@ -17,10 +16,10 @@ end
 
 return table.freeze({
 	Music = table.freeze({
-		Hub = sound(110676261724204, 0.35), -- GearshockBeach Training
+		Hub = sound(129891108628047, 0.35), -- GearshockBeach Training
 		Queue = sound(81962372207399, 0.35), -- Tug Of War Theme, while searching for a match
-		Arena = sound(135337255401037, 0.35), -- factory theme mini mix
-		YouWin = sound(17828922294, 0.4), -- rewards and egg pick, looped until an egg is picked
+		Arena = sound(119272121727221, 0.35), -- factory theme mini mix
+		YouWin = sound(87886403244001, 0.4), -- rewards and egg pick, looped until an egg is picked
 	}),
 	Effects = table.freeze({
 		Countdown = sound(6238869231, 0.7), -- 3-2-1, only its first CountdownPlaySeconds
