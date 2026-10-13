@@ -17,8 +17,8 @@ return table.freeze({
 	LockSeconds = 4,
 	-- Image asset ids of Ivan's icons shown above a power-up (2026-10-13).
 	Icons = table.freeze({
-		Speed = 0, -- red shoe
-		PaintBomb = 0, -- bomb
-		Lock = 0, -- padlock
+		Speed = 85847260809716, -- red shoe
+		PaintBomb = 126367963130101, -- bomb
+		Lock = 85074660370840, -- padlock
 	}) :: { [string]: number },
 })

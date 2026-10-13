@@ -56,26 +56,11 @@ local function makePart(kind: string, position: Vector3): BasePart
 	billboard.Size = UDim2.fromScale(ICON_STUDS, ICON_STUDS)
 	billboard.LightInfluence = 0
 	billboard.MaxDistance = 150
-	local iconId = PowerUpConfig.Icons[kind] or 0
-	if iconId ~= 0 then
-		local image = Instance.new("ImageLabel")
-		image.Size = UDim2.fromScale(1, 1)
-		image.BackgroundTransparency = 1
-		image.Image = `rbxassetid://{iconId}`
-		image.Parent = billboard
-	else
-		-- Until the icon is uploaded: the power-up's name.
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.fromScale(1, 0.3)
-		label.Position = UDim2.fromScale(0, 0.35)
-		label.BackgroundTransparency = 1
-		label.TextScaled = true
-		label.Font = Enum.Font.FredokaOne
-		label.TextColor3 = Color3.new(1, 1, 1)
-		label.TextStrokeTransparency = 0.2
-		label.Text = kind
-		label.Parent = billboard
-	end
+	local image = Instance.new("ImageLabel")
+	image.Size = UDim2.fromScale(1, 1)
+	image.BackgroundTransparency = 1
+	image.Image = `rbxassetid://{PowerUpConfig.Icons[kind]}`
+	image.Parent = billboard
 	billboard.Parent = part
 
 	part.Parent = folder
