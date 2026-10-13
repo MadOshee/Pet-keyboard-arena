@@ -1,6 +1,6 @@
 local Levels = require("../src/shared/Logic/Levels")
 
-local CONFIG = { Base = 100, Step = 50 }
+local CONFIG = { Base = 100, Step = 50, CoinBonusPerLevel = 0.1 }
 
 local tests = {}
 
@@ -24,6 +24,13 @@ end
 function tests.badXpCountsAsZero()
 	assert(Levels.FromXP(-5, CONFIG).Level == 1)
 	assert(Levels.FromXP(12.7, CONFIG).Into == 12)
+end
+
+function tests.coinMultiplierGrowsWithLevel()
+	assert(Levels.CoinMultiplier(1, CONFIG) == 1)
+	assert(math.abs(Levels.CoinMultiplier(2, CONFIG) - 1.1) < 1e-9)
+	assert(math.abs(Levels.CoinMultiplier(11, CONFIG) - 2) < 1e-9)
+	assert(Levels.CoinMultiplier(0, CONFIG) == 1)
 end
 
 return tests

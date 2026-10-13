@@ -12,7 +12,7 @@
 | Util/ModelFront | платформы | `LocalFront(model)`, `Correction(model)` (поворот, после которого лицо модели смотрит в -Z; по декали `FaceDecal`) | — |
 | Util/Money | валюта $ | `Format(n)` («$1000», «$100 000»: пробел между тысячами от 10 000), `Number(n)`; все тексты с деньгами в интерфейсе идут через него (Strings с `%s`) | — |
 | Types | 0–2, карта | `Rarity`, `TeamId`, `Winner`, `Outcome`, `RoundPhase` (+ `Starting`), `QueueMode` (`Solo`/`Party`), `Stat`, `Stats`, `PetInstance`, `EggInstance`, `OfferContext`, `EggOffer`, `Profile`, `RoundResultPayload`, `PetHatchedPayload`, `OfflineIncomePayload`, `PlatformActionKind`, `ActionError` (+ `OnPlatform`, `EggsFull`, `Locked`); `Incubator` = платформа участка (`Egg`, `HatchAt`, `PetId`), в `Profile` поле `IncomeAt` | — |
-| Config/RoundConfig | 1, карта | тайминги фаз (`StartingSeconds` — отсчёт после входа в портал), размеры команд, `MinKeysForReward`, `Coins` (Win 80, Draw 80, Lose 40, +1 за клавишу, максимум +60), `XP` (за раунд: Win 100, Draw 70, Lose 50, +1 за клавишу, максимум +50; Иван удвоил 2026-10-13), `Levels` (`Base` 100, `Step` 50: уровню n нужно 100 + 50·(n−1) XP) | — |
+| Config/RoundConfig | 1, карта | тайминги фаз (`StartingSeconds` — отсчёт после входа в портал), размеры команд, `MinKeysForReward`, `Coins` (Win 80, Draw 80, Lose 40, +1 за клавишу, максимум +60), `XP` (за раунд: Win 100, Draw 70, Lose 50, +1 за клавишу, максимум +50; Иван удвоил 2026-10-13), `Levels` (`Base` 100, `Step` 50: уровню n нужно 100 + 50·(n−1) XP; `CoinBonusPerLevel` 0,1: +10% денег за раунд за каждый уровень выше 1) | — |
 | Config/ArenaConfig | 1, карта | размеры клавиш, частоты тиков, радиус кисти, скорость, центр арены (`CenterZ` = 3000, далеко от хаба), точка возврата на площадь хаба, `PortalRadius`, `PortalServerRadius` | — |
 | Config/TeamColors | 1 | `Red`, `Blue`, `Neutral`, `KeyLabel`, `ForTeam(team)` | Types |
 | Config/Strings | 1–2 | тексты интерфейса (раунд, яйца, питомцы, ошибки) | — |
@@ -27,7 +27,7 @@
 | Logic/ArenaGrid | 1 | `KeyboardLayout(unit, gap)`, `ForEachKeyInRadius(keys, x, z, r, visit)`, `BuildIndex(keys, cellSize)`, `ForEachKeyInRadiusIndexed(index, x, z, r, visit)` | — |
 | Logic/TeamBalancer | 1 | `TeamSize(humans, limits)`, `Assign(groups, limits) -> Assignment` | — |
 | Logic/Reward | 1–2 | `DecideWinner(red, blue)`, `OutcomeFor(team, winner)`, `Coins(outcome, keys, multiplier, config)`, `XP(outcome, keys, xpConfig)`, `ContributionPct(keys, bestOnTeam)` | — |
-| Logic/Levels | UI-пак | `Need(level, config)` (XP до следующего уровня), `FromXP(xp, config) -> {Level, Into, Need}` | — |
+| Logic/Levels | UI-пак | `Need(level, config)` (XP до следующего уровня), `FromXP(xp, config) -> {Level, Into, Need}`, `CoinMultiplier(level, config)` (1 + 0,1·(уровень−1)) | — |
 | Logic/FeedbackText | UI-пак | `Clean(text, minChars, maxChars) -> string?` (строка, правильный UTF-8, обрезка пробелов, длина в символах) | — |
 | Logic/EggRoller | 2 | `Bonus(ctx, cfg)`, `Weights(ctx, cfg)`, `Odds(weights)`, `PickIndex(weights, rng)`, `RollOffer(ctx, themes, rarities, cfg, rng)` (каждое из `EggsPerOffer` яиц: тема по `ThemeWeights`, редкость по `Weights`), `KindsFor(pets, theme, rarity)`, `HatchKinds(pets, theme, rarity, rarities?)` (если в яйце нет такой редкости — ближайшая, при равенстве ниже), `RollPet(pets, theme, rarity, rng, rarities?)`, `BestSlot(eggs, rarities)` | — |
 | Logic/BatTargeting | 3 | `FindTarget(origin, look, candidates, range, halfAngle) -> Id?` (ближайший в конусе, по горизонтали) | — |
@@ -71,7 +71,7 @@
 | Services/MonetizationService | 9 | `MarketplaceService.ProcessReceipt`: товар по id из ShopConfig, выдача через `PlayerDataService:GrantPurchase`; VIP: тег над головой и бесплатный инкубатор | PlayerDataService, EggService, GamePassService, ShopConfig, Purchases |
 | Services/FeedbackService | UI-пак | remote `SendFeedback`: проверяет текст (`FeedbackText.Clean`), не чаще раза в 30 с, печатает в лог сервера и сохраняет в DataStore `Feedback` (ключ `<время>_<userId>_<n>`, значение `{UserId, Name, Text, Time, PlaceVersion}`, 3 попытки); как читать — `docs/feedback.md` | NetService, FeedbackConfig, FeedbackText |
 | Services/TutorialService | 7 | remote `TutorialDone`: ставит в профиле `Tutorial.Done = true` (клиент сам не может менять данные) | NetService, PlayerDataService |
-| Services/RewardService | 1–2, 9 | слушает `RoundEnded`: монеты с множителем Coins и пассом 2x, зелье удачи (+0,5 удачи до потолка на 5 предложений), предложение яиц (исход, вклад, удача), XP за раунд (`Reward.XP`) в профиль, шлёт `RoundResult` (с `Winner` и `XP`) | PlayerDataService, ReadyService, RoundService, StatsService, EggService, NetService, Reward |
+| Services/RewardService | 1–2, 9 | слушает `RoundEnded`: монеты с множителем Coins и пассом 2x, зелье удачи (+0,5 удачи до потолка на 5 предложений), предложение яиц (исход, вклад, удача), бонус уровня к деньгам (уровень до этого раунда, `Levels.CoinMultiplier`, перед пассом 2x), XP за раунд (`Reward.XP`) в профиль, шлёт `RoundResult` (с `Winner` и `XP`) | PlayerDataService, ReadyService, RoundService, StatsService, EggService, NetService, Reward |
 
 ## Клиент (StarterPlayerScripts/Client)
 
