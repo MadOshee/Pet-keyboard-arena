@@ -49,6 +49,7 @@ return table.freeze({
 	EggMainBuff = "%s buff",
 	Reroll = "Reroll",
 	RerollLimit = "NO REROLLS LEFT",
+	RerollsRemain = "Rerolls remain: %d",
 	Odds = "Odds: %s",
 	-- Above the egg offer: who won the round; under it, what the player got.
 	TeamWins = table.freeze({ Red = "RED TEAM WINS!", Blue = "BLUE TEAM WINS!", Draw = "DRAW!" }),
@@ -121,6 +122,9 @@ return table.freeze({
 	IndexUnlocked = "Unlocked: %d/%d",
 	IndexUnknown = "???",
 	IndexIncome = "%s/s",
+	-- A pet the player has not found yet hides its numbers (Ivan).
+	IndexIncomeHidden = "$??/s",
+	IndexBonusHidden = "+??%% %s",
 	IndexChance = "Chance %s",
 	IndexOwned = "You have %d",
 	IndexNotOwned = "NOT OWNED",

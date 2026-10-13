@@ -344,6 +344,12 @@ function ArenaService:Start()
 	end)
 end
 
+-- Back to the unpainted gray board, with the score at 0.
+function ArenaService:ClearBoard()
+	resetKeys()
+	syncScore()
+end
+
 -- Clears the board and starts painting for the given participants.
 -- `teams` holds players and bots.
 function ArenaService:BeginRound(teams: { [Participant.Participant]: Types.TeamId })
@@ -367,7 +373,7 @@ function ArenaService:BeginRound(teams: { [Participant.Participant]: Types.TeamI
 end
 
 -- Stops painting and returns the final score. Painted keys keep their
--- colors until the next round so players can see the result.
+-- colors through Results so players can see the result.
 function ArenaService:EndRound(): RoundScore
 	active = false
 	for index in keyLockedUntil do

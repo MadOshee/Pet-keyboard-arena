@@ -99,8 +99,20 @@ function tests.rarestThemeIsRare()
 	for _, weight in EggConfig.ThemeWeights do
 		total += weight
 	end
+	assert(math.abs(total - 100) < 1e-6, `theme chances add up to {total}%`)
 	local last = EggConfig.OfferThemes[#EggConfig.OfferThemes]
 	assert(EggConfig.ThemeWeights[last] / total <= 0.05)
+	-- Exactly 8 super rare eggs (under 5%), all after the others.
+	local superRare = 0
+	for index, theme in EggConfig.OfferThemes do
+		local rare = EggConfig.ThemeWeights[theme] < 5
+		assert(EggConfig.SuperRare[theme] == rare)
+		if rare then
+			superRare += 1
+			assert(index > #EggConfig.OfferThemes - 8)
+		end
+	end
+	assert(superRare == 8)
 	for index = 2, #EggConfig.OfferThemes do
 		local theme = EggConfig.OfferThemes[index]
 		local cheaper = EggConfig.OfferThemes[index - 1]

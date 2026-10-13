@@ -16,8 +16,23 @@ export type EggLike = { Rarity: string }
 
 local Incubation = {}
 
-function Incubation.HatchSeconds(rarity: string, config: Config): number
-	return config.HatchSeconds[rarity] or config.HatchSeconds.Common or 30
+-- Hatch time of an egg of `theme`; 30 s for an unknown theme.
+function Incubation.HatchSeconds(theme: string, config: Config): number
+	return config.HatchSeconds[theme] or 30
+end
+
+-- Coins for the next money reroll after `used` of them, or nil when none
+-- is left: a share of the balance, never under the minimum.
+function Incubation.RerollCost(
+	coins: number,
+	used: number,
+	config: { RerollShares: { number }, RerollMinCost: number }
+): number?
+	local share = config.RerollShares[used + 1]
+	if share == nil then
+		return nil
+	end
+	return math.max(config.RerollMinCost, math.floor(math.max(0, coins) * share))
 end
 
 -- Coins to finish an egg now; 0 when it is already ready.

@@ -138,6 +138,8 @@ local function runRound()
 		player:SetAttribute("Team", team)
 	end
 
+	-- Gray board before anyone lands, not the last match's colors (Ivan).
+	ArenaService:ClearBoard()
 	setPhase("Countdown", RoundConfig.CountdownSeconds)
 	for player in teams do
 		placeOnArena(player)
@@ -187,6 +189,7 @@ local function runRound()
 	end
 	table.clear(teams)
 	ReplicatedStorage:SetAttribute("Winner", nil)
+	ArenaService:ClearBoard()
 end
 
 -- Waits on the hub until someone is queued, then counts down. Returns

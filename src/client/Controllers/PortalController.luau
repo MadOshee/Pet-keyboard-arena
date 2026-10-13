@@ -138,7 +138,7 @@ local function build()
 	end)
 
 	countdown =
-		Widgets.Label("Countdown", gui, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.25, 0.4))
+		Widgets.Label("Countdown", gui, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.25, 0.42))
 	countdown.TextColor3 = Color3.fromRGB(255, 230, 90)
 	countdown.Visible = false
 
@@ -175,9 +175,17 @@ local function update()
 
 	local phase = ReplicatedStorage:GetAttribute("RoundPhase")
 	local endsAt = ReplicatedStorage:GetAttribute("PhaseEndsAt")
-	if queued and not inMatch and phase == "Starting" and type(endsAt) == "number" then
-		local secondsLeft = math.max(0, math.ceil(endsAt - workspace:GetServerTimeNow()))
-		countdown.Text = string.format(Strings.MatchIn, secondsLeft)
+	-- In the queue only this line and LEAVE QUEUE (HudController) show.
+	if queued and not inMatch then
+		if phase == "Starting" and type(endsAt) == "number" then
+			local secondsLeft = math.max(0, math.ceil(endsAt - workspace:GetServerTimeNow()))
+			countdown.Text = string.format(Strings.MatchIn, secondsLeft)
+		elseif phase == "Countdown" or phase == "Playing" or phase == "Results" then
+			-- Another match is on the arena.
+			countdown.Text = Strings.ArenaBusy
+		else
+			countdown.Text = Strings.Queued
+		end
 		countdown.Visible = true
 	else
 		countdown.Visible = false

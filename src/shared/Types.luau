@@ -53,7 +53,8 @@ export type OfferContext = {
 export type EggOffer = {
 	OfferId: string,
 	Eggs: { EggInstance },
-	RerollCount: number,
+	RerollCount: number, -- all rerolls of this offer
+	CoinRerolls: number?, -- rerolls paid with money (EggConfig.RerollShares)
 	Context: OfferContext,
 }
 

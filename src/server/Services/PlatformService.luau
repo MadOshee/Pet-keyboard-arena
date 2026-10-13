@@ -60,8 +60,14 @@ end
 
 -- Runs inside a profile Update: hatches every ready egg on a platform, then
 -- pays the pets on platforms up to `now`. A pet that hatched inside the
--- period earns from its hatch time. Returns the hatched pets and the coins.
-local function settle(data: Types.Profile, now: number): ({ Types.PetHatchedPayload }, number)
+-- period earns from its hatch time. While the egg pick screen is open
+-- (a PendingOffer) pets earn nothing (Ivan); `offline` pays the time away
+-- anyway. Returns the hatched pets and the coins.
+local function settle(
+	data: Types.Profile,
+	now: number,
+	offline: boolean?
+): ({ Types.PetHatchedPayload }, number)
 	local hatched: { Types.PetHatchedPayload } = {}
 	local earners: { PetIncome.Earner } = {}
 	for _, slot in data.Incubators do
@@ -96,7 +102,8 @@ local function settle(data: Types.Profile, now: number): ({ Types.PetHatchedPayl
 			end
 		end
 	end
-	local coins = if data.IncomeAt > 0
+	local paused = data.PendingOffer ~= nil and not offline
+	local coins = if data.IncomeAt > 0 and not paused
 		then PetIncome.Earned(earners, data.IncomeAt, now, PetConfig :: any)
 		else 0
 	data.Coins += coins
@@ -182,7 +189,7 @@ local function onAction(player: Player, index: unknown, action: unknown, id: unk
 			profile.Eggs[eggId :: string] = nil
 			local target = profile.Incubators[slotIndex]
 			target.Egg = egg
-			target.HatchAt = os.time() + EggService:HatchSeconds(player, egg.Rarity)
+			target.HatchAt = os.time() + EggService:HatchSeconds(player, egg.Theme)
 		end)
 	elseif kind == "PlacePet" then
 		local petId = id :: string?
@@ -249,7 +256,7 @@ local function onLoaded(player: Player, data: Types.Profile)
 	local away = os.time() - data.IncomeAt
 	local coins = 0
 	PlayerDataService:Update(player, function(profile)
-		local _, earned = settle(profile, os.time())
+		local _, earned = settle(profile, os.time(), true)
 		coins = earned
 	end)
 	if coins > 0 and paidBefore and away >= OFFLINE_NOTICE_SECONDS then

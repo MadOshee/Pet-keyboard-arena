@@ -2,6 +2,8 @@
 -- Colors for rarities and egg themes in the UI and pet placeholders.
 
 return table.freeze({
+	-- Glow of the super rare eggs (EggConfig.SuperRare), Ivan: orange.
+	SuperRare = Color3.fromRGB(255, 140, 0),
 	Rarity = table.freeze({
 		Common = Color3.fromRGB(200, 200, 205),
 		Uncommon = Color3.fromRGB(110, 220, 110),

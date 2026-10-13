@@ -40,6 +40,7 @@ local MAX_BUFFS = 3
 
 local WHITE = Color3.new(1, 1, 1)
 local BLACK = Color3.new(0, 0, 0)
+local SILHOUETTE = Color3.fromRGB(14, 14, 20)
 local DARK = Color3.fromRGB(28, 28, 36)
 local GREEN = Color3.fromRGB(64, 170, 90)
 local RED = Color3.fromRGB(200, 70, 70)
@@ -151,6 +152,14 @@ local function setOutline(frame: Frame, selected: boolean)
 	end
 end
 
+-- A pet the player has not found is a solid dark shape over the card's
+-- shine, not a see-through one (Ivan).
+local function silhouette(preview: ViewportFrame, known: boolean)
+	preview.ImageColor3 = if known then WHITE else SILHOUETTE
+	preview.ImageTransparency = 0
+	preview.ZIndex = 2
+end
+
 local function holderIn(parent: GuiObject, size: UDim2, position: UDim2): Frame
 	local holder = Instance.new("Frame")
 	holder.Name = "Holder"
@@ -179,16 +188,23 @@ local function showDetail(profile: Types.Profile)
 	end
 	local preview = detailHolder:FindFirstChildOfClass("ViewportFrame")
 	if preview then
-		preview.ImageColor3 = if known then WHITE else BLACK
-		preview.ImageTransparency = if known then 0 else 0.3
+		silhouette(preview, known)
 	end
 	nameLabel.Text = if known then entry.Name else Strings.IndexUnknown
 	rarityLabel.Text = (Strings.Rarity :: any)[entry.Rarity] or entry.Rarity
-	incomeLabel.Text = string.format(Strings.IndexIncome, Money.Format(entry.Income))
+	incomeLabel.Text = if known
+		then string.format(Strings.IndexIncome, Money.Format(entry.Income))
+		else Strings.IndexIncomeHidden
 	local buffs = PetText.Buffs(kind :: string)
 	for index, label in buffLabels do
 		local buff = buffs[index]
-		label.Text = if buff then buff.Text else ""
+		label.Text = if buff == nil
+			then ""
+			elseif known then buff.Text
+			else string.format(
+				Strings.IndexBonusHidden,
+				(Strings.StatName :: any)[buff.Stat] or buff.Stat
+			)
 		label.TextColor3 = if buff then PetStyle.Stat[buff.Stat] or WHITE else WHITE
 	end
 
@@ -237,8 +253,7 @@ local function refresh()
 			end
 			local card = cards[kind]
 			card.Title.Text = if known then PetConfig.Pets[kind].Name else Strings.IndexUnknown
-			card.Preview.ImageColor3 = if known then WHITE else BLACK
-			card.Preview.ImageTransparency = if known then 0 else 0.3
+			silhouette(card.Preview, known)
 		end
 		unlocked += have
 		section.Count.Text = `{have}/{#section.Kinds}`
@@ -298,6 +313,9 @@ local function buildSection(list: ScrollingFrame, theme: string, order: number)
 		Widgets.Label("Chance", egg, UDim2.fromScale(0.9, 0.12), UDim2.fromScale(0.05, 0.84))
 	chance.ZIndex = 30
 	chance.Text = chanceText(theme)
+	if EggConfig.SuperRare[theme] then
+		chance.TextColor3 = PetStyle.SuperRare
+	end
 
 	local kinds = kindsOf(theme)
 	totalKinds += #kinds

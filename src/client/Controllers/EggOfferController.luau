@@ -22,11 +22,13 @@ local PetStyle = require(ReplicatedStorage.Shared.Config.PetStyle)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local EggRoller = require(ReplicatedStorage.Shared.Logic.EggRoller)
+local Incubation = require(ReplicatedStorage.Shared.Logic.Incubation)
 local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Money = require(ReplicatedStorage.Shared.Util.Money)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
+local Glow = require(script.Parent.Parent.UI.Glow)
 local RevealScreen = require(script.Parent.Parent.UI.RevealScreen)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
@@ -92,6 +94,7 @@ type Card = {
 	Buff: TextLabel,
 	NameScale: UIScale,
 	BuffScale: UIScale,
+	Glow: Glow.Glow, -- orange light behind a super rare egg
 	Theme: string?, -- the egg shown when not spinning
 }
 
@@ -144,6 +147,7 @@ local rewardXp: TextLabel
 local pendingResult: Types.RoundResultPayload? = nil
 local shownResult: Types.RoundResultPayload? = nil
 local warningLabel: TextLabel
+local rerollsLeftLabel: TextLabel
 local noteToken = 0
 local noteShowing = false
 
@@ -226,6 +230,10 @@ end
 local function setLabelsVisible(card: Card, visible: boolean, pop: boolean)
 	card.Name.Visible = visible
 	card.Buff.Visible = visible
+	-- Super rare eggs (under 5%) stand still in an orange glow (Ivan).
+	card.Glow.Root.Visible = visible
+		and card.Theme ~= nil
+		and EggConfig.SuperRare[card.Theme :: string] == true
 	if visible and pop then
 		for _, scale in { card.NameScale, card.BuffScale } do
 			scale.Scale = 0.5
@@ -383,6 +391,9 @@ local function buildCard(parent: Instance, slot: number): Card
 	reel.Size = UDim2.fromScale(1, 0.69)
 	reel.ZIndex = 2
 	reel.Parent = button
+	local glow = Glow.new(button, PetStyle.SuperRare, 0.62, true, 1)
+	glow.Root.Position = UDim2.fromScale(0.5, 0.345)
+	glow.Root.Visible = false
 
 	local name, nameScale =
 		poppingLabel("EggName", button, UDim2.fromScale(1.05, 0.15), UDim2.fromScale(0.5, 0.8))
@@ -406,6 +417,7 @@ local function buildCard(parent: Instance, slot: number): Card
 		Buff = buff,
 		NameScale = nameScale,
 		BuffScale = buffScale,
+		Glow = glow,
 		Theme = nil,
 	}
 end
@@ -584,11 +596,14 @@ local function rerollRefusal(): string?
 	end
 	local profile = found :: Types.Profile
 	local offer = profile.PendingOffer :: Types.EggOffer
-	local cost = EggConfig.RerollCosts[offer.RerollCount + 1]
+	if profile.FreeRerolls > 0 then
+		return nil
+	end
+	local cost = Incubation.RerollCost(profile.Coins, offer.CoinRerolls or 0, EggConfig)
 	if cost == nil then
 		return Strings.Errors.RerollLimit
 	end
-	if profile.FreeRerolls <= 0 and profile.Coins < cost then
+	if profile.Coins < (cost :: number) then
 		return Strings.Errors.NotEnoughCoins
 	end
 	return nil
@@ -781,9 +796,18 @@ local function build()
 	oddsLabel:GetPropertyChangedSignal("TextBounds"):Connect(sizeOdds)
 	sizeOdds()
 
+	-- Money rerolls left, small over the money button (Ivan).
+	rerollsLeftLabel = Widgets.Label(
+		"RerollsLeft",
+		content,
+		UDim2.fromScale(REROLL_BUTTON_SIZE.X.Scale, 0.026),
+		UDim2.fromScale(0.411, 0.69)
+	)
+	rerollsLeftLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+
 	-- Between the eggs and the buttons, where the tutorial hint never covers it.
 	warningLabel =
-		Widgets.Label("Warning", content, UDim2.fromScale(0.6, 0.034), UDim2.fromScale(0.5, 0.665))
+		Widgets.Label("Warning", content, UDim2.fromScale(0.6, 0.034), UDim2.fromScale(0.5, 0.64))
 	warningLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 	warningLabel.TextColor3 = Color3.fromRGB(255, 170, 80)
 	warningLabel.Text = Strings.EggStorageFullWarning
@@ -875,9 +899,13 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 		oddsLabel.Text = oddsText(offer)
 	end
 
-	local cost = EggConfig.RerollCosts[offer.RerollCount + 1]
-	robuxRerollButton.Visible = cost ~= nil
-	if cost and profile.FreeRerolls > 0 then
+	-- Three money rerolls per offer, then only Robux ones, which have no
+	-- limit (Ivan).
+	local used = offer.CoinRerolls or 0
+	local cost = Incubation.RerollCost(profile.Coins, used, EggConfig)
+	rerollsLeftLabel.Text =
+		string.format(Strings.RerollsRemain, math.max(0, #EggConfig.RerollShares - used))
+	if profile.FreeRerolls > 0 then
 		setRerollCaption(string.format(Strings.RerollFree, profile.FreeRerolls), nil, true)
 	elseif cost then
 		setRerollCaption(Strings.Reroll, Money.Format(cost), true)

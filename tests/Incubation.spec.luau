@@ -4,14 +4,27 @@ local PetConfig = require("../src/shared/Config/PetConfig")
 
 local tests = {}
 
-function tests.hatchTimesGrowWithRarity()
+function tests.hatchTimesGrowWithTheme()
 	local previous = 0
-	for _, rarity in PetConfig.Rarities do
-		local seconds = Incubation.HatchSeconds(rarity, EggConfig)
-		assert(seconds > previous, `{rarity} should take longer`)
+	for _, theme in EggConfig.OfferThemes do
+		local seconds = Incubation.HatchSeconds(theme, EggConfig)
+		assert(seconds > previous, `{theme} should take longer`)
 		previous = seconds
 	end
+	assert(Incubation.HatchSeconds("Basic", EggConfig) == 30)
+	assert(Incubation.HatchSeconds("Forest", EggConfig) == 60)
 	assert(Incubation.HatchSeconds("Unknown", EggConfig) == 30)
+end
+
+function tests.rerollCostIsAShareOfTheBalance()
+	assert(Incubation.RerollCost(10000, 0, EggConfig) == 500)
+	assert(Incubation.RerollCost(10000, 1, EggConfig) == 1000)
+	assert(Incubation.RerollCost(10000, 2, EggConfig) == 1500)
+	assert(Incubation.RerollCost(10000, 3, EggConfig) == nil)
+	assert(Incubation.RerollCost(12345, 0, EggConfig) == 617)
+	-- Never under the minimum, so a reroll is never free.
+	assert(Incubation.RerollCost(0, 0, EggConfig) == EggConfig.RerollMinCost)
+	assert(Incubation.RerollCost(100, 0, EggConfig) == EggConfig.RerollMinCost)
 end
 
 function tests.speedUpCostsPerRemainingSecond()
