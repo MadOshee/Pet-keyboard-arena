@@ -10,6 +10,7 @@ local FeedbackConfig = require(ReplicatedStorage.Shared.Config.FeedbackConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
+local EggOfferController = require(script.Parent.EggOfferController)
 
 local player = Players.LocalPlayer
 
@@ -250,15 +251,17 @@ function FeedbackController:Init()
 end
 
 function FeedbackController:Start()
-	-- Like the pack HUD: only in the hub, not during a match.
+	-- Like the pack HUD: only in the hub, not during a match or under the
+	-- egg screen.
 	local function updateVisible()
-		local inLobby = player:GetAttribute("Team") == nil
-		buttonGui.Enabled = inLobby
-		if not inLobby then
+		local visible = player:GetAttribute("Team") == nil and not EggOfferController:IsShown()
+		buttonGui.Enabled = visible
+		if not visible then
 			close()
 		end
 	end
 	player:GetAttributeChangedSignal("Team"):Connect(updateVisible)
+	EggOfferController.ShownChanged:Connect(updateVisible)
 	updateVisible()
 end
 

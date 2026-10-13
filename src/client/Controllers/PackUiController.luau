@@ -24,6 +24,7 @@ local Money = require(ReplicatedStorage.Shared.Util.Money)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
+local EggOfferController = require(script.Parent.EggOfferController)
 local PartyController = require(script.Parent.PartyController)
 
 local player = Players.LocalPlayer
@@ -313,16 +314,19 @@ function PackUiController:Start()
 	end
 	local screen = gui :: ScreenGui
 	local function updateVisible()
+		-- Hidden during a match and under the egg screen.
 		local inLobby = player:GetAttribute("Team") == nil
-		if not inLobby then
+		local visible = inLobby and not EggOfferController:IsShown()
+		if not visible then
 			closeNow()
 		end
-		screen.Enabled = inLobby
+		screen.Enabled = visible
 		if windowsGui then
-			windowsGui.Enabled = inLobby
+			windowsGui.Enabled = visible
 		end
 	end
 	player:GetAttributeChangedSignal("Team"):Connect(updateVisible)
+	EggOfferController.ShownChanged:Connect(updateVisible)
 	updateVisible()
 	DataController.Changed:Connect(function(profile)
 		updateCash(profile)

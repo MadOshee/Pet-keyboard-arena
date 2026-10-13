@@ -17,6 +17,19 @@ local DataController = require(script.Parent.DataController)
 local player = Players.LocalPlayer
 
 local LAST_TIP_SECONDS = 10
+-- The "pick an egg" tip sits at the bottom, under the egg offer's buttons
+-- and odds; the others at the top.
+local PICK_EGG_STEP = 3
+local TOP = {
+	Size = UDim2.fromScale(0.5, 0.12),
+	Position = UDim2.fromScale(0.5, 0.13),
+	Anchor = Vector2.new(0.5, 0),
+}
+local BOTTOM = {
+	Size = UDim2.fromScale(0.36, 0.1),
+	Position = UDim2.fromScale(0.5, 0.99),
+	Anchor = Vector2.new(0.5, 1),
+}
 
 local TutorialController = {}
 
@@ -50,6 +63,10 @@ local function show()
 	end
 	stepLabel.Text = `{step}/{stepCount()}`
 	textLabel.Text = Strings.TutorialSteps[step]
+	local place = if step == PICK_EGG_STEP then BOTTOM else TOP
+	panel.Size = place.Size
+	panel.Position = place.Position
+	panel.AnchorPoint = place.Anchor
 	panel.Visible = true
 end
 
@@ -80,9 +97,10 @@ local function onProfile(profile: Types.Profile)
 end
 
 function TutorialController:Init()
-	local gui = Widgets.ScreenGui("Tutorial", 4)
-	panel = Widgets.Panel("Tip", gui, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.5, 0.13))
-	panel.AnchorPoint = Vector2.new(0.5, 0)
+	-- Above the egg offer (5), so its dimming does not cover the tip.
+	local gui = Widgets.ScreenGui("Tutorial", 6)
+	panel = Widgets.Panel("Tip", gui, TOP.Size, TOP.Position)
+	panel.AnchorPoint = TOP.Anchor
 	panel.Visible = false
 	Widgets.AspectRatio(panel, 6)
 	Widgets.Stroke(panel, Color3.fromRGB(255, 220, 90), 2)
