@@ -19,6 +19,11 @@ return table.freeze({
 	PartyHint = "Play with your party on one team",
 	MatchIn = "Match in %d",
 	Queued = "You are in the queue",
+	-- Cross-server queue: the wait ran out and the matchmaker is still
+	-- filling a match, or found one and the teleport is on its way.
+	Searching = "Looking for players...",
+	MatchFound = "Match found!",
+	ReturnFailed = "Could not take you back to the hub. Please rejoin.",
 	YourTeam = "Your team: %s",
 	TeamName = table.freeze({ Red = "RED", Blue = "BLUE" }),
 	Outcome = table.freeze({ Win = "Victory!", Lose = "Defeat", Draw = "Draw" }),

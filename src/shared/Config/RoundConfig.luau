@@ -17,6 +17,14 @@ return table.freeze({
 	MinTeamSize = 4,
 	MaxTeamSize = 6,
 
+	-- Team balance (Logic/TeamBalancer, Ivan 2026-10-14): a new player
+	-- counts as 1, plus their pet bonuses (Speed + Area + Power, 0.25 =
+	-- +25%), plus LevelWeight for each level above 1 (a level gives +1% to
+	-- each of those three stats). A bot in an empty seat counts as
+	-- BotStrength: no pets and a simple brain.
+	LevelWeight = 0.03,
+	BotStrength = 0.8,
+
 	-- A participant who painted fewer keys is treated as AFK: no reward.
 	MinKeysForReward = 3,
 

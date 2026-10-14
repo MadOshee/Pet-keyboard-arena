@@ -69,7 +69,8 @@ local function addVipTag(player: Player, character: Model)
 	local tag = Instance.new("BillboardGui")
 	tag.Name = VIP_TAG_NAME
 	tag.Size = UDim2.fromScale(2.2, 0.8)
-	tag.StudsOffset = Vector3.new(0, 2.2, 0)
+	-- Above the name and level tag (Util/Nameplate).
+	tag.StudsOffset = Vector3.new(0, 4, 0)
 	tag.MaxDistance = 80
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1

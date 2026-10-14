@@ -472,6 +472,11 @@ function ArenaService:GetRandomKeyTop(random: Random): Vector3
 	return Vector3.new(part.Position.X, keyTopY, part.Position.Z)
 end
 
+-- Middle of the board: where arena-server players wait for their match.
+function ArenaService:GetWaitingSpot(): CFrame
+	return CFrame.new((bounds.MinX + bounds.MaxX) / 2, keyTopY + 3, bounds.CenterZ)
+end
+
 function ArenaService:GetTeamSpawn(team: Types.TeamId): CFrame
 	local inset = ArenaConfig.KeyUnit
 	local x = if team == "Red" then bounds.MinX + inset else bounds.MaxX - inset

@@ -15,6 +15,8 @@ local NetService = require(script.Parent.NetService)
 local ReadyService = {}
 
 ReadyService.ReadyChanged = Signal.new() :: Signal.Signal<Player, boolean>
+-- The player pressed LEAVE QUEUE (not a leave by the server after a match).
+ReadyService.LeaveRequested = Signal.new() :: Signal.Signal<Player>
 
 local queued: { [Player]: Types.QueueMode } = {}
 
@@ -25,6 +27,7 @@ function ReadyService:Start()
 	NetService:On("SetReady", { PerSecond = 2, Burst = 4 }, function(player, value)
 		if Guard.Boolean(value) and value == false then
 			ReadyService:SetReady(player, false)
+			ReadyService.LeaveRequested:Fire(player)
 		end
 	end)
 
