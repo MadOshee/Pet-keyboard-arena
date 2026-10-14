@@ -47,4 +47,10 @@ function Purchases.LuckWithPotion(luck: number, bonus: number, cap: number): num
 	return math.min(luck + bonus, math.max(cap, luck))
 end
 
+-- How much luck multiplies the super rare eggs' chances in an offer:
+-- `multiplier` for the X2 Luck pass and again while Server Luck runs.
+function Purchases.LuckMultiplier(hasPass: boolean, serverLuck: boolean, multiplier: number): number
+	return (if hasPass then multiplier else 1) * (if serverLuck then multiplier else 1)
+end
+
 return Purchases

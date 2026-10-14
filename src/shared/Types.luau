@@ -48,6 +48,7 @@ export type OfferContext = {
 	Outcome: Outcome,
 	ContributionPct: number, -- 0..1, keys painted / best painter on the team
 	Luck: number, -- pet Luck when the offer was made
+	LuckMultiplier: number?, -- X2 Luck and Server Luck (EggRoller.ThemeWeights)
 }
 
 export type EggOffer = {
@@ -88,6 +89,7 @@ export type Profile = {
 	FreeRerolls: number, -- bought rerolls, used before coins
 	FreeSpeedUps: number, -- bought speed-ups with no egg to finish at the time
 	LuckPotionOffers: number, -- egg offers left with the luck potion bonus
+	ServerLuckUntil: number, -- os.time when Server Luck ends for this player
 	VipIncubator: boolean, -- the VIP pass incubator was added
 	Settings: PlayerSettings, -- the Settings window's switches
 }

@@ -132,12 +132,20 @@ local function dimSequence(sequence: ColorSequence): ColorSequence
 	return ColorSequence.new(points)
 end
 
-local function dim(button: GuiButton)
-	button.Interactable = false
-	button.AutoButtonColor = false
-	button.BackgroundColor3 = button.BackgroundColor3:Lerp(BLACK, DIM)
+-- Dims `object` and everything in it, turns its buttons off and writes a
+-- tilted "Soon" over it; `soonSize` is the label's size in parts of it.
+local function dim(object: GuiObject, soonSize: UDim2)
+	if object:IsA("GuiButton") then
+		object.Interactable = false
+		object.AutoButtonColor = false
+	end
+	object.BackgroundColor3 = object.BackgroundColor3:Lerp(BLACK, DIM)
 	-- A gradient already tints its parent, so a part with one is dimmed once.
-	for _, part in button:GetDescendants() do
+	for _, part in object:GetDescendants() do
+		if part:IsA("GuiButton") then
+			part.Interactable = false
+			part.AutoButtonColor = false
+		end
 		if part:IsA("UIGradient") then
 			part.Color = dimSequence(part.Color)
 		elseif part:IsA("UIStroke") then
@@ -146,12 +154,13 @@ local function dim(button: GuiButton)
 			continue
 		elseif part:IsA("ImageLabel") then
 			part.ImageColor3 = part.ImageColor3:Lerp(BLACK, DIM)
+		elseif part:IsA("ImageButton") then
+			part.ImageColor3 = part.ImageColor3:Lerp(BLACK, DIM)
 		elseif part:IsA("TextLabel") then
 			part.TextColor3 = part.TextColor3:Lerp(BLACK, DIM)
 		end
 	end
-	local soon =
-		Widgets.Label("Soon", button, UDim2.fromScale(1.2, 0.42), UDim2.fromScale(0.5, 0.45))
+	local soon = Widgets.Label("Soon", object, soonSize, UDim2.fromScale(0.5, 0.45))
 	soon.AnchorPoint = Vector2.new(0.5, 0.5)
 	soon.Rotation = -12
 	soon.ZIndex = 30
@@ -161,7 +170,7 @@ end
 
 local function wireButton(button: GuiButton, windows: Instance, hud: Instance)
 	if SOON_BUTTONS[button.Name] and button:IsDescendantOf(hud) then
-		dim(button)
+		dim(button, UDim2.fromScale(1.2, 0.42))
 		return
 	end
 	Widgets.AnimatePress(button)
@@ -355,6 +364,13 @@ function PackUiController:GetWindow(name: string): GuiObject?
 end
 
 -- Opens the pack window `name` unless it is already open.
+-- A pack piece for a later update (Ivan): dimmed, "Soon", not pressable.
+function PackUiController:SetSoon(object: GuiObject, soonSize: UDim2)
+	if object:FindFirstChild("Soon") == nil then
+		dim(object, soonSize)
+	end
+end
+
 function PackUiController:Open(name: string)
 	local window = PackUiController:GetWindow(name)
 	if window and current ~= window and gui and (gui :: ScreenGui).Enabled then

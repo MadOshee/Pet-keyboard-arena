@@ -31,7 +31,14 @@ function tests.sortedByOrder()
 	local keys = Purchases.Sorted(ShopConfig.Products :: any)
 	assert(keys[1] == "SpeedUpEgg")
 	assert(keys[#keys] == "Coins15000")
-	assert(#Purchases.Sorted(ShopConfig.GamePasses :: any) == 3)
+	assert(#Purchases.Sorted(ShopConfig.GamePasses :: any) == 4)
+end
+
+function tests.luckMultipliersStack()
+	assert(Purchases.LuckMultiplier(false, false, 2) == 1)
+	assert(Purchases.LuckMultiplier(true, false, 2) == 2)
+	assert(Purchases.LuckMultiplier(false, true, 2) == 2)
+	assert(Purchases.LuckMultiplier(true, true, 2) == 4)
 end
 
 function tests.luckPotionRespectsCap()

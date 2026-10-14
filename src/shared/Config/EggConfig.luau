@@ -29,29 +29,32 @@ local OFFER_THEMES = table.freeze({
 })
 
 -- Percent chance of each theme in an offer slot (Ivan): 13 eggs at 5% or
--- more, then 8 super rare eggs under 5% that glow orange.
+-- more, then 8 super rare eggs under 5% that glow orange. Ivan
+-- (2026-10-14): common eggs more often, rare ones very rare, since X2 Luck
+-- and Server Luck double the super rare chances (x4 together: still under
+-- 2%).
 local THEME_PERCENTS = {
-	11,
-	10,
-	9,
-	8.2,
+	15.5,
+	11.5,
+	9.5,
+	8.5,
 	7.5,
-	6.9,
-	6.4,
+	7,
+	6.5,
 	6,
 	5.7,
 	5.5,
 	5.3,
 	5.2,
-	5.1,
-	2.4,
-	1.7,
-	1.3,
-	1,
-	0.7,
+	5,
 	0.5,
-	0.35,
-	0.25,
+	0.3,
+	0.2,
+	0.12,
+	0.08,
+	0.05,
+	0.03,
+	0.02,
 }
 local SUPER_RARE_PERCENT = 5
 -- Hatch time of each theme, rarer eggs longer (Ivan: Basic 30 s, Forest

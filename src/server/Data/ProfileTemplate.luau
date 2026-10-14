@@ -33,6 +33,7 @@ local template: Types.Profile = {
 	FreeRerolls = 0,
 	FreeSpeedUps = 0,
 	LuckPotionOffers = 0,
+	ServerLuckUntil = 0,
 	VipIncubator = false,
 	Settings = { Music = true, Sfx = true, Vfx = true },
 }

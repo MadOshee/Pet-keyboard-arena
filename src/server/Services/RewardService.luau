@@ -52,6 +52,7 @@ local function rewardParticipant(
 	end
 	local luck = StatsService:GetLuck(player)
 	local usePotion = false
+	local serverLuck = false
 
 	PlayerDataService:Update(player, function(data)
 		-- One luck potion charge per rewarded offer.
@@ -66,6 +67,7 @@ local function rewardParticipant(
 		end
 		data.Coins += coins
 		data.XP += xp
+		serverLuck = data.ServerLuckUntil > os.time()
 	end)
 
 	if usePotion then
@@ -77,6 +79,11 @@ local function rewardParticipant(
 			Outcome = outcome,
 			ContributionPct = Reward.ContributionPct(keys, bestOnTeam),
 			Luck = luck,
+			LuckMultiplier = Purchases.LuckMultiplier(
+				GamePassService:Owns(player, "DoubleLuck"),
+				serverLuck,
+				ShopConfig.LuckMultiplier
+			),
 		})
 	else
 		ReadyService:SetReady(player, false)

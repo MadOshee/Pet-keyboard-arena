@@ -112,6 +112,33 @@ function tests.lostRoundOffersTwoEggs()
 	assert(size("Lose") == 2)
 end
 
+function tests.luckRaisesOnlySuperRareThemes()
+	local themes = EggConfig.OfferThemes
+	local base = EggRoller.ThemeWeights(
+		{ Outcome = "Win", ContributionPct = 0, Luck = 0 },
+		themes,
+		EggConfig
+	)
+	local lucky = EggRoller.ThemeWeights(
+		{ Outcome = "Win", ContributionPct = 0, Luck = 0, LuckMultiplier = 4 },
+		themes,
+		EggConfig
+	)
+	local total = 0
+	for _, weight in lucky do
+		total += weight
+	end
+	for index, theme in themes do
+		if EggConfig.SuperRare[theme] then
+			assert(lucky[index] == base[index] * 4)
+			-- Even X2 Luck and Server Luck together keep it under 5%.
+			assert(lucky[index] / total < 0.05)
+		else
+			assert(lucky[index] == base[index])
+		end
+	end
+end
+
 function tests.rarestThemeIsRare()
 	local total = 0
 	for _, weight in EggConfig.ThemeWeights do

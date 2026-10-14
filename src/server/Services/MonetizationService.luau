@@ -1,6 +1,7 @@
 --!strict
 -- Developer Products through ProcessReceipt, and the VIP pass extras
--- (docs/design.md 4.6, section 10). Every grant goes through
+-- (docs/design.md 4.6, section 10). Server Luck also goes to every player
+-- on the server and to those who join while it runs. Every grant goes through
 -- PlayerDataService:GrantPurchase, which records the purchase id in the same
 -- update and confirms to Roblox only after a save, so a product is given
 -- exactly once even if Roblox repeats the receipt.
@@ -17,6 +18,8 @@ local GamePassService = require(script.Parent.GamePassService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
 
 local VIP_TAG_NAME = "VipTag"
+-- Workspace attribute: os.time when this server's Server Luck ends.
+local SERVER_LUCK_ATTRIBUTE = "ServerLuckUntil"
 
 local MonetizationService = {}
 
@@ -31,7 +34,51 @@ local GRANTS: { [string]: (data: Types.Profile) -> () } = {
 	LuckPotion = function(data)
 		data.LuckPotionOffers += ShopConfig.LuckPotionOffers
 	end,
+	-- The buyer's own share; everyone else on the server gets it in
+	-- startServerLuck once the purchase is saved.
+	ServerLuck = function(data)
+		local now = os.time()
+		data.ServerLuckUntil = math.max(data.ServerLuckUntil, now) + ShopConfig.ServerLuckSeconds
+	end,
 }
+
+-- Server Luck receipts already shared out on this server, so a replayed
+-- receipt does not add another 15 minutes.
+local sharedLuck: { [string]: true } = {}
+
+local function serverLuckUntil(): number
+	local value = workspace:GetAttribute(SERVER_LUCK_ATTRIBUTE)
+	return if type(value) == "number" then value else 0
+end
+
+-- Gives a player the server's running Server Luck. Saved in the profile, so
+-- it goes with them to the arena server and the round's egg offer.
+local function shareServerLuck(player: Player)
+	local ends = serverLuckUntil()
+	if ends <= os.time() or not PlayerDataService:IsLoaded(player) then
+		return
+	end
+	PlayerDataService:Update(player, function(data)
+		data.ServerLuckUntil = math.max(data.ServerLuckUntil, ends)
+	end)
+end
+
+-- Server Luck (Ivan 2026-10-14): x2 luck for everyone on this server for
+-- ShopConfig.ServerLuckSeconds, added on top of a running one.
+local function startServerLuck(purchaseId: string)
+	if sharedLuck[purchaseId] then
+		return
+	end
+	sharedLuck[purchaseId] = true
+	local now = os.time()
+	workspace:SetAttribute(
+		SERVER_LUCK_ATTRIBUTE,
+		math.max(serverLuckUntil(), now) + ShopConfig.ServerLuckSeconds
+	)
+	for _, player in Players:GetPlayers() do
+		shareServerLuck(player)
+	end
+end
 
 local function grantFor(key: string): ((data: Types.Profile) -> ())?
 	local grant = GRANTS[key]
@@ -58,7 +105,11 @@ local function processReceipt(receipt: any): Enum.ProductPurchaseDecision
 		warn(`[Monetization] unknown product {receipt.ProductId}`)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	return PlayerDataService:GrantPurchase(player, receipt.PurchaseId, grant :: any)
+	local decision = PlayerDataService:GrantPurchase(player, receipt.PurchaseId, grant :: any)
+	if key == "ServerLuck" and decision == Enum.ProductPurchaseDecision.PurchaseGranted then
+		startServerLuck(receipt.PurchaseId)
+	end
+	return decision
 end
 
 local function addVipTag(player: Player, character: Model)
@@ -109,6 +160,8 @@ function MonetizationService:Start()
 		if GamePassService:Owns(player, "VIP") then
 			applyVip(player)
 		end
+		-- Joining while Server Luck runs counts too.
+		shareServerLuck(player)
 	end)
 	local function watch(player: Player)
 		player.CharacterAdded:Connect(function(character)

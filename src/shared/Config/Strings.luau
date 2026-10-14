@@ -177,6 +177,8 @@ return table.freeze({
 	ShopRobuxHeader = "Robux",
 	ShopRobuxPrice = "R$ %d",
 	ShopOwned = "OWNED",
+	-- The pack Shop's Server Luck block while it runs.
+	ShopServerLuckActive = "x2 luck for everyone on the server: %s left!",
 	ShopSoon = "SOON",
 	ShopItems = table.freeze({
 		VIP = "VIP: gold tag and a free platform",
@@ -185,6 +187,8 @@ return table.freeze({
 		SpeedUpEgg = "Hatch your slowest egg now",
 		Reroll = "One free egg reroll",
 		LuckPotion = "Luck potion: luckier eggs for 5 rounds",
+		DoubleLuck = "2x luck: super rare eggs twice as often",
+		ServerLuck = "Server luck: 2x luck for everyone for 15 min",
 		Coins1000 = "$1000",
 		Coins5000 = "$5000",
 		Coins15000 = "$15 000",
