@@ -1,7 +1,8 @@
 --!strict
 -- Variant A match source (docs/design.md 5.2): round participants are the
--- queued players on this server. Variant B will swap in a teleport-based
--- source with the same CollectParticipants() shape.
+-- queued players on this server. With cross-server matches (variant B) the
+-- hub hands the same groups to MatchmakingService as tickets, and plays here
+-- only those `include` lets through (Studio, or when matchmaking failed).
 
 local Players = game:GetService("Players")
 
@@ -12,17 +13,21 @@ local ReadyService = require(Services.ReadyService)
 
 local LocalMatchSource = {}
 
-local function isEligible(player: Player): boolean
-	return ReadyService:IsReady(player) and PlayerDataService:IsLoaded(player)
+export type Include = (player: Player) -> boolean
+
+local function isEligible(player: Player, include: Include?): boolean
+	return ReadyService:IsReady(player)
+		and PlayerDataService:IsLoaded(player)
+		and (include == nil or include(player))
 end
 
 -- Each inner list is one group that must stay on one team: the members of
 -- a party queued with PARTY GAME, or a solo player.
-function LocalMatchSource.CollectParticipants(): { { Player } }
+function LocalMatchSource.CollectParticipants(include: Include?): { { Player } }
 	local groups: { { Player } } = {}
 	local placed: { [Player]: boolean } = {}
 	for _, player in Players:GetPlayers() do
-		if placed[player] or not isEligible(player) then
+		if placed[player] or not isEligible(player, include) then
 			continue
 		end
 		local group = {}
@@ -32,7 +37,7 @@ function LocalMatchSource.CollectParticipants(): { { Player } }
 				if
 					member
 					and not placed[member]
-					and isEligible(member)
+					and isEligible(member, include)
 					and ReadyService:GetMode(member) == "Party"
 				then
 					placed[member] = true
@@ -50,9 +55,9 @@ function LocalMatchSource.CollectParticipants(): { { Player } }
 end
 
 -- True when at least one player is waiting for a match.
-function LocalMatchSource.HasParticipants(): boolean
+function LocalMatchSource.HasParticipants(include: Include?): boolean
 	for _, player in Players:GetPlayers() do
-		if isEligible(player) then
+		if isEligible(player, include) then
 			return true
 		end
 	end

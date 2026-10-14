@@ -22,6 +22,7 @@ local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local PetIncome = require(ReplicatedStorage.Shared.Logic.PetIncome)
 local Types = require(ReplicatedStorage.Shared.Types)
 local ModelFront = require(ReplicatedStorage.Shared.Util.ModelFront)
+local MatchMode = require(script.Parent.Parent.Match.MatchMode)
 local EggService = require(script.Parent.EggService)
 local MovementGuard = require(script.Parent.MovementGuard)
 local NetService = require(script.Parent.NetService)
@@ -415,7 +416,8 @@ local function refresh(plot: Plot)
 end
 
 local function assign(player: Player)
-	if plotOf[player] then
+	-- Arena servers hold only the match; plots live on the hub.
+	if plotOf[player] or MatchMode.IsArena() then
 		return
 	end
 	for _, plot in plots do

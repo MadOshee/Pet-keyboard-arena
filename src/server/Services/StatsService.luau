@@ -28,10 +28,17 @@ StatsService.StatsChanged = Signal.new() :: Signal.Signal<Player, Types.Stats>
 local cache: { [Player]: Types.Stats } = {}
 local speedBoost: { [Player]: { Multiplier: number, Ends: number } } = {}
 local levelBonus: { [Player]: number } = {}
+local levels: { [Player]: number } = {}
+
+StatsService.LevelChanged = Signal.new() :: Signal.Signal<Player, number>
 
 local function updateLevel(player: Player, data: Types.Profile)
 	local level = Levels.FromXP(data.XP or 0, RoundConfig.Levels).Level
 	levelBonus[player] = Levels.Bonus(level, RoundConfig.Levels)
+	if levels[player] ~= level then
+		levels[player] = level
+		StatsService.LevelChanged:Fire(player, level)
+	end
 end
 
 local function recalculate(player: Player)
@@ -57,11 +64,17 @@ function StatsService:Start()
 		cache[player] = nil
 		speedBoost[player] = nil
 		levelBonus[player] = nil
+		levels[player] = nil
 	end)
 end
 
 function StatsService:GetStats(player: Player): Types.Stats
 	return cache[player] or StatCalculator.Zero()
+end
+
+-- The player's level from XP (1 until the profile loads).
+function StatsService:GetLevel(player: Player): number
+	return levels[player] or 1
 end
 
 -- +1% to every stat per level above 1, as a fraction.
@@ -108,9 +121,12 @@ function StatsService:GetPower(player: Player): number
 	return StatsService:GetStats(player).Power + StatsService:GetLevelBonus(player)
 end
 
--- How strong the player's pets make them, for team balance.
+-- How much stronger than a new player the pets and the level make them,
+-- for team balance (Ivan 2026-10-14: pet bonuses and level). The pets give
+-- Speed + Area + Power; each level above 1 adds RoundConfig.LevelWeight.
 function StatsService:GetTeamWeight(player: Player): number
 	return StatCalculator.TeamWeight(StatsService:GetStats(player))
+		+ RoundConfig.LevelWeight * (StatsService:GetLevel(player) - 1)
 end
 
 return StatsService

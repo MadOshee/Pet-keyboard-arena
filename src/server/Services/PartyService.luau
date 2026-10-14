@@ -23,6 +23,9 @@ local PartyService = {}
 PartyService.PartyChanged = Signal.new() :: Signal.Signal<()>
 
 local state = Parties.new(MAX_SIZE)
+-- user id -> os.clock() until which a member away at a cross-server match
+-- keeps their party seat (MatchmakingService).
+local awayUntil: { [number]: number } = {}
 
 local function refuse(player: Player, action: string, reason: string)
 	NetService:FireClient("ActionResult", player, action, reason)
@@ -92,9 +95,26 @@ function PartyService:Start()
 	NetService:On("PartyRespond", { PerSecond = 2, Burst = 4 }, onRespond)
 	NetService:On("PartyLeave", { PerSecond = 1, Burst = 2 }, onLeave)
 
-	Players.PlayerAdded:Connect(syncAll)
+	Players.PlayerAdded:Connect(function(player)
+		awayUntil[player.UserId] = nil
+		syncAll()
+	end)
 	Players.PlayerRemoving:Connect(function(player)
-		Parties.Remove(state, player.UserId)
+		local userId = player.UserId
+		local holdUntil = awayUntil[userId]
+		if holdUntil and holdUntil > os.clock() then
+			-- Away at a match: keep the seat until they are back or time runs out.
+			task.delay(holdUntil - os.clock(), function()
+				if awayUntil[userId] == holdUntil and not Players:GetPlayerByUserId(userId) then
+					awayUntil[userId] = nil
+					Parties.Remove(state, userId)
+					syncAll()
+				end
+			end)
+			return
+		end
+		awayUntil[userId] = nil
+		Parties.Remove(state, userId)
 		task.defer(syncAll)
 	end)
 
@@ -120,6 +140,15 @@ function PartyService:Start()
 			end
 		end
 	end)
+end
+
+-- Members who leave this server for a match keep their party for
+-- `seconds`, so they find it again when they come back.
+function PartyService:HoldWhileAway(userIds: { number }, seconds: number)
+	local holdUntil = os.clock() + seconds
+	for _, userId in userIds do
+		awayUntil[userId] = holdUntil
+	end
 end
 
 -- User ids of everyone in the player's party (just the player when solo).

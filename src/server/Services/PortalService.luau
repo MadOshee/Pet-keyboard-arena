@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local Types = require(ReplicatedStorage.Shared.Types)
+local MatchMode = require(script.Parent.Parent.Match.MatchMode)
 local Guard = require(script.Parent.Parent.Util.Guard)
 local NetService = require(script.Parent.NetService)
 local PartyService = require(script.Parent.PartyService)
@@ -32,7 +33,10 @@ local function refuse(player: Player, reason: Types.ActionError)
 end
 
 local function canQueue(player: Player): boolean
-	return PlayerDataService:IsLoaded(player) and player:GetAttribute("Team") == nil
+	-- An arena server already is the match.
+	return PlayerDataService:IsLoaded(player)
+		and player:GetAttribute("Team") == nil
+		and not MatchMode.IsArena()
 end
 
 local function isNearPortal(player: Player): boolean

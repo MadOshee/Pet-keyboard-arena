@@ -4,6 +4,11 @@
 -- -> Countdown (on the arena) -> Playing -> Results -> back to the hub.
 -- Players join the queue at the hub portal (PortalService); after the
 -- match they leave the queue and return to the hub.
+-- Where the match is played depends on MatchMode: a "Local" server (Studio)
+-- plays every match itself; a "Hub" server only the matches that fell back
+-- to it (MatchmakingService:PlaysHere); an "Arena" server waits for its
+-- roster (Starting = waiting for players), plays one match and sends
+-- everyone back to their hub.
 -- Phase and end time replicate as ReplicatedStorage attributes
 -- ("RoundPhase", "PhaseEndsAt", "Winner"); each participant's team is the
 -- "Team" Player attribute. RoundEnded lets RewardService react without
@@ -13,17 +18,21 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+local MatchConfig = require(ReplicatedStorage.Shared.Config.MatchConfig)
 local RoundConfig = require(ReplicatedStorage.Shared.Config.RoundConfig)
 local Reward = require(ReplicatedStorage.Shared.Logic.Reward)
 local TeamBalancer = require(ReplicatedStorage.Shared.Logic.TeamBalancer)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Types = require(ReplicatedStorage.Shared.Types)
 local LocalMatchSource = require(script.Parent.Parent.Match.LocalMatchSource)
+local MatchMode = require(script.Parent.Parent.Match.MatchMode)
 local ArenaService = require(script.Parent.ArenaService)
 local Participant = require(script.Parent.Parent.Util.Participant)
 local ReadyService = require(script.Parent.ReadyService)
 local BatService = require(script.Parent.BatService)
 local BotService = require(script.Parent.BotService)
+local MatchmakingService = require(script.Parent.MatchmakingService)
+local PlayerDataService = require(script.Parent.PlayerDataService)
 local MovementGuard = require(script.Parent.MovementGuard)
 local PowerUpService = require(script.Parent.PowerUpService)
 local StatsService = require(script.Parent.StatsService)
@@ -124,8 +133,11 @@ local function assignTeams(groups: { { Player } }): boolean
 	return next(teams) ~= nil
 end
 
-local function runRound()
-	local groups = LocalMatchSource.CollectParticipants()
+local function playsHere(player: Player): boolean
+	return MatchmakingService:PlaysHere(player)
+end
+
+local function runRound(groups: { { Player } })
 	local count = 0
 	for _, group in groups do
 		count += #group
@@ -179,15 +191,22 @@ local function runRound()
 	})
 	task.wait(RoundConfig.ResultsSeconds)
 
+	local isArena = MatchMode.IsArena()
 	for player in teams do
 		player:SetAttribute("Team", nil)
 		-- Pet Speed only applies in the round.
 		setWalkSpeed(player, ArenaConfig.BaseWalkSpeed)
 		-- Back to the hub; the next match starts from the portal again.
 		ReadyService:SetReady(player, false)
-		teleport(player, lobbyCFrame())
+		if not isArena then
+			teleport(player, lobbyCFrame())
+		end
 	end
 	table.clear(teams)
+	if isArena then
+		-- Everyone here, late arrivals too, goes back to their hub server.
+		MatchmakingService:ReturnToHub(Players:GetPlayers())
+	end
 	ReplicatedStorage:SetAttribute("Winner", nil)
 	ArenaService:ClearBoard()
 end
@@ -196,18 +215,60 @@ end
 -- false if everyone left the queue during the countdown.
 local function waitForQueue(): boolean
 	setPhase("Intermission", 0)
-	while not LocalMatchSource.HasParticipants() do
+	while not LocalMatchSource.HasParticipants(playsHere) do
 		task.wait(0.25)
 	end
 	setPhase("Starting", RoundConfig.StartingSeconds)
 	local startAt = os.clock() + RoundConfig.StartingSeconds
 	while os.clock() < startAt do
 		task.wait(0.25)
-		if not LocalMatchSource.HasParticipants() then
+		if not LocalMatchSource.HasParticipants(playsHere) then
 			return false
 		end
 	end
 	return true
+end
+
+-- Arena: arrived players wait in the middle of the board, queued (so they
+-- see "Match in N" and LEAVE QUEUE); strangers go back to the hub.
+local function greetArrivals()
+	for _, player in Players:GetPlayers() do
+		if
+			PlayerDataService:IsLoaded(player)
+			and not ReadyService:IsReady(player)
+			and player:GetAttribute("Team") == nil
+			and not MatchmakingService:IsReturning(player)
+		then
+			if MatchmakingService:IsExpected(player) then
+				ReadyService:SetReady(player, true, "Solo")
+			else
+				MatchmakingService:ReturnToHub({ player })
+			end
+		end
+	end
+end
+
+-- Arena: waits for the roster's players (all of them, or whoever came
+-- within ArrivalSeconds), plays the one match, then keeps sending anyone
+-- left here back to the hub.
+local function runArenaMatch()
+	MatchmakingService:WaitForRoster(MatchConfig.ArrivalSeconds)
+	setPhase("Starting", MatchConfig.ArrivalSeconds)
+	local deadline = os.clock() + MatchConfig.ArrivalSeconds
+	while true do
+		task.wait(0.25)
+		greetArrivals()
+		local groups = MatchmakingService:ArenaGroups()
+		if #groups > 0 and (MatchmakingService:AllArrived() or os.clock() >= deadline) then
+			runRound(groups)
+			break
+		end
+	end
+	setPhase("Intermission", 0)
+	while true do
+		task.wait(2)
+		MatchmakingService:ReturnToHub(Players:GetPlayers())
+	end
 end
 
 function RoundService:Init()
@@ -217,6 +278,15 @@ end
 function RoundService:Start()
 	-- A participant who respawns mid-round goes straight back to the arena.
 	local function onCharacterAdded(player: Player, character: Model)
+		if MatchMode.IsArena() and teams[player] == nil then
+			-- Arena servers have no hub to stand on: wait on the board.
+			local root = character:WaitForChild("HumanoidRootPart", 5)
+			if root and teams[player] == nil and character.Parent then
+				character:PivotTo(ArenaService:GetWaitingSpot())
+				MovementGuard:Reset(player)
+			end
+			return
+		end
 		if teams[player] and (phase == "Countdown" or phase == "Playing") then
 			character:WaitForChild("HumanoidRootPart", 5)
 			if teams[player] and character.Parent then
@@ -236,9 +306,13 @@ function RoundService:Start()
 	end
 
 	task.spawn(function()
+		if MatchMode.IsArena() then
+			runArenaMatch()
+			return
+		end
 		while true do
 			if waitForQueue() then
-				runRound()
+				runRound(LocalMatchSource.CollectParticipants(playsHere))
 			end
 		end
 	end)

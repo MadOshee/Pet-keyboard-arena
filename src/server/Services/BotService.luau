@@ -13,6 +13,7 @@ local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local BatConfig = require(ReplicatedStorage.Shared.Config.BatConfig)
 local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local Types = require(ReplicatedStorage.Shared.Types)
+local Nameplate = require(script.Parent.Parent.Util.Nameplate)
 local Participant = require(script.Parent.Parent.Util.Participant)
 local ArenaService = require(script.Parent.ArenaService)
 local BatService = require(script.Parent.BatService)
@@ -70,6 +71,11 @@ local function makeModel(team: Types.TeamId): Model
 	if humanoid then
 		humanoid.DisplayName = `Bot {nameCounter}`
 		humanoid.WalkSpeed = 0
+	end
+	-- Same tag as players, in the team color, without a level.
+	local plate = Nameplate.Attach(model)
+	if plate then
+		Nameplate.Set(plate, `Bot {nameCounter}`, nil, color)
 	end
 	return model
 end

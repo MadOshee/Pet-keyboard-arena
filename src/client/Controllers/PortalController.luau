@@ -176,8 +176,17 @@ local function update()
 	local phase = ReplicatedStorage:GetAttribute("RoundPhase")
 	local endsAt = ReplicatedStorage:GetAttribute("PhaseEndsAt")
 	-- In the queue only this line and LEAVE QUEUE (HudController) show.
+	local queueEndsAt = player:GetAttribute("QueueEndsAt")
 	if queued and not inMatch then
-		if phase == "Starting" and type(endsAt) == "number" then
+		if player:GetAttribute("MatchFound") == true then
+			countdown.Text = Strings.MatchFound
+		elseif type(queueEndsAt) == "number" then
+			-- Cross-server queue: the wait of this player's own ticket.
+			local secondsLeft = math.ceil(queueEndsAt - workspace:GetServerTimeNow())
+			countdown.Text = if secondsLeft > 0
+				then string.format(Strings.MatchIn, secondsLeft)
+				else Strings.Searching
+		elseif phase == "Starting" and type(endsAt) == "number" then
 			local secondsLeft = math.max(0, math.ceil(endsAt - workspace:GetServerTimeNow()))
 			countdown.Text = string.format(Strings.MatchIn, secondsLeft)
 		elseif phase == "Countdown" or phase == "Playing" or phase == "Results" then
