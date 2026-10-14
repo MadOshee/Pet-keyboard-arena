@@ -130,9 +130,16 @@ local function onPick(player: Player, offerId: unknown, slot: unknown)
 		refuse(player, "EggPick", "BadSlot")
 		return
 	end
-	if currentOffer(player, offerId, "EggPick") then
-		pick(player, slot :: number, false)
+	local offer = currentOffer(player, offerId, "EggPick")
+	if offer == nil then
+		return
 	end
+	-- A lost round's offer holds fewer eggs.
+	if (offer :: Types.EggOffer).Eggs[slot :: number] == nil then
+		refuse(player, "EggPick", "BadSlot")
+		return
+	end
+	pick(player, slot :: number, false)
 end
 
 local function onReroll(player: Player, offerId: unknown)

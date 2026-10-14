@@ -93,6 +93,8 @@ return table.freeze({
 	-- match). Offers are sorted in this order.
 	OfferThemes = OFFER_THEMES,
 	EggsPerOffer = 4,
+	-- A lost round offers only 2 eggs (Ivan).
+	EggsByOutcome = table.freeze({ Win = 4, Draw = 4, Lose = 2 }) :: { [string]: number },
 	-- How often each theme comes up in an offer slot, in percent: rarer eggs
 	-- hatch pets that earn more (PetConfig.Themes IncomeMultiplier).
 	ThemeWeights = table.freeze(THEME_WEIGHTS),

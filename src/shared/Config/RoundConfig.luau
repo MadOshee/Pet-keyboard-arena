@@ -42,7 +42,8 @@ return table.freeze({
 	Levels = table.freeze({
 		Base = 100,
 		Step = 50,
-		-- Round money +10% for every level above 1 (Ivan 2026-10-13).
-		CoinBonusPerLevel = 0.1,
+		-- +1% to every stat (Speed, Area, Luck, Power, Money) for each level
+		-- above 1 (Ivan 2026-10-14; was +10% round money only).
+		BonusPerLevel = 0.01,
 	}),
 })

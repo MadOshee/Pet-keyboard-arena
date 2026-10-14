@@ -56,6 +56,7 @@ return table.freeze({
 	RoundRewards = "Rewards",
 	XPGained = "+%d XP",
 	Level = "Level %d",
+	LevelWithBonus = "Level %d (+%d%% stats)",
 	Soon = "Soon",
 	XPProgress = "%d/%d XP",
 	-- Feedback button and window (Ivan 2026-10-13)
@@ -84,6 +85,7 @@ return table.freeze({
 	ConfirmSell = "SURE?",
 	-- Bat and power-ups (stage 3)
 	BatButton = "Hit",
+	BatButtonWithKey = "Hit (E)",
 	BatHint = "Click or press F to swing the bat",
 	KnockedOut = "Bonk!",
 	YouKnocked = "Hit!",

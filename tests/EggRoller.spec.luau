@@ -94,6 +94,24 @@ function tests.offerRollsThemesByWeight()
 	assert(eggs[#eggs].Theme == EggConfig.OfferThemes[#EggConfig.OfferThemes])
 end
 
+function tests.lostRoundOffersTwoEggs()
+	local function size(outcome: string): number
+		local eggs = EggRoller.RollOffer(
+			context(outcome, 0.5, 0),
+			EggConfig.OfferThemes,
+			RARITIES,
+			EggConfig,
+			function()
+				return 0.5
+			end
+		)
+		return #eggs
+	end
+	assert(size("Win") == 4)
+	assert(size("Draw") == 4)
+	assert(size("Lose") == 2)
+end
+
 function tests.rarestThemeIsRare()
 	local total = 0
 	for _, weight in EggConfig.ThemeWeights do

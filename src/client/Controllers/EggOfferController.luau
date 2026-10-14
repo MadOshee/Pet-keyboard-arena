@@ -278,6 +278,9 @@ local function startSpin()
 	end
 	spinStarted = os.clock()
 	for slot, card in cards do
+		if not card.Button.Visible then
+			continue
+		end
 		spins[slot] = {
 			Sequence = { card.Theme or randomTheme() },
 			Position = 1,
@@ -875,9 +878,18 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 		shownRerollCount = offer.RerollCount
 		-- The egg's rarity stays a surprise (Ivan): only its theme and its
 		-- main buff show.
+		-- A lost round offers 2 eggs instead of 4 (Ivan): the shown cards
+		-- stay centered, the rest hide.
+		local count = math.min(#offer.Eggs, #cards)
+		local step = EGG_CENTERS[2] - EGG_CENTERS[1]
 		local themes = {}
 		for slot, card in cards do
 			local egg = offer.Eggs[slot]
+			card.Button.Visible = egg ~= nil
+			if egg == nil then
+				continue
+			end
+			card.Button.Position = UDim2.fromScale(0.5 + (slot - (count + 1) / 2) * step, 0.25)
 			local theme = PetConfig.Themes[egg.Theme]
 			themes[slot] = egg.Theme
 			card.Name.Text = string.format(Strings.EggTheme, egg.Theme)
@@ -893,7 +905,9 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 		else
 			table.clear(spins)
 			for slot, card in cards do
-				land(card, themes[slot], false)
+				if themes[slot] then
+					land(card, themes[slot], false)
+				end
 			end
 		end
 		oddsLabel.Text = oddsText(offer)

@@ -20,6 +20,7 @@ export type OddsConfig = {
 
 export type OfferConfig = OddsConfig & {
 	EggsPerOffer: number,
+	EggsByOutcome: { [string]: number }?,
 	ThemeWeights: { [string]: number },
 }
 
@@ -80,7 +81,13 @@ function EggRoller.PickIndex(weights: { number }, rng: Rng): number
 	return #weights
 end
 
--- EggsPerOffer eggs. Each rolls its theme by ThemeWeights (rarer eggs come
+-- How many eggs an offer after this round outcome holds.
+function EggRoller.OfferSize(context: Context, config: OfferConfig): number
+	local byOutcome = config.EggsByOutcome
+	return (if byOutcome then byOutcome[context.Outcome] else nil) or config.EggsPerOffer
+end
+
+-- OfferSize eggs. Each rolls its theme by ThemeWeights (rarer eggs come
 -- up less often, repeats are fine) and its rarity by Weights. `themes` gives
 -- the theme order, cheapest first; the offer is sorted by it.
 function EggRoller.RollOffer(
@@ -95,8 +102,9 @@ function EggRoller.RollOffer(
 	for index, theme in themes do
 		themeWeights[index] = config.ThemeWeights[theme] or 0
 	end
-	local picks = table.create(config.EggsPerOffer)
-	for index = 1, config.EggsPerOffer do
+	local size = EggRoller.OfferSize(context, config)
+	local picks = table.create(size)
+	for index = 1, size do
 		picks[index] = {
 			Theme = EggRoller.PickIndex(themeWeights, rng),
 			Rarity = EggRoller.PickIndex(weights, rng),

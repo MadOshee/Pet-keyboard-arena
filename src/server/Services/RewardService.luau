@@ -11,7 +11,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
 local RoundConfig = require(ReplicatedStorage.Shared.Config.RoundConfig)
 local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
-local Levels = require(ReplicatedStorage.Shared.Logic.Levels)
 local Purchases = require(ReplicatedStorage.Shared.Logic.Purchases)
 local Reward = require(ReplicatedStorage.Shared.Logic.Reward)
 local Types = require(ReplicatedStorage.Shared.Types)
@@ -44,10 +43,9 @@ local function rewardParticipant(
 	local multiplier = StatsService:GetCoinMultiplier(player)
 	local coins = if rewarded then Reward.Coins(outcome, keys, multiplier, RoundConfig.Coins) else 0
 	local xp = if rewarded then Reward.XP(outcome, keys, RoundConfig.XP) else 0
-	-- Level bonus: the level the player had before this round's XP.
-	local profile = PlayerDataService:Get(player)
-	local level = Levels.FromXP(if profile then profile.XP else 0, RoundConfig.Levels).Level
-	coins = math.floor(coins * Levels.CoinMultiplier(level, RoundConfig.Levels))
+	-- Level bonus (+1% per level, the level before this round's XP), on
+	-- top of the pets' capped Money.
+	coins = math.floor(coins * (1 + StatsService:GetLevelBonus(player)))
 	-- The 2x pass doubles the final sum (design 4.5).
 	if GamePassService:Owns(player, "DoubleCoins") then
 		coins *= ShopConfig.DoubleCoinsMultiplier

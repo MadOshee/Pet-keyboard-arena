@@ -147,8 +147,11 @@ function BatController:Init()
 	batIcon(button)
 
 	local caption =
-		Widgets.Label("Hit", button, UDim2.fromScale(0.5, 0.2), UDim2.fromScale(0.25, 0.72))
-	caption.Text = Strings.BatButton
+		Widgets.Label("Hit", button, UDim2.fromScale(0.7, 0.2), UDim2.fromScale(0.15, 0.72))
+	-- With a keyboard the caption names the key (Ivan: E).
+	caption.Text = if UserInputService.KeyboardEnabled
+		then Strings.BatButtonWithKey
+		else Strings.BatButton
 	caption.ZIndex = 3
 
 	Widgets.AnimatePress(button)
@@ -162,7 +165,8 @@ function BatController:Start()
 			return
 		end
 		if
-			input.KeyCode == Enum.KeyCode.F
+			input.KeyCode == Enum.KeyCode.E
+			or input.KeyCode == Enum.KeyCode.F
 			or input.UserInputType == Enum.UserInputType.MouseButton1
 		then
 			swing()

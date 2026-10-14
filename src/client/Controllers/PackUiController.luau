@@ -221,7 +221,14 @@ local function updateLevel(profile: Types.Profile?)
 	end
 	local bar = levelBar :: Frame
 	local progress = Levels.FromXP((profile :: Types.Profile).XP or 0, RoundConfig.Levels)
-	setPackText(bar:FindFirstChild("Level"), string.format(Strings.Level, progress.Level))
+	-- The level's bonus to every stat shows next to it from level 2 (Ivan).
+	local bonus = math.floor(Levels.Bonus(progress.Level, RoundConfig.Levels) * 100 + 0.5)
+	setPackText(
+		bar:FindFirstChild("Level"),
+		if bonus > 0
+			then string.format(Strings.LevelWithBonus, progress.Level, bonus)
+			else string.format(Strings.Level, progress.Level)
+	)
 	setPackText(
 		bar:FindFirstChild("XP"),
 		string.format(Strings.XPProgress, progress.Into, progress.Need)
