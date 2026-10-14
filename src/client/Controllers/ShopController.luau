@@ -5,8 +5,8 @@
 -- with id 0 are not created yet and show SOON. The client only opens the
 -- Roblox purchase prompt; the server grants the item (MonetizationService).
 -- Also wires the pack's Shop window (Ivan 2026-10-14): Server Luck, X2 Money
--- and X2 Luck on top and buyable, the crate and starter pack blocks below,
--- dimmed with "Soon".
+-- and X2 Luck, buyable; the pack's crate and starter pack blocks are
+-- removed (Ivan 2026-10-14).
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
@@ -33,15 +33,13 @@ local GREEN = Color3.fromRGB(64, 170, 90)
 local GREY = Color3.fromRGB(120, 120, 130)
 local DARK = Color3.fromRGB(90, 90, 100)
 -- The pack Shop's blocks: list order (Ivan: the luck and money ones first)
--- and what each Buy button sells. ExclusiveOffer and StarterPack are "Soon".
+-- and what each Buy button sells. ExclusiveOffer and StarterPack are removed.
 local PACK_ORDER: { [string]: number } = {
 	ServerLuck = 1,
 	X2Money = 2,
 	X2luck = 3,
-	ExclusiveOffer = 10,
-	StarterPack = 11,
 }
-local PACK_SOON = { "ExclusiveOffer", "StarterPack" }
+local PACK_REMOVED = { "ExclusiveOffer", "StarterPack" }
 type PackItem = { Block: string, Path: { string }, Key: string, IsPass: boolean }
 local PACK_ITEMS: { PackItem } = {
 	{ Block = "ServerLuck", Path = { "Buttons", "Buy" }, Key = "ServerLuck", IsPass = false },
@@ -298,10 +296,10 @@ local function wirePackShop()
 			block.LayoutOrder = order
 		end
 	end
-	for _, name in PACK_SOON do
+	for _, name in PACK_REMOVED do
 		local block = blocks:FindFirstChild(name)
-		if block and block:IsA("GuiObject") then
-			PackUiController:SetSoon(block, UDim2.fromScale(0.5, 0.35))
+		if block then
+			block:Destroy()
 		end
 	end
 	for _, item in PACK_ITEMS do
