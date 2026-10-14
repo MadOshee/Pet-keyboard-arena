@@ -1,5 +1,5 @@
 {
-  "name": "PetKeyboardArena",
+  "name": "EggKeyboardArena",
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {

@@ -39,11 +39,11 @@ jobs:
           luau-lsp analyze --sourcemap=sourcemap.json --definitions=globalTypes.d.luau --base-luaurc=.luaurc --ignore="ServerPackages/**" --ignore="Packages/**" src
 
       - name: Build place file
-        run: rojo build default.project.json -o PetKeyboardArena.rbxl
+        run: rojo build default.project.json -o EggKeyboardArena.rbxl
 
       - name: Upload place file
         uses: actions/upload-artifact@v4
         with:
-          name: PetKeyboardArena-${{ github.sha }}
-          path: PetKeyboardArena.rbxl
+          name: EggKeyboardArena-${{ github.sha }}
+          path: EggKeyboardArena.rbxl
           retention-days: 30

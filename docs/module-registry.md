@@ -217,3 +217,7 @@
 - Новые клиентские модули `BatPoseController`, `MovementController` и папка `Fx` (только визуал), новый remote `ArenaRespawn`, сигнал `ArenaService.Respawned`, который слушает BatService (связь снизу вверх через сигнал, как в design.md).
 - Анимации биты сделаны кодом: загруженную анимацию может выложить только владелец игры в Roblox, а код работает сразу у всех.
 
+
+## Название игры (2026-10-14)
+
+- Игра называется **Egg Keyboard Arena** (было Pet Keyboard Arena). Новое имя: место в Rojo (`default.project.json`), строки в Output (`[EggKeyboardArena] server/client started`), артефакт CI и новые сборки `EggKeyboardArena-*.rbxl`. Модули не менялись. Репозиторий, ветки и старые сборки `PetKeyboardArena-*.rbxl` остались со старым именем. Название, иконку и описание на странице игры Иван меняет сам в Creator Hub.

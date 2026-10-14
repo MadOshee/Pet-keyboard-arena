@@ -1,4 +1,4 @@
-# Pet Keyboard Arena
+# Egg Keyboard Arena
 
 Игра для Roblox: командная покраска гигантской клавиатуры, яйца и питомцы.
 Полный дизайн и архитектура: [docs/design.md](docs/design.md).
@@ -6,10 +6,10 @@
 ## Как проверить сборку (без программирования)
 
 1. Открой вкладку **Actions** в этом репозитории и выбери последний зелёный запуск **CI**.
-2. Внизу страницы в разделе **Artifacts** скачай `PetKeyboardArena-...` и распакуй zip.
-3. Открой `PetKeyboardArena.rbxl` в Roblox Studio и нажми **Play**.
+2. Внизу страницы в разделе **Artifacts** скачай `EggKeyboardArena-...` и распакуй zip.
+3. Открой `EggKeyboardArena.rbxl` в Roblox Studio и нажми **Play**.
 4. В окне **Output** (View → Output) должны появиться строки
-   `[PetKeyboardArena] server started` и `[PetKeyboardArena] client started` без красных ошибок.
+   `[EggKeyboardArena] server started` и `[EggKeyboardArena] client started` без красных ошибок.
 
 Чек-листы проверки по этапам: [docs/testing](docs/testing).
 
