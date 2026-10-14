@@ -412,6 +412,9 @@ end
 local function refresh(plot: Plot)
 	local owner = plot.Owner
 	local data = if owner then PlayerDataService:Get(owner :: Player) else nil
+	-- Pets earn nothing while the egg pick screen is open (PlatformService);
+	-- PlotPetController shows no money popups then.
+	plot.Model:SetAttribute("IncomePaused", data ~= nil and data.PendingOffer ~= nil)
 	refreshPlatforms(plot, data)
 end
 

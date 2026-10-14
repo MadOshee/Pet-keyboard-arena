@@ -10,6 +10,8 @@ export type Context = {
 	Outcome: string, -- "Win" | "Draw" | "Lose"
 	ContributionPct: number,
 	Luck: number,
+	-- X2 Luck and Server Luck (Purchases.LuckMultiplier); 1 when missing.
+	LuckMultiplier: number?,
 }
 
 export type OddsConfig = {
@@ -22,6 +24,8 @@ export type OfferConfig = OddsConfig & {
 	EggsPerOffer: number,
 	EggsByOutcome: { [string]: number }?,
 	ThemeWeights: { [string]: number },
+	-- Themes whose chance the luck multiplier raises (the super rare eggs).
+	SuperRare: { [string]: boolean }?,
 }
 
 export type Egg = {
@@ -87,6 +91,24 @@ function EggRoller.OfferSize(context: Context, config: OfferConfig): number
 	return (if byOutcome then byOutcome[context.Outcome] else nil) or config.EggsPerOffer
 end
 
+-- One weight per theme in `themes` order: ThemeWeights, with the super rare
+-- themes multiplied by the context's LuckMultiplier (X2 Luck, Server Luck).
+-- PickIndex divides by the total, so the chances still add up to 100%.
+function EggRoller.ThemeWeights(
+	context: Context,
+	themes: { string },
+	config: OfferConfig
+): { number }
+	local multiplier = math.max(context.LuckMultiplier or 1, 1)
+	local superRare: { [string]: boolean } = config.SuperRare or {}
+	local weights = table.create(#themes)
+	for index, theme in themes do
+		local weight = config.ThemeWeights[theme] or 0
+		weights[index] = if superRare[theme] then weight * multiplier else weight
+	end
+	return weights
+end
+
 -- OfferSize eggs. Each rolls its theme by ThemeWeights (rarer eggs come
 -- up less often, repeats are fine) and its rarity by Weights. `themes` gives
 -- the theme order, cheapest first; the offer is sorted by it.
@@ -98,10 +120,7 @@ function EggRoller.RollOffer(
 	rng: Rng
 ): { Egg }
 	local weights = EggRoller.Weights(context, config)
-	local themeWeights = table.create(#themes)
-	for index, theme in themes do
-		themeWeights[index] = config.ThemeWeights[theme] or 0
-	end
+	local themeWeights = EggRoller.ThemeWeights(context, themes, config)
 	local size = EggRoller.OfferSize(context, config)
 	local picks = table.create(size)
 	for index = 1, size do

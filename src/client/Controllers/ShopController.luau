@@ -4,10 +4,14 @@
 -- Robux items: Game Passes and Developer Products from ShopConfig; items
 -- with id 0 are not created yet and show SOON. The client only opens the
 -- Roblox purchase prompt; the server grants the item (MonetizationService).
+-- Also wires the pack's Shop window (Ivan 2026-10-14): Server Luck, X2 Money
+-- and X2 Luck on top and buyable, the crate and starter pack blocks below,
+-- dimmed with "Soon".
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
@@ -20,6 +24,7 @@ local Money = require(ReplicatedStorage.Shared.Util.Money)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
+local PackUiController = require(script.Parent.PackUiController)
 
 local player = Players.LocalPlayer
 
@@ -27,6 +32,22 @@ local ROW_HEIGHT = 0.16
 local GREEN = Color3.fromRGB(64, 170, 90)
 local GREY = Color3.fromRGB(120, 120, 130)
 local DARK = Color3.fromRGB(90, 90, 100)
+-- The pack Shop's blocks: list order (Ivan: the luck and money ones first)
+-- and what each Buy button sells. ExclusiveOffer and StarterPack are "Soon".
+local PACK_ORDER: { [string]: number } = {
+	ServerLuck = 1,
+	X2Money = 2,
+	X2luck = 3,
+	ExclusiveOffer = 10,
+	StarterPack = 11,
+}
+local PACK_SOON = { "ExclusiveOffer", "StarterPack" }
+type PackItem = { Block: string, Path: { string }, Key: string, IsPass: boolean }
+local PACK_ITEMS: { PackItem } = {
+	{ Block = "ServerLuck", Path = { "Buttons", "Buy" }, Key = "ServerLuck", IsPass = false },
+	{ Block = "X2Money", Path = { "Button", "Buy" }, Key = "DoubleCoins", IsPass = true },
+	{ Block = "X2luck", Path = { "Button", "Buy" }, Key = "DoubleLuck", IsPass = true },
+}
 
 local ShopController = {}
 
@@ -167,6 +188,128 @@ local function addRobuxRow(key: string, id: number, isPass: boolean)
 	end
 end
 
+local function findPath(root: Instance, path: { string }): Instance?
+	local node: Instance? = root
+	for _, name in path do
+		node = node and (node :: Instance):FindFirstChild(name)
+	end
+	return node
+end
+
+-- The price on a pack Buy button: the pack writes the Robux sign, a space
+-- and the number, so only the number changes.
+local function setPackPrice(button: Instance, text: string, keepSign: boolean)
+	local label = findPath(button, { "Container", "Price" })
+	if label and label:IsA("TextLabel") then
+		local value = if keepSign then (string.gsub(label.Text, "%d+", text)) else text
+		Widgets.SetText(label, value)
+	end
+end
+
+local function wirePackItem(scrolling: Instance, item: PackItem)
+	local block = scrolling:FindFirstChild(item.Block)
+	local found = block and findPath(block, item.Path)
+	if not (found and found:IsA("GuiButton")) then
+		return
+	end
+	local button = found :: GuiButton
+	local entry: any = if item.IsPass
+		then ShopConfig.GamePasses[item.Key]
+		else ShopConfig.Products[item.Key]
+	local id: number = entry.Id
+	if entry.Robux then
+		setPackPrice(button, tostring(entry.Robux), true)
+	end
+	if id ~= 0 then
+		task.spawn(function()
+			local ok, info = pcall(function()
+				return MarketplaceService:GetProductInfo(
+					id,
+					if item.IsPass then Enum.InfoType.GamePass else Enum.InfoType.Product
+				)
+			end)
+			local price = ok and type(info) == "table" and (info :: any).PriceInRobux
+			if type(price) == "number" and button.Interactable then
+				setPackPrice(button, tostring(price), true)
+			end
+		end)
+	end
+	Widgets.AnimatePress(button)
+	button.MouseButton1Click:Connect(function()
+		Widgets.PlaySound("Click")
+		-- Id 0: the item is not created in Creator Hub yet, nothing to buy.
+		if id == 0 then
+			return
+		end
+		if item.IsPass then
+			MarketplaceService:PromptGamePassPurchase(player, id)
+		else
+			MarketplaceService:PromptProductPurchase(player, id)
+		end
+	end)
+	if item.IsPass then
+		local function owned()
+			if player:GetAttribute(`Pass_{item.Key}`) == true then
+				setPackPrice(button, Strings.ShopOwned, false)
+				button.Interactable = false
+			end
+		end
+		player:GetAttributeChangedSignal(`Pass_{item.Key}`):Connect(owned)
+		owned()
+	end
+end
+
+-- Server Luck's text shows the time left while it runs on this server.
+local function watchServerLuck(scrolling: Instance)
+	local block = scrolling:FindFirstChild("ServerLuck")
+	local desc = block and block:FindFirstChild("Desc")
+	if not (desc and desc:IsA("TextLabel")) then
+		return
+	end
+	local label = desc :: TextLabel
+	local idle = label.Text
+	local shown = ""
+	RunService.Heartbeat:Connect(function()
+		local ends = workspace:GetAttribute("ServerLuckUntil")
+		local left = if type(ends) == "number" then ends - workspace:GetServerTimeNow() else 0
+		local text = if left > 0
+			then string.format(
+				Strings.ShopServerLuckActive,
+				string.format("%d:%02d", left // 60, math.floor(left % 60))
+			)
+			else idle
+		if text ~= shown then
+			shown = text
+			label.Text = text
+		end
+	end)
+end
+
+local function wirePackShop()
+	local shopWindow = PackUiController:GetWindow("Shop")
+	local scrolling = shopWindow and shopWindow:FindFirstChild("Scrolling")
+	if scrolling == nil then
+		return
+	end
+	local blocks = scrolling :: Instance
+	for name, order in PACK_ORDER do
+		local block = blocks:FindFirstChild(name)
+		if block and block:IsA("GuiObject") then
+			block.LayoutOrder = order
+		end
+	end
+	for _, name in PACK_SOON do
+		local block = blocks:FindFirstChild(name)
+		if block and block:IsA("GuiObject") then
+			PackUiController:SetSoon(block, UDim2.fromScale(0.5, 0.35))
+		end
+	end
+	for _, item in PACK_ITEMS do
+		wirePackItem(blocks, item)
+	end
+	watchServerLuck(blocks)
+end
+
 function ShopController:Init()
 	local gui = Widgets.ScreenGui("Shop", 3)
 
@@ -251,6 +394,7 @@ function ShopController:Init()
 end
 
 function ShopController:Start()
+	wirePackShop()
 	DataController.Changed:Connect(refresh)
 	refresh(DataController:Get())
 end

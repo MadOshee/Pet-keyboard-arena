@@ -132,36 +132,65 @@ local function dimSequence(sequence: ColorSequence): ColorSequence
 	return ColorSequence.new(points)
 end
 
-local function dim(button: GuiButton)
-	button.Interactable = false
-	button.AutoButtonColor = false
-	button.BackgroundColor3 = button.BackgroundColor3:Lerp(BLACK, DIM)
+-- Dims `object` and everything in it, turns its buttons off and writes a
+-- tilted "Soon" over it; `soonSize` is the label's size in parts of it.
+local function dim(object: GuiObject, soonSize: UDim2)
+	if object:IsA("GuiButton") then
+		object.Interactable = false
+		object.AutoButtonColor = false
+	end
+	object.BackgroundColor3 = object.BackgroundColor3:Lerp(BLACK, DIM)
 	-- A gradient already tints its parent, so a part with one is dimmed once.
-	for _, part in button:GetDescendants() do
+	for _, part in object:GetDescendants() do
+		if part:IsA("GuiButton") then
+			part.Interactable = false
+			part.AutoButtonColor = false
+		end
 		if part:IsA("UIGradient") then
 			part.Color = dimSequence(part.Color)
 		elseif part:IsA("UIStroke") then
 			part.Color = part.Color:Lerp(BLACK, DIM)
 		elseif part:FindFirstChildOfClass("UIGradient") then
 			continue
-		elseif part:IsA("ImageLabel") then
-			part.ImageColor3 = part.ImageColor3:Lerp(BLACK, DIM)
+		elseif part:IsA("ImageLabel") or part:IsA("ImageButton") then
+			local image = part :: any
+			image.ImageColor3 = image.ImageColor3:Lerp(BLACK, DIM)
 		elseif part:IsA("TextLabel") then
 			part.TextColor3 = part.TextColor3:Lerp(BLACK, DIM)
 		end
 	end
-	local soon =
-		Widgets.Label("Soon", button, UDim2.fromScale(1.2, 0.42), UDim2.fromScale(0.5, 0.45))
+	-- Above every piece inside: pack blocks hold parts up to ZIndex 50.
+	local top = 30
+	for _, part in object:GetDescendants() do
+		if part:IsA("GuiObject") then
+			top = math.max(top, part.ZIndex + 1)
+		end
+	end
+	local holder: GuiObject = object
+	if not object:IsA("GuiButton") then
+		-- A whole block (a Shop offer): a dark veil over it under the label.
+		local veil = Instance.new("Frame")
+		veil.Name = "SoonVeil"
+		veil.Size = UDim2.fromScale(1, 1)
+		veil.BackgroundColor3 = BLACK
+		veil.BackgroundTransparency = 0.45
+		veil.BorderSizePixel = 0
+		veil.Active = true -- swallows clicks meant for the block
+		veil.ZIndex = top
+		veil.Parent = object
+		holder = veil
+	end
+	local soon = Widgets.Label("Soon", holder, soonSize, UDim2.fromScale(0.5, 0.45))
 	soon.AnchorPoint = Vector2.new(0.5, 0.5)
 	soon.Rotation = -12
-	soon.ZIndex = 30
+	soon.ZIndex = top + 1
 	soon.TextColor3 = SOON_COLOR
 	soon.Text = Strings.Soon
 end
 
 local function wireButton(button: GuiButton, windows: Instance, hud: Instance)
 	if SOON_BUTTONS[button.Name] and button:IsDescendantOf(hud) then
-		dim(button)
+		dim(button, UDim2.fromScale(1.2, 0.42))
 		return
 	end
 	Widgets.AnimatePress(button)
@@ -355,6 +384,13 @@ function PackUiController:GetWindow(name: string): GuiObject?
 end
 
 -- Opens the pack window `name` unless it is already open.
+-- A pack piece for a later update (Ivan): dimmed, "Soon", not pressable.
+function PackUiController:SetSoon(object: GuiObject, soonSize: UDim2)
+	if object:FindFirstChild("Soon") == nil and object:FindFirstChild("SoonVeil") == nil then
+		dim(object, soonSize)
+	end
+end
+
 function PackUiController:Open(name: string)
 	local window = PackUiController:GetWindow(name)
 	if window and current ~= window and gui and (gui :: ScreenGui).Enabled then
