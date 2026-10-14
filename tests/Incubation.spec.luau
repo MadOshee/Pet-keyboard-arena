@@ -34,11 +34,11 @@ function tests.speedUpCostsPerRemainingSecond()
 end
 
 function tests.incubatorPrices()
-	assert(Incubation.NextIncubatorPrice(3, EggConfig) == 1500)
-	assert(Incubation.NextIncubatorPrice(4, EggConfig) == 5000)
-	assert(Incubation.NextIncubatorPrice(5, EggConfig) == 15000)
-	assert(Incubation.NextIncubatorPrice(9, EggConfig) == 120000)
-	assert(Incubation.NextIncubatorPrice(19, EggConfig) == 1200000)
+	assert(Incubation.NextIncubatorPrice(3, EggConfig) == 1_000_000)
+	assert(Incubation.NextIncubatorPrice(4, EggConfig) == 2_000_000)
+	assert(Incubation.NextIncubatorPrice(5, EggConfig) == 4_000_000)
+	assert(Incubation.NextIncubatorPrice(9, EggConfig) == 35_000_000)
+	assert(Incubation.NextIncubatorPrice(19, EggConfig) == 10_000_000_000)
 	assert(Incubation.NextIncubatorPrice(20, EggConfig) == nil)
 end
 
