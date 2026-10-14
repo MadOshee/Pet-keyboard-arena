@@ -302,6 +302,12 @@ local function wirePackShop()
 			block:Destroy()
 		end
 	end
+	-- The pack's canvas is twice the window high for all five blocks; with
+	-- three left it would scroll into empty space, so it follows the blocks.
+	if blocks:IsA("ScrollingFrame") then
+		blocks.CanvasSize = UDim2.new(blocks.CanvasSize.X, UDim.new(0, 0))
+		blocks.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	end
 	for _, item in PACK_ITEMS do
 		wirePackItem(blocks, item)
 	end
