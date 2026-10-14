@@ -4,8 +4,13 @@
 -- arena). Not while flying from a bat hit, so a hit cannot be cancelled.
 -- The player's own client moves its character, so this is all local; the
 -- server's speed check only counts horizontal moves (MovementCheck).
+-- During the match countdown the player only jumps in place (Ivan
+-- 2026-10-14): sideways motion is stopped here; the server sets WalkSpeed 0
+-- and puts back anyone who still drifts (RoundService).
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -111,7 +116,23 @@ local function watch(character: Model)
 	end)
 end
 
+local function holdInCountdown()
+	if
+		ReplicatedStorage:GetAttribute("RoundPhase") ~= "Countdown"
+		or player:GetAttribute("Team") == nil
+	then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		local velocity = root.AssemblyLinearVelocity
+		root.AssemblyLinearVelocity = Vector3.new(0, velocity.Y, 0)
+	end
+end
+
 function MovementController:Start()
+	RunService.Heartbeat:Connect(holdInCountdown)
 	UserInputService.JumpRequest:Connect(onJumpRequest)
 	player.CharacterAdded:Connect(watch)
 	if player.Character then

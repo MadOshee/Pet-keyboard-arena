@@ -21,6 +21,7 @@ local RunService = game:GetService("RunService")
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local ArenaGrid = require(ReplicatedStorage.Shared.Logic.ArenaGrid)
+local SpawnSlots = require(ReplicatedStorage.Shared.Logic.SpawnSlots)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local Participant = require(script.Parent.Parent.Util.Participant)
@@ -482,6 +483,16 @@ function ArenaService:GetTeamSpawn(team: Types.TeamId): CFrame
 	local x = if team == "Red" then bounds.MinX + inset else bounds.MaxX - inset
 	local position = Vector3.new(x, keyTopY + 3, bounds.CenterZ)
 	local lookAt = Vector3.new((bounds.MinX + bounds.MaxX) / 2, position.Y, bounds.CenterZ)
+	return CFrame.lookAt(position, lookAt)
+end
+
+-- Spot `index` of `count` teammates at the start of a match, spread over
+-- the team's side (Logic/SpawnSlots), facing the middle.
+function ArenaService:GetTeamSpawnSlot(team: Types.TeamId, index: number, count: number): CFrame
+	local slot = SpawnSlots.Get(index, count, bounds.MaxZ - bounds.MinZ)
+	local x = if team == "Red" then bounds.MinX + slot.Inward else bounds.MaxX - slot.Inward
+	local position = Vector3.new(x, keyTopY + 3, bounds.CenterZ + slot.Along)
+	local lookAt = Vector3.new((bounds.MinX + bounds.MaxX) / 2, position.Y, position.Z)
 	return CFrame.lookAt(position, lookAt)
 end
 

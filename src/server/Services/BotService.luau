@@ -29,7 +29,6 @@ local STUCK_DISTANCE = 1
 local ARRIVE_DISTANCE = 2
 local SWING_INTERVAL = 3 -- bots swing at most this often
 local SWING_REACH = BatConfig.BotReach
-local SPAWN_SPREAD = 12
 -- Default Roblox R15 walk animation; bots glide if it fails to load.
 local WALK_ANIMATION = "rbxassetid://507777826"
 
@@ -98,10 +97,10 @@ local function loadWalk(model: Model): AnimationTrack?
 	return nil
 end
 
-local function spawnBot(team: Types.TeamId): Bot
+-- Bots take the team's spawn slots after its players (`slot` of `count`).
+local function spawnBot(team: Types.TeamId, slot: number, count: number): Bot
 	local model = makeModel(team)
-	local offset = Vector3.new(0, 0, (random:NextNumber() - 0.5) * SPAWN_SPREAD)
-	model:PivotTo(ArenaService:GetTeamSpawn(team) + offset)
+	model:PivotTo(ArenaService:GetTeamSpawnSlot(team, slot, count))
 	model.Parent = folder
 	local root = model:FindFirstChild("HumanoidRootPart")
 	if root and root:IsA("BasePart") then
@@ -224,16 +223,22 @@ end
 
 -- Creates the bots for the coming round on their team spawns, frozen until
 -- BeginRound. Returns each bot model with its team.
-function BotService:Spawn(redCount: number, blueCount: number): { [Model]: Types.TeamId }
+-- `players` is how many players each team has: they stand in the first
+-- spawn slots, the bots in the ones after.
+function BotService:Spawn(
+	redCount: number,
+	blueCount: number,
+	players: { Red: number, Blue: number }
+): { [Model]: Types.TeamId }
 	BotService:Despawn()
 	local result: { [Model]: Types.TeamId } = {}
-	for _ = 1, redCount do
-		local bot = spawnBot("Red")
+	for i = 1, redCount do
+		local bot = spawnBot("Red", players.Red + i, players.Red + redCount)
 		table.insert(bots, bot)
 		result[bot.Model] = "Red"
 	end
-	for _ = 1, blueCount do
-		local bot = spawnBot("Blue")
+	for i = 1, blueCount do
+		local bot = spawnBot("Blue", players.Blue + i, players.Blue + blueCount)
 		table.insert(bots, bot)
 		result[bot.Model] = "Blue"
 	end

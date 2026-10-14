@@ -74,6 +74,10 @@ local function makePopup(platform: BasePart): (BillboardGui, TextLabel, UIStroke
 	local label = Widgets.Label("Money", billboard, UDim2.fromScale(1, 1), UDim2.new())
 	label.TextColor3 = POPUP_COLOR
 	local stroke = label:FindFirstChildOfClass("UIStroke")
+	-- Kept on respawn: PlayerGui drops a gui with ResetOnSpawn when the
+	-- character spawns, and in a live game this code can run before the
+	-- first spawn (Ivan 2026-10-14: no pet names after publishing).
+	billboard.ResetOnSpawn = false
 	billboard.Parent = player:WaitForChild("PlayerGui")
 	return billboard, label, stroke
 end

@@ -28,7 +28,11 @@ end
 
 local function watch(player: Player)
 	player.CharacterAdded:Connect(function(character)
-		character:WaitForChild("Head", 10)
+		character:WaitForChild("HumanoidRootPart", 10)
+		refresh(player)
+	end)
+	-- The avatar finishes loading after the spawn; check the tag again.
+	player.CharacterAppearanceLoaded:Connect(function()
 		refresh(player)
 	end)
 	player:GetAttributeChangedSignal("Team"):Connect(function()

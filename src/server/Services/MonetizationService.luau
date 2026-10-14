@@ -113,15 +113,16 @@ local function processReceipt(receipt: any): Enum.ProductPurchaseDecision
 end
 
 local function addVipTag(player: Player, character: Model)
-	local head = character:WaitForChild("Head", 10)
-	if head == nil or head:FindFirstChild(VIP_TAG_NAME) then
+	-- On the root part like the name tag: a loading avatar can swap the Head.
+	local root = character:WaitForChild("HumanoidRootPart", 10)
+	if root == nil or root:FindFirstChild(VIP_TAG_NAME) then
 		return
 	end
 	local tag = Instance.new("BillboardGui")
 	tag.Name = VIP_TAG_NAME
 	tag.Size = UDim2.fromScale(2.2, 0.8)
 	-- Above the name and level tag (Util/Nameplate).
-	tag.StudsOffset = Vector3.new(0, 4, 0)
+	tag.StudsOffset = Vector3.new(0, 6, 0)
 	tag.MaxDistance = 80
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
@@ -132,7 +133,7 @@ local function addVipTag(player: Player, character: Model)
 	label.TextColor3 = Color3.fromRGB(255, 210, 60)
 	label.TextStrokeTransparency = 0.3
 	label.Parent = tag
-	tag.Parent = head
+	tag.Parent = root
 	if player.Parent ~= Players then
 		tag:Destroy()
 	end
