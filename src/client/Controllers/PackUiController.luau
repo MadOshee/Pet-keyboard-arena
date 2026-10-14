@@ -362,6 +362,15 @@ function PackUiController:Open(name: string)
 	end
 end
 
+-- Opens the pack window `name`, or closes it when it is the open one (the
+-- Settings gear, SettingsController).
+function PackUiController:Toggle(name: string)
+	local window = PackUiController:GetWindow(name)
+	if window and gui and (gui :: ScreenGui).Enabled then
+		task.spawn(toggle, window)
+	end
+end
+
 -- The SHOP stall on each base (tools/build-world: Islands.*.Shop, with a
 -- ClickDetector and a ProximityPrompt named "Shop") opens the Shop window.
 local function wireShopStalls()

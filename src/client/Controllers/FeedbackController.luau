@@ -1,5 +1,6 @@
 --!strict
--- The Feedback button at the top right and its window (Ivan 2026-10-13):
+-- The Feedback button at the top right, small and just left of the Settings
+-- gear (Ivan 2026-10-14), and its window (Ivan 2026-10-13):
 -- the player writes what to add or fix and sends it; FeedbackService keeps
 -- it for Ivan (docs/feedback.md). Hidden during a match like the pack HUD.
 
@@ -22,6 +23,9 @@ local WARN_COLOR = Color3.fromRGB(255, 190, 90)
 local MUTED_COLOR = Color3.fromRGB(190, 195, 215)
 local ICON = utf8.char(0x1F4DD) -- the memo-with-pencil emoji
 local THANKS_SECONDS = 1.5
+-- In screen widths: SettingsController's gear is 0.06 wide at x 0.985.
+local BUTTON_RIGHT = 0.985 - 0.06 - 0.008
+local BUTTON_WIDTH = 0.045
 local FONT = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold)
 
 local FeedbackController = {}
@@ -83,8 +87,8 @@ local function buildButton()
 	holder.Name = "TopRight"
 	holder.BackgroundTransparency = 1
 	holder.AnchorPoint = Vector2.new(1, 0)
-	holder.Position = UDim2.fromScale(0.985, 0.02)
-	holder.Size = UDim2.fromScale(0.07, 0.12)
+	holder.Position = UDim2.fromScale(BUTTON_RIGHT, 0.02)
+	holder.Size = UDim2.fromScale(BUTTON_WIDTH, BUTTON_WIDTH * 2)
 	holder.Parent = buttonGui
 	Widgets.AspectRatio(holder, 1)
 

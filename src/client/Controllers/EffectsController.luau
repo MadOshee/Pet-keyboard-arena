@@ -4,7 +4,9 @@
 -- after falling off the arena, and confetti and sounds for game events (round won,
 -- pet hatched, refused action, party invite). Ivan's music and game sounds
 -- are SoundController's. All cosmetic: the
--- server already decided every outcome.
+-- server already decided every outcome. The Visual Effects switch in
+-- Settings (ClientSettings "Vfx") turns off the gust, the swing trail, the
+-- hit burst and the confetti.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,6 +19,7 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local WindGust = require(script.Parent.Parent.Fx.WindGust)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
+local ClientSettings = require(script.Parent.Parent.Util.ClientSettings)
 
 local player = Players.LocalPlayer
 
@@ -64,6 +67,7 @@ local function playSound(name: string, parent: Instance?)
 	local template = sounds and sounds:FindFirstChild(name)
 	if template and template:IsA("Sound") then
 		local sound = template:Clone()
+		ClientSettings.Attach(sound, "Effects")
 		sound.Parent = parent or workspace
 		sound:Play()
 		sound.Ended:Once(function()
@@ -79,7 +83,7 @@ end
 
 local function onSwing(attacker: Model?)
 	local found = batOf(attacker)
-	if found == nil then
+	if found == nil or not ClientSettings.Get("Vfx") then
 		return
 	end
 	local bat = found :: Model
@@ -101,7 +105,7 @@ end
 local function onKnockedOut(victim: Model?, attacker: Model?, direction: Vector3, _seconds: number)
 	local bat = batOf(attacker)
 	local burst = bat and bat:FindFirstChild("HitBurst", true)
-	if burst and burst:IsA("ParticleEmitter") then
+	if burst and burst:IsA("ParticleEmitter") and ClientSettings.Get("Vfx") then
 		burst:Emit(20)
 	end
 
@@ -155,6 +159,9 @@ end
 
 -- Paper confetti falling over the screen.
 local function confetti()
+	if not ClientSettings.Get("Vfx") then
+		return
+	end
 	for _ = 1, CONFETTI_PIECES do
 		local piece = Instance.new("Frame")
 		piece.Name = "Confetti"

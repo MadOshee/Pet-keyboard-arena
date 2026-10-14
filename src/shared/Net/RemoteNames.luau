@@ -22,6 +22,7 @@ return table.freeze({
 		"PartyLeave", -- ()
 		"TutorialDone", -- () the first-time tips were finished or skipped
 		"SendFeedback", -- (text: string) a message for the developers
+		"SetSetting", -- (name: "Music" | "Sfx" | "Vfx", on: boolean) a Settings switch
 	}),
 	ServerToClient = table.freeze({
 		"DataSync", -- (profile: Types.Profile) full snapshot to the owner

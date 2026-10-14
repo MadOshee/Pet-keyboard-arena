@@ -28,6 +28,7 @@ local CONTROLLER_ORDER: { string } = {
 	"PortalController",
 	"ShopController",
 	"TutorialController",
+	"SettingsController",
 	"FeedbackController",
 }
 

@@ -7,6 +7,8 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local ClientSettings = require(script.Parent.Parent.Util.ClientSettings)
+
 local RAY_LENGTH = 8 -- a character higher than this above the keys presses nothing
 -- Every key within this distance of the spot under the character sinks, so
 -- a character stands on a small patch of pressed keys, not on one.
@@ -50,6 +52,7 @@ local function press(key: BasePart)
 	moveKey(key, restY[key] - PRESS_DEPTH)
 	local sound = key:FindFirstChild("KeySound")
 	if sound and sound:IsA("Sound") then
+		ClientSettings.Attach(sound, "Effects")
 		sound.PlaybackSpeed = random:NextNumber(0.95, 1.05)
 		sound:Play()
 	end

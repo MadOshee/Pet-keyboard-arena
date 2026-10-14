@@ -34,6 +34,7 @@ local template: Types.Profile = {
 	FreeSpeedUps = 0,
 	LuckPotionOffers = 0,
 	VipIncubator = false,
+	Settings = { Music = true, Sfx = true, Vfx = true },
 }
 
 -- One empty table per starting incubator (separate tables, not one shared).

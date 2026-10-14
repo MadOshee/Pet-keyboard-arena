@@ -21,6 +21,7 @@ local SoundConfig = require(ReplicatedStorage.Shared.Config.SoundConfig)
 local Levels = require(ReplicatedStorage.Shared.Logic.Levels)
 local Types = require(ReplicatedStorage.Shared.Types)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
+local ClientSettings = require(script.Parent.Parent.Util.ClientSettings)
 local DataController = require(script.Parent.DataController)
 
 local player = Players.LocalPlayer
@@ -38,8 +39,10 @@ local victoryUntil = 0
 local speedToken = 0
 local lastLevel: number? = nil
 
+-- Looped sounds are music; the rest are effects (the Settings switches).
 local function newSound(name: string, info: SoundConfig.SoundInfo, looped: boolean): Sound
 	local sound = Instance.new("Sound")
+	ClientSettings.Attach(sound, if looped then "Music" else "Effects")
 	sound.Name = name
 	sound.SoundId = `rbxassetid://{info.Id}`
 	sound.Volume = info.Volume

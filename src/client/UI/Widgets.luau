@@ -12,6 +12,8 @@ local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
+local ClientSettings = require(script.Parent.Parent.Util.ClientSettings)
+
 local Widgets = {}
 
 local FONT = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Heavy)
@@ -32,7 +34,11 @@ local function template(name: string): Instance?
 end
 
 -- Plays a UI sound: the UI pack's sounds first, then Assets.Sounds.
+-- Silent while the Sound Effects switch is off.
 function Widgets.PlaySound(name: string)
+	if not ClientSettings.Get("Sfx") then
+		return
+	end
 	local packSounds = template("Sounds")
 	local sound = packSounds and packSounds:FindFirstChild(name)
 	if sound == nil then
@@ -41,6 +47,7 @@ function Widgets.PlaySound(name: string)
 		sound = sounds and sounds:FindFirstChild(name)
 	end
 	if sound and sound:IsA("Sound") then
+		ClientSettings.Attach(sound, "Effects")
 		SoundService:PlayLocalSound(sound)
 	end
 end
