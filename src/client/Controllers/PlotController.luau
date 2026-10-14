@@ -139,6 +139,10 @@ local function watchPlatform(platform: BasePart, plot: Model)
 	local money = Widgets.MoneyLabel("Money", stack, UDim2.fromScale(1, 0.3), UDim2.new())
 	money.LayoutOrder = 3
 	money.TextXAlignment = Enum.TextXAlignment.Center
+	-- Kept on respawn: PlayerGui drops a gui with ResetOnSpawn when the
+	-- character spawns, and in a live game this code can run before the
+	-- first spawn (Ivan 2026-10-14: no pet names after publishing).
+	billboard.ResetOnSpawn = false
 	billboard.Parent = player:WaitForChild("PlayerGui")
 
 	local entry: Watched = {

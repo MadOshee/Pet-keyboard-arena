@@ -1,5 +1,5 @@
 --!strict
--- Bat input (docs/design.md 4.3 "Бита"): left click or F on PC, the round
+-- Bat input (docs/design.md 4.3 "Бита"): left click, E or F on PC, the round
 -- see-through Hit button (a picture of the bat and a small "Hit") on any
 -- screen. Sends a bare BatSwing request; the server checks the phase, the
 -- cooldown and picks the target. During the cooldown a dark shade drains
@@ -59,6 +59,24 @@ local function swing()
 	readyAt = now + BatConfig.Cooldown
 	ClientNet.Fire("BatSwing")
 	showCooldown()
+end
+
+-- A left click swings unless it pressed a button or a text box. Roblox can
+-- mark a click in the world as already handled (over a label, say), so the
+-- click checks what is under the mouse itself (Ivan 2026-10-14: hit on
+-- the left mouse button too).
+local function clickedGuiButton(input: InputObject): boolean
+	local playerGui = player:FindFirstChildOfClass("PlayerGui")
+	if playerGui == nil then
+		return false
+	end
+	local position = input.Position
+	for _, object in playerGui:GetGuiObjectsAtPosition(position.X, position.Y) do
+		if object.Visible and (object:IsA("GuiButton") or object:IsA("TextBox")) then
+			return true
+		end
+	end
+	return false
 end
 
 local function updateVisible()
@@ -161,14 +179,16 @@ end
 function BatController:Start()
 	button.Activated:Connect(swing)
 	UserInputService.InputBegan:Connect(function(input, processed)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			if canSwing() and not clickedGuiButton(input) then
+				swing()
+			end
+			return
+		end
 		if processed then
 			return
 		end
-		if
-			input.KeyCode == Enum.KeyCode.E
-			or input.KeyCode == Enum.KeyCode.F
-			or input.UserInputType == Enum.UserInputType.MouseButton1
-		then
+		if input.KeyCode == Enum.KeyCode.E or input.KeyCode == Enum.KeyCode.F then
 			swing()
 		end
 	end)

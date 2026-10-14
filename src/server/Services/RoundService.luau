@@ -16,6 +16,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
 local MatchConfig = require(ReplicatedStorage.Shared.Config.MatchConfig)
@@ -52,7 +53,15 @@ RoundService.RoundEnded = Signal.new() :: Signal.Signal<RoundResult>
 local phase: Types.RoundPhase = "Intermission"
 local teams: { [Player]: Types.TeamId } = {}
 local botCounts = { Red = 0, Blue = 0 }
+-- Each player's start spot this match (ArenaService:GetTeamSpawnSlot).
+local slots: { [Player]: CFrame } = {}
 local roundId = 0
+
+-- During the countdown a player only jumps in place (Ivan 2026-10-14): one
+-- who drifts this far from their spot, or drops this far below it, is put
+-- back. The client also stops sideways motion (MovementController).
+local HOLD_RADIUS = 3
+local HOLD_DROP = 6
 
 local function setPhase(newPhase: Types.RoundPhase, duration: number)
 	phase = newPhase
@@ -73,11 +82,13 @@ local function setWalkSpeed(player: Player, speed: number)
 	end
 end
 
-local function teleport(player: Player, cframe: CFrame)
+local function teleport(player: Player, cframe: CFrame, spread: boolean)
 	local character = player.Character
 	if character and character.PrimaryPart then
 		-- Spread players a little so they do not stack on one point.
-		local offset = Vector3.new(0, 0, (math.random() - 0.5) * 12)
+		local offset = if spread
+			then Vector3.new(0, 0, (math.random() - 0.5) * 12)
+			else Vector3.zero
 		character:PivotTo(cframe + offset)
 		MovementGuard:Reset(player)
 	end
@@ -92,8 +103,60 @@ local function placeOnArena(player: Player)
 	if team == nil then
 		return
 	end
-	teleport(player, ArenaService:GetTeamSpawn(team :: Types.TeamId))
+	local slot = slots[player]
+	if slot then
+		teleport(player, slot, false)
+	else
+		teleport(player, ArenaService:GetTeamSpawn(team :: Types.TeamId), true)
+	end
 	setWalkSpeed(player, if phase == "Countdown" then 0 else StatsService:GetWalkSpeed(player))
+end
+
+-- Gives every player a start spot: party members next to each other, the
+-- team's bots in the spots after its players.
+local function assignSlots(groups: { { Player } }): (number, number)
+	table.clear(slots)
+	local red: { Player }, blue: { Player } = {}, {}
+	for _, group in groups do
+		for _, player in group do
+			local team: Types.TeamId? = teams[player]
+			if team == "Red" then
+				table.insert(red, player)
+			elseif team == "Blue" then
+				table.insert(blue, player)
+			end
+		end
+	end
+	for index, player in red do
+		slots[player] = ArenaService:GetTeamSpawnSlot("Red", index, #red + botCounts.Red)
+	end
+	for index, player in blue do
+		slots[player] = ArenaService:GetTeamSpawnSlot("Blue", index, #blue + botCounts.Blue)
+	end
+	return #red, #blue
+end
+
+-- Countdown: no walking (WalkSpeed 0) and no falling; jumping is fine.
+local function holdOnSpots()
+	for player in teams do
+		local slot: CFrame? = slots[player]
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not slot or root == nil or not root:IsA("BasePart") then
+			continue
+		end
+		local humanoid = getHumanoid(player)
+		if humanoid and humanoid.WalkSpeed ~= 0 then
+			humanoid.WalkSpeed = 0
+		end
+		local spot = slot :: CFrame
+		local offset = (root :: BasePart).Position - spot.Position
+		local sideways = Vector3.new(offset.X, 0, offset.Z).Magnitude
+		if sideways > HOLD_RADIUS or offset.Y < -HOLD_DROP then
+			(character :: Model):PivotTo(spot)
+			MovementGuard:Reset(player)
+		end
+	end
 end
 
 local function pruneLeftPlayers()
@@ -152,12 +215,16 @@ local function runRound(groups: { { Player } })
 
 	-- Gray board before anyone lands, not the last match's colors (Ivan).
 	ArenaService:ClearBoard()
+	local redPlayers, bluePlayers = assignSlots(groups)
 	setPhase("Countdown", RoundConfig.CountdownSeconds)
 	for player in teams do
 		placeOnArena(player)
 	end
-	local bots = BotService:Spawn(botCounts.Red, botCounts.Blue)
+	local bots =
+		BotService:Spawn(botCounts.Red, botCounts.Blue, { Red = redPlayers, Blue = bluePlayers })
+	local hold = RunService.Heartbeat:Connect(holdOnSpots)
 	task.wait(RoundConfig.CountdownSeconds)
+	hold:Disconnect()
 
 	pruneLeftPlayers()
 	local everyone: { [Participant.Participant]: Types.TeamId } = table.clone(teams) :: any
@@ -199,10 +266,11 @@ local function runRound(groups: { { Player } })
 		-- Back to the hub; the next match starts from the portal again.
 		ReadyService:SetReady(player, false)
 		if not isArena then
-			teleport(player, lobbyCFrame())
+			teleport(player, lobbyCFrame(), true)
 		end
 	end
 	table.clear(teams)
+	table.clear(slots)
 	if isArena then
 		-- Everyone here, late arrivals too, goes back to their hub server.
 		MatchmakingService:ReturnToHub(Players:GetPlayers())
