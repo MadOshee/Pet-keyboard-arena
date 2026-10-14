@@ -7,7 +7,6 @@
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
-local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local EggConfig = require(ReplicatedStorage.Shared.Config.EggConfig)
@@ -247,14 +246,6 @@ function ShopController:Init()
 	end
 	player:GetAttributeChangedSignal("Team"):Connect(updateVisible)
 	updateVisible()
-
-	-- The SHOP stall on every island opens the same window.
-	ProximityPromptService.PromptTriggered:Connect(function(prompt)
-		if prompt.Name == "Shop" and toggle.Visible then
-			window.Visible = true
-			refresh(DataController:Get())
-		end
-	end)
 
 	gui.Parent = player:WaitForChild("PlayerGui")
 end

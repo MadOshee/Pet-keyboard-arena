@@ -32,7 +32,7 @@ type Pet = {
 
 local folder: Folder
 local petsByPlayer: { [Player]: { Pet } } = {}
-local watchers: { [Player]: RBXScriptConnection } = {}
+local watchers: { [Player]: { RBXScriptConnection } } = {}
 
 local function placeholder(kind: string): Model
 	local entry = PetConfig.Pets[kind]
@@ -68,6 +68,10 @@ local function rebuild(owner: Player)
 	if owner.Parent ~= Players then
 		return
 	end
+	-- Pets stay off the arena (Ivan); there they are icons in the HUD.
+	if owner:GetAttribute("Team") ~= nil then
+		return
+	end
 	local value = owner:GetAttribute("EquippedPets")
 	if type(value) ~= "string" or value == "" then
 		return
@@ -100,9 +104,13 @@ local function rebuild(owner: Player)
 end
 
 local function watch(owner: Player)
-	watchers[owner] = owner:GetAttributeChangedSignal("EquippedPets"):Connect(function()
+	local function update()
 		rebuild(owner)
-	end)
+	end
+	watchers[owner] = {
+		owner:GetAttributeChangedSignal("EquippedPets"):Connect(update),
+		owner:GetAttributeChangedSignal("Team"):Connect(update),
+	}
 	rebuild(owner)
 end
 
@@ -153,11 +161,13 @@ function PetFollowController:Start()
 	end
 	Players.PlayerRemoving:Connect(function(owner)
 		clearPets(owner)
-		local watcher = watchers[owner]
-		if watcher then
-			watcher:Disconnect()
-			watchers[owner] = nil
+		local connections = watchers[owner]
+		if connections then
+			for _, connection in connections do
+				connection:Disconnect()
+			end
 		end
+		watchers[owner] = nil
 	end)
 	RunService.RenderStepped:Connect(step)
 end

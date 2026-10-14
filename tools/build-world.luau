@@ -29,6 +29,7 @@
 --     ...PlatformButton          the green pad in front of a spot (attribute
 --                                Platform = N): stepping on it opens platform N
 --     .Shop.NPC.HumanoidRootPart.Shop   ProximityPrompt that opens the shop
+--     .Shop.Shop                 ClickDetector: clicking the stall opens it too
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -206,6 +207,10 @@ for _, base in layout:GetChildren() do
 	prompt.RequiresLineOfSight = false
 	prompt.MaxActivationDistance = 12
 	prompt.Parent = root
+	local click = Instance.new("ClickDetector")
+	click.Name = "Shop"
+	click.MaxActivationDistance = 60
+	click.Parent = upgrades
 
 	local position = anchor.CFrame.Position
 	table.insert(bases, {

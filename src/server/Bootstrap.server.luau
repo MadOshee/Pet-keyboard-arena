@@ -27,6 +27,7 @@ local SERVICE_ORDER: { string } = {
 	"PlotService",
 	"TutorialService",
 	"FeedbackService",
+	"SettingsService",
 	"MonetizationService",
 	"RewardService",
 }

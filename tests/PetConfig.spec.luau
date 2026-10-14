@@ -117,9 +117,10 @@ function tests.rarerEggsAndPetsEarnMore()
 	assert(best("Sparkletime") >= 25000)
 end
 
-function tests.rerollCostsGrow()
-	for index = 2, #EggConfig.RerollCosts do
-		assert(EggConfig.RerollCosts[index] > EggConfig.RerollCosts[index - 1])
+function tests.rerollSharesGrow()
+	assert(#EggConfig.RerollShares == 3)
+	for index = 2, #EggConfig.RerollShares do
+		assert(EggConfig.RerollShares[index] > EggConfig.RerollShares[index - 1])
 	end
 end
 

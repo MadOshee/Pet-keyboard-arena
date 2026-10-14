@@ -7,11 +7,14 @@
 -- nothing (SOON_BUTTONS); the level bar shows the real level. Real so far: coins in the cash
 -- counter, MY BASE takes you to your plot, PETS (PetIndexController) and
 -- BACKPACK (BackpackController) are filled by their controllers, PARTY (the
--- pack's top-left stock shop button) opens our party window. Other windows
+-- pack's top-left stock shop button) opens our party window. The SHOP stall
+-- on every base opens the pack's Shop window too (click or its prompt).
+-- Other windows
 -- still show the pack's samples. Hidden during a match. Replaces the pack's
 -- own LocalScript, which is not imported.
 
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -24,6 +27,7 @@ local Money = require(ReplicatedStorage.Shared.Util.Money)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local DataController = require(script.Parent.DataController)
+local EggOfferController = require(script.Parent.EggOfferController)
 local PartyController = require(script.Parent.PartyController)
 
 local player = Players.LocalPlayer
@@ -53,6 +57,8 @@ local SOON_BUTTONS: { [string]: true } = { Rebirth = true }
 local DIM = 0.55 -- share of black mixed into every colour
 local SOON_COLOR = Color3.fromRGB(255, 220, 60)
 local BLACK = Color3.new(0, 0, 0)
+-- Above the egg screen (EggOffer, 5) while only the money counter shows.
+local OFFER_DISPLAY_ORDER = 6
 -- My Base made smaller (Ivan), about the size Party and Upgrades had.
 local BASE_SIZE = UDim2.fromScale(0.33, 0.7)
 
@@ -65,6 +71,11 @@ local gui: ScreenGui? = nil
 local windowsGui: ScreenGui? = nil
 local cashLabel: TextLabel? = nil
 local levelBar: Frame? = nil
+-- The HUD corner holding the money counter, and the counter's "+" button.
+local cashCorner: GuiObject? = nil
+local cashPlus: GuiObject? = nil
+-- HUD pieces hidden under the egg screen, with how visible they were.
+local hiddenForOffer: { [GuiObject]: boolean } = {}
 local openPositions: { [GuiObject]: UDim2 } = {}
 local current: GuiObject? = nil
 local animating = false
@@ -210,7 +221,14 @@ local function updateLevel(profile: Types.Profile?)
 	end
 	local bar = levelBar :: Frame
 	local progress = Levels.FromXP((profile :: Types.Profile).XP or 0, RoundConfig.Levels)
-	setPackText(bar:FindFirstChild("Level"), string.format(Strings.Level, progress.Level))
+	-- The level's bonus to every stat shows next to it from level 2 (Ivan).
+	local bonus = math.floor(Levels.Bonus(progress.Level, RoundConfig.Levels) * 100 + 0.5)
+	setPackText(
+		bar:FindFirstChild("Level"),
+		if bonus > 0
+			then string.format(Strings.LevelWithBonus, progress.Level, bonus)
+			else string.format(Strings.Level, progress.Level)
+	)
 	setPackText(
 		bar:FindFirstChild("XP"),
 		string.format(Strings.XPProgress, progress.Into, progress.Need)
@@ -241,6 +259,37 @@ local function trimHud(hud: Instance)
 	local bar = barFrame and barFrame:FindFirstChild("Bar")
 	if bar and bar:IsA("Frame") then
 		levelBar = bar
+	end
+end
+
+-- Hides every HUD piece but the money counter (and its "+" shop button),
+-- or brings them back as they were.
+local function setCashOnly(screen: ScreenGui, on: boolean)
+	local hud = screen:FindFirstChild("HUD")
+	if on == (next(hiddenForOffer) ~= nil) or hud == nil then
+		return
+	end
+	if on then
+		local hide: { GuiObject } = {}
+		for _, child in (hud :: Instance):GetChildren() do
+			if child:IsA("GuiObject") and child ~= cashCorner then
+				table.insert(hide, child)
+			end
+		end
+		if cashPlus then
+			table.insert(hide, cashPlus :: GuiObject)
+		end
+		for _, object in hide do
+			hiddenForOffer[object] = object.Visible
+			object.Visible = false
+		end
+		screen.DisplayOrder = OFFER_DISPLAY_ORDER
+	else
+		for object, visible in hiddenForOffer do
+			object.Visible = visible
+		end
+		table.clear(hiddenForOffer)
+		screen.DisplayOrder = 0
 	end
 end
 
@@ -280,6 +329,17 @@ function PackUiController:Init()
 	if amount and amount:IsA("TextLabel") then
 		cashLabel = amount
 	end
+	local corner: Instance? = cashFrame
+	while corner and corner.Parent ~= hud do
+		corner = corner.Parent
+	end
+	if corner and corner:IsA("GuiObject") then
+		cashCorner = corner
+	end
+	local plus = cashFrame and cashFrame:FindFirstChild("Shop")
+	if plus and plus:IsA("GuiObject") then
+		cashPlus = plus
+	end
 	screen.Parent = player:WaitForChild("PlayerGui")
 	layer.Parent = screen.Parent
 	gui = screen
@@ -292,6 +352,43 @@ function PackUiController:GetWindow(name: string): GuiObject?
 	local windows = layer and layer:FindFirstChild("Main")
 	local window = windows and windows:FindFirstChild(name)
 	return if window and window:IsA("GuiObject") then window else nil
+end
+
+-- Opens the pack window `name` unless it is already open.
+function PackUiController:Open(name: string)
+	local window = PackUiController:GetWindow(name)
+	if window and current ~= window and gui and (gui :: ScreenGui).Enabled then
+		task.spawn(toggle, window)
+	end
+end
+
+-- Opens the pack window `name`, or closes it when it is the open one (the
+-- Settings gear, SettingsController).
+function PackUiController:Toggle(name: string)
+	local window = PackUiController:GetWindow(name)
+	if window and gui and (gui :: ScreenGui).Enabled then
+		task.spawn(toggle, window)
+	end
+end
+
+-- The SHOP stall on each base (tools/build-world: Islands.*.Shop, with a
+-- ClickDetector and a ProximityPrompt named "Shop") opens the Shop window.
+local function wireShopStalls()
+	ProximityPromptService.PromptTriggered:Connect(function(prompt)
+		if prompt.Name == "Shop" then
+			PackUiController:Open("Shop")
+		end
+	end)
+	task.spawn(function()
+		local islands = workspace:WaitForChild("World"):WaitForChild("Islands")
+		for _, descendant in islands:GetDescendants() do
+			if descendant:IsA("ClickDetector") and descendant.Name == "Shop" then
+				descendant.MouseClick:Connect(function()
+					PackUiController:Open("Shop")
+				end)
+			end
+		end
+	end)
 end
 
 function PackUiController:IsOpen(name: string): boolean
@@ -313,16 +410,21 @@ function PackUiController:Start()
 	end
 	local screen = gui :: ScreenGui
 	local function updateVisible()
+		-- Hidden during a match. Under the egg screen only the money counter
+		-- stays, drawn above the screen's dimming (Ivan).
 		local inLobby = player:GetAttribute("Team") == nil
-		if not inLobby then
+		local offer = EggOfferController:IsShown()
+		if not inLobby or offer then
 			closeNow()
 		end
 		screen.Enabled = inLobby
+		setCashOnly(screen, inLobby and offer)
 		if windowsGui then
-			windowsGui.Enabled = inLobby
+			windowsGui.Enabled = inLobby and not offer
 		end
 	end
 	player:GetAttributeChangedSignal("Team"):Connect(updateVisible)
+	EggOfferController.ShownChanged:Connect(updateVisible)
 	updateVisible()
 	DataController.Changed:Connect(function(profile)
 		updateCash(profile)
@@ -331,6 +433,7 @@ function PackUiController:Start()
 	updateCash(DataController:Get())
 	updateLevel(DataController:Get())
 	hideMenuColumn()
+	wireShopStalls()
 end
 
 return PackUiController

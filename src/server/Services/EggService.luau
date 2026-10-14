@@ -40,15 +40,19 @@ local function refuse(player: Player, action: string, reason: Types.ActionError)
 end
 
 -- Incubation time for this player; the FastHatch pass shortens it.
-local function hatchSeconds(player: Player, rarity: string): number
-	local seconds = Incubation.HatchSeconds(rarity, EggConfig)
+local function hatchSeconds(player: Player, theme: string): number
+	local seconds = Incubation.HatchSeconds(theme, EggConfig)
 	if GamePassService:Owns(player, "FastHatch") then
 		seconds = math.ceil(seconds * ShopConfig.FastHatchMultiplier)
 	end
 	return seconds
 end
 
-local function newOffer(context: Types.OfferContext, rerollCount: number): Types.EggOffer
+local function newOffer(
+	context: Types.OfferContext,
+	rerollCount: number,
+	coinRerolls: number
+): Types.EggOffer
 	local eggs = EggRoller.RollOffer(
 		context :: any,
 		EggConfig.OfferThemes,
@@ -60,6 +64,7 @@ local function newOffer(context: Types.OfferContext, rerollCount: number): Types
 		OfferId = HttpService:GenerateGUID(false),
 		Eggs = eggs :: any,
 		RerollCount = rerollCount,
+		CoinRerolls = coinRerolls,
 		Context = context,
 	}
 end
@@ -125,9 +130,16 @@ local function onPick(player: Player, offerId: unknown, slot: unknown)
 		refuse(player, "EggPick", "BadSlot")
 		return
 	end
-	if currentOffer(player, offerId, "EggPick") then
-		pick(player, slot :: number, false)
+	local offer = currentOffer(player, offerId, "EggPick")
+	if offer == nil then
+		return
 	end
+	-- A lost round's offer holds fewer eggs.
+	if (offer :: Types.EggOffer).Eggs[slot :: number] == nil then
+		refuse(player, "EggPick", "BadSlot")
+		return
+	end
+	pick(player, slot :: number, false)
 end
 
 local function onReroll(player: Player, offerId: unknown)
@@ -138,25 +150,35 @@ local function onReroll(player: Player, offerId: unknown)
 	end
 	-- The type checker does not narrow after an early return, hence the casts.
 	local offer = current :: Types.EggOffer
-	local cost = EggConfig.RerollCosts[offer.RerollCount + 1]
-	if cost == nil then
-		refuse(player, "EggReroll", "RerollLimit")
-		return
-	end
-	-- A bought reroll is used before coins.
-	local free = (data :: Types.Profile).FreeRerolls > 0
-	if not free and (data :: Types.Profile).Coins < cost then
-		refuse(player, "EggReroll", "NotEnoughCoins")
-		return
+	local profile = data :: Types.Profile
+	local coinRerolls = offer.CoinRerolls or 0
+	-- A bought (Robux) reroll is used before money and has no limit.
+	local free = profile.FreeRerolls > 0
+	local cost = 0
+	if not free then
+		local price = Incubation.RerollCost(profile.Coins, coinRerolls, EggConfig)
+		if price == nil then
+			refuse(player, "EggReroll", "RerollLimit")
+			return
+		end
+		if profile.Coins < (price :: number) then
+			refuse(player, "EggReroll", "NotEnoughCoins")
+			return
+		end
+		cost = price :: number
 	end
 
-	PlayerDataService:Update(player, function(profile)
+	PlayerDataService:Update(player, function(saved)
 		if free then
-			profile.FreeRerolls -= 1
+			saved.FreeRerolls -= 1
 		else
-			profile.Coins -= cost
+			saved.Coins -= cost
 		end
-		profile.PendingOffer = newOffer(offer.Context, offer.RerollCount + 1)
+		saved.PendingOffer = newOffer(
+			offer.Context,
+			offer.RerollCount + 1,
+			if free then coinRerolls else coinRerolls + 1
+		)
 	end)
 end
 
@@ -184,7 +206,7 @@ function EggService:CreateOffer(player: Player, context: Types.OfferContext)
 		pick(player, EggRoller.BestSlot(previous.Eggs :: any, PetConfig.Rarities), true)
 	end
 	PlayerDataService:Update(player, function(profile)
-		profile.PendingOffer = newOffer(context, 0)
+		profile.PendingOffer = newOffer(context, 0, 0)
 	end)
 end
 
@@ -320,8 +342,8 @@ function EggService:GrantVipIncubator(player: Player)
 end
 
 -- Incubation time of an egg for this player (FastHatch pass included).
-function EggService:HatchSeconds(player: Player, rarity: string): number
-	return hatchSeconds(player, rarity)
+function EggService:HatchSeconds(player: Player, theme: string): number
+	return hatchSeconds(player, theme)
 end
 
 function EggService:GetOffer(player: Player): Types.EggOffer?

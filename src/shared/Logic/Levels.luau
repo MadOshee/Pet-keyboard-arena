@@ -1,13 +1,14 @@
 --!strict
 -- Player level from total XP (XP comes after each rewarded round, Ivan
 -- 2026-10-13). Going from level n to n + 1 takes Base + Step * (n - 1) XP.
--- Every level above 1 adds CoinBonusPerLevel to the round money (Ivan).
+-- Every level above 1 adds BonusPerLevel (+1%) to all of the player's
+-- stats: Speed, paint Area, Luck, bat Power and round Money (Ivan).
 -- Pure Luau, tested with Lune. The config table is RoundConfig.Levels.
 
 export type Config = {
 	Base: number,
 	Step: number,
-	CoinBonusPerLevel: number,
+	BonusPerLevel: number,
 }
 
 export type Progress = {
@@ -35,10 +36,10 @@ function Levels.FromXP(xp: number, config: Config): Progress
 	end
 end
 
--- Round money multiplier for a level: 1 at level 1, + CoinBonusPerLevel
--- for each level above.
-function Levels.CoinMultiplier(level: number, config: Config): number
-	return 1 + config.CoinBonusPerLevel * math.max(math.floor(level) - 1, 0)
+-- Stat bonus of a level as a fraction: 0 at level 1, + BonusPerLevel for
+-- each level above (level 11: 0.1, that is +10% to every stat).
+function Levels.Bonus(level: number, config: Config): number
+	return config.BonusPerLevel * math.max(math.floor(level) - 1, 0)
 end
 
 return Levels

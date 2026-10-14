@@ -53,8 +53,16 @@ export type OfferContext = {
 export type EggOffer = {
 	OfferId: string,
 	Eggs: { EggInstance },
-	RerollCount: number,
+	RerollCount: number, -- all rerolls of this offer
+	CoinRerolls: number?, -- rerolls paid with money (EggConfig.RerollShares)
 	Context: OfferContext,
+}
+
+-- The Settings window's switches (Ivan 2026-10-14), saved in the profile.
+export type PlayerSettings = {
+	Music: boolean,
+	Sfx: boolean,
+	Vfx: boolean,
 }
 
 export type Profile = {
@@ -81,6 +89,7 @@ export type Profile = {
 	FreeSpeedUps: number, -- bought speed-ups with no egg to finish at the time
 	LuckPotionOffers: number, -- egg offers left with the luck potion bonus
 	VipIncubator: boolean, -- the VIP pass incubator was added
+	Settings: PlayerSettings, -- the Settings window's switches
 }
 
 -- Sent to a participant after each round (RoundResult remote).

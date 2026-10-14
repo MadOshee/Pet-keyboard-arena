@@ -1,6 +1,7 @@
 --!strict
--- The portal on the hub island: walking up to it opens a window with
--- SOLO GAME and PARTY GAME. The choice goes to the server (PortalService),
+-- The portal on the hub island: walking up to it opens a window with PvP
+-- (the solo queue) and PARTY GAME, dimmed with "Soon" for now (Ivan
+-- 2026-10-13). The choice goes to the server (PortalService),
 -- which queues the player or their party. While the queue counts down
 -- (phase "Starting") a big "Match in N" shows in the middle of the screen.
 -- The controller also animates the portal: the core spins, the crystals
@@ -11,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local ArenaConfig = require(ReplicatedStorage.Shared.Config.ArenaConfig)
+local IconConfig = require(ReplicatedStorage.Shared.Config.IconConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
@@ -27,6 +29,9 @@ local ANIMATE_DISTANCE = 300
 local SPIN_SPEED = 1.2 -- radians per second
 local FLOAT_HEIGHT = 0.8
 local FLOAT_SPEED = 2
+-- Party play is for a later update: its button is dimmed like Rebirth.
+local SOON_COLOR = Color3.fromRGB(255, 220, 60)
+local DIM_COLOR = Color3.fromRGB(95, 90, 110)
 
 local window: Frame
 local countdown: TextLabel
@@ -66,7 +71,7 @@ local function build()
 		x: number,
 		color: Color3,
 		mode: string
-	)
+	): TextButton
 		local button = Widgets.Button(
 			name,
 			window,
@@ -88,16 +93,44 @@ local function build()
 			window.Visible = false
 			dismissed = true
 		end)
+		return button
 	end
-	choice("Solo", Strings.SoloGame, Strings.SoloHint, 0.05, Color3.fromRGB(240, 150, 40), "Solo")
-	choice(
-		"Party",
-		Strings.PartyGame,
-		Strings.PartyHint,
-		0.53,
-		Color3.fromRGB(140, 80, 230),
-		"Party"
+	local pvp = choice(
+		"Solo",
+		Strings.SoloGame,
+		Strings.SoloHint,
+		0.05,
+		Color3.fromRGB(240, 150, 40),
+		"Solo"
 	)
+	local sword = Instance.new("ImageLabel")
+	sword.Name = "Sword"
+	sword.AnchorPoint = Vector2.new(0, 0.5)
+	sword.Position = UDim2.fromScale(0.04, 0.5)
+	sword.Size = UDim2.fromScale(0.6, 0.6)
+	sword.SizeConstraint = Enum.SizeConstraint.RelativeYY
+	sword.BackgroundTransparency = 1
+	sword.Image = IconConfig.Sword
+	sword.ScaleType = Enum.ScaleType.Fit
+	sword.ZIndex = 20
+	sword.Parent = pvp
+	-- The pack button centers its caption; move it right of the sword.
+	local container = pvp:FindFirstChild("Container")
+	local caption = container and container:FindFirstChild("Name")
+	if caption and caption:IsA("GuiObject") then
+		caption.Position = UDim2.fromScale(0.66, 0.5)
+		caption.Size = UDim2.fromScale(0.58, 0.7)
+	end
+
+	local party = choice("Party", Strings.PartyGame, Strings.PartyHint, 0.53, DIM_COLOR, "Party")
+	party.Interactable = false
+	party.TextColor3 = Color3.fromRGB(170, 165, 180)
+	local soon = Widgets.Label("Soon", party, UDim2.fromScale(0.8, 0.42), UDim2.fromScale(0.5, 0.5))
+	soon.AnchorPoint = Vector2.new(0.5, 0.5)
+	soon.Rotation = -12
+	soon.ZIndex = 30
+	soon.TextColor3 = SOON_COLOR
+	soon.Text = Strings.Soon
 
 	close.Activated:Connect(function()
 		window.Visible = false
@@ -105,7 +138,7 @@ local function build()
 	end)
 
 	countdown =
-		Widgets.Label("Countdown", gui, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.25, 0.4))
+		Widgets.Label("Countdown", gui, UDim2.fromScale(0.5, 0.12), UDim2.fromScale(0.25, 0.42))
 	countdown.TextColor3 = Color3.fromRGB(255, 230, 90)
 	countdown.Visible = false
 
@@ -142,9 +175,17 @@ local function update()
 
 	local phase = ReplicatedStorage:GetAttribute("RoundPhase")
 	local endsAt = ReplicatedStorage:GetAttribute("PhaseEndsAt")
-	if queued and not inMatch and phase == "Starting" and type(endsAt) == "number" then
-		local secondsLeft = math.max(0, math.ceil(endsAt - workspace:GetServerTimeNow()))
-		countdown.Text = string.format(Strings.MatchIn, secondsLeft)
+	-- In the queue only this line and LEAVE QUEUE (HudController) show.
+	if queued and not inMatch then
+		if phase == "Starting" and type(endsAt) == "number" then
+			local secondsLeft = math.max(0, math.ceil(endsAt - workspace:GetServerTimeNow()))
+			countdown.Text = string.format(Strings.MatchIn, secondsLeft)
+		elseif phase == "Countdown" or phase == "Playing" or phase == "Results" then
+			-- Another match is on the arena.
+			countdown.Text = Strings.ArenaBusy
+		else
+			countdown.Text = Strings.Queued
+		end
 		countdown.Visible = true
 	else
 		countdown.Visible = false
@@ -159,6 +200,11 @@ local function collectAnimated(found: Model)
 		return
 	end
 	local swirl = primary :: BasePart
+	-- Studio loads the sign built by tools/build-world with TextScaled off.
+	local signText = swirl:FindFirstChild("Sign") and (swirl :: any).Sign:FindFirstChild("Text")
+	if signText and signText:IsA("TextLabel") then
+		signText.TextScaled = true
+	end
 	local spin = found:FindFirstChild("Spin")
 	if spin then
 		for _, descendant in spin:GetDescendants() do
