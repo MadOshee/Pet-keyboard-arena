@@ -26,7 +26,7 @@ local POPUP_DISTANCE = 80
 local POPUP_SHOW = 0.5 -- seconds fully visible
 local POPUP_FADE = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local POPUP_RISE = 1 -- studs the text floats up while it fades
-local POPUP_HEIGHT = 2.6 -- above the platform
+local POPUP_HEIGHT = 3 -- above the platform
 local POPUP_SIDE = 2.2 -- to the right on screen
 local POPUP_COLOR = Color3.fromRGB(110, 255, 120)
 
@@ -67,7 +67,8 @@ local function makePopup(platform: BasePart): (BillboardGui, TextLabel, UIStroke
 	billboard.Size = UDim2.fromScale(5, 1.3)
 	billboard.LightInfluence = 0
 	billboard.MaxDistance = POPUP_DISTANCE
-	billboard.AlwaysOnTop = false
+	-- Over the pet model, so a wide pet never hides its own money.
+	billboard.AlwaysOnTop = true
 	billboard.Enabled = false
 	billboard.Adornee = platform
 	local label = Widgets.Label("Money", billboard, UDim2.fromScale(1, 1), UDim2.new())

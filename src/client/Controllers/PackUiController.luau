@@ -160,10 +160,31 @@ local function dim(object: GuiObject, soonSize: UDim2)
 			part.TextColor3 = part.TextColor3:Lerp(BLACK, DIM)
 		end
 	end
-	local soon = Widgets.Label("Soon", object, soonSize, UDim2.fromScale(0.5, 0.45))
+	-- Above every piece inside: pack blocks hold parts up to ZIndex 50.
+	local top = 30
+	for _, part in object:GetDescendants() do
+		if part:IsA("GuiObject") then
+			top = math.max(top, part.ZIndex + 1)
+		end
+	end
+	local holder: GuiObject = object
+	if not object:IsA("GuiButton") then
+		-- A whole block (a Shop offer): a dark veil over it under the label.
+		local veil = Instance.new("Frame")
+		veil.Name = "SoonVeil"
+		veil.Size = UDim2.fromScale(1, 1)
+		veil.BackgroundColor3 = BLACK
+		veil.BackgroundTransparency = 0.45
+		veil.BorderSizePixel = 0
+		veil.Active = true -- swallows clicks meant for the block
+		veil.ZIndex = top
+		veil.Parent = object
+		holder = veil
+	end
+	local soon = Widgets.Label("Soon", holder, soonSize, UDim2.fromScale(0.5, 0.45))
 	soon.AnchorPoint = Vector2.new(0.5, 0.5)
 	soon.Rotation = -12
-	soon.ZIndex = 30
+	soon.ZIndex = top + 1
 	soon.TextColor3 = SOON_COLOR
 	soon.Text = Strings.Soon
 end
@@ -366,7 +387,7 @@ end
 -- Opens the pack window `name` unless it is already open.
 -- A pack piece for a later update (Ivan): dimmed, "Soon", not pressable.
 function PackUiController:SetSoon(object: GuiObject, soonSize: UDim2)
-	if object:FindFirstChild("Soon") == nil then
+	if object:FindFirstChild("Soon") == nil and object:FindFirstChild("SoonVeil") == nil then
 		dim(object, soonSize)
 	end
 end
