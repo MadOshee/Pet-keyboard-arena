@@ -1,4 +1,4 @@
-# Pet Keyboard Arena: notes for Claude
+# Egg Keyboard Arena: notes for Claude
 
 - Owner: Ivan. He does not write code and tests builds in Roblox Studio via Play. Talk to him in Russian.
 - Design and architecture are approved: `docs/design.md` (decisions D1–D11). Explain any change to the agreed architecture before making it.

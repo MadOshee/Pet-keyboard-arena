@@ -47,4 +47,4 @@ end
 
 Loader.Run(entries)
 
-print(`[PetKeyboardArena] server started ({#entries} services)`)
+print(`[EggKeyboardArena] server started ({#entries} services)`)

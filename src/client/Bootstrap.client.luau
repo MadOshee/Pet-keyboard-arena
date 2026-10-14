@@ -46,4 +46,4 @@ end
 
 Loader.Run(entries)
 
-print(`[PetKeyboardArena] client started ({#entries} controllers)`)
+print(`[EggKeyboardArena] client started ({#entries} controllers)`)
