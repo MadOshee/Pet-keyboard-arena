@@ -286,28 +286,28 @@ local function watchServerLuck(scrolling: Instance)
 end
 
 local function wirePackShop()
-	local window = PackUiController:GetWindow("Shop")
-	local scrolling = window and window:FindFirstChild("Scrolling")
+	local shopWindow = PackUiController:GetWindow("Shop")
+	local scrolling = shopWindow and shopWindow:FindFirstChild("Scrolling")
 	if scrolling == nil then
 		return
 	end
-	local list = scrolling :: Instance
+	local blocks = scrolling :: Instance
 	for name, order in PACK_ORDER do
-		local block = list:FindFirstChild(name)
+		local block = blocks:FindFirstChild(name)
 		if block and block:IsA("GuiObject") then
 			block.LayoutOrder = order
 		end
 	end
 	for _, name in PACK_SOON do
-		local block = list:FindFirstChild(name)
+		local block = blocks:FindFirstChild(name)
 		if block and block:IsA("GuiObject") then
 			PackUiController:SetSoon(block, UDim2.fromScale(0.5, 0.35))
 		end
 	end
 	for _, item in PACK_ITEMS do
-		wirePackItem(list, item)
+		wirePackItem(blocks, item)
 	end
-	watchServerLuck(list)
+	watchServerLuck(blocks)
 end
 
 function ShopController:Init()

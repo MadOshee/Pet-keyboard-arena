@@ -152,10 +152,9 @@ local function dim(object: GuiObject, soonSize: UDim2)
 			part.Color = part.Color:Lerp(BLACK, DIM)
 		elseif part:FindFirstChildOfClass("UIGradient") then
 			continue
-		elseif part:IsA("ImageLabel") then
-			part.ImageColor3 = part.ImageColor3:Lerp(BLACK, DIM)
-		elseif part:IsA("ImageButton") then
-			part.ImageColor3 = part.ImageColor3:Lerp(BLACK, DIM)
+		elseif part:IsA("ImageLabel") or part:IsA("ImageButton") then
+			local image = part :: any
+			image.ImageColor3 = image.ImageColor3:Lerp(BLACK, DIM)
 		elseif part:IsA("TextLabel") then
 			part.TextColor3 = part.TextColor3:Lerp(BLACK, DIM)
 		end
