@@ -6,7 +6,7 @@
 --
 -- Ivan's layout (Figma, 2026-10-13): no window; the world blurs and dims,
 -- the winner and the round's money and XP sit on top, then the four eggs
--- with their name and main buff, the two reroll buttons and the odds. A
+-- with their name and rarity, the two reroll buttons and the odds. A
 -- reroll spins the eggs like a slot machine's reels for about 1.3 s.
 
 local Lighting = game:GetService("Lighting")
@@ -373,7 +373,7 @@ local function poppingLabel(name: string, parent: Instance, size: UDim2, positio
 	return label, scale
 end
 
--- One egg column: the egg on its reel, its name and its main buff. The
+-- One egg column: the egg on its reel, its name and its rarity. The
 -- whole column is the pick button.
 local function buildCard(parent: Instance, slot: number): Card
 	local button = Instance.new("TextButton")
@@ -876,8 +876,8 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 			and offer.RerollCount > shownRerollCount
 		shownOfferId = offer.OfferId
 		shownRerollCount = offer.RerollCount
-		-- The egg's rarity stays a surprise (Ivan): only its theme and its
-		-- main buff show.
+		-- Under the egg's theme: its rarity in the rarity's color (Ivan
+		-- 2026-10-15, was its main buff).
 		-- A lost round offers 2 eggs instead of 4 (Ivan): the shown cards
 		-- stay centered, the rest hide.
 		local count = math.min(#offer.Eggs, #cards)
@@ -890,14 +890,10 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 				continue
 			end
 			card.Button.Position = UDim2.fromScale(0.5 + (slot - (count + 1) / 2) * step, 0.25)
-			local theme = PetConfig.Themes[egg.Theme]
 			themes[slot] = egg.Theme
 			card.Name.Text = string.format(Strings.EggTheme, egg.Theme)
-			local stat = if theme then theme.Stat else nil
-			card.Buff.Text = if stat
-				then string.format(Strings.EggMainBuff, (Strings.StatName :: any)[stat] or stat)
-				else ""
-			card.Buff.TextColor3 = if stat then PetStyle.Stat[stat] or WHITE else WHITE
+			card.Buff.Text = (Strings.Rarity :: any)[egg.Rarity] or egg.Rarity
+			card.Buff.TextColor3 = PetStyle.Rarity[egg.Rarity] or WHITE
 		end
 		if rerolled then
 			startSpin()
