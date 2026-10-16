@@ -272,6 +272,8 @@ local function runRound(groups: { { Player } })
 	table.clear(teams)
 	table.clear(slots)
 	if isArena then
+		-- The results screen stays dark until the teleport (Ivan 2026-10-16).
+		ReplicatedStorage:SetAttribute("ReturningToHub", true)
 		-- Everyone here, late arrivals too, goes back to their hub server.
 		MatchmakingService:ReturnToHub(Players:GetPlayers())
 	end

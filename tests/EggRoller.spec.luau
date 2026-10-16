@@ -165,6 +165,22 @@ function tests.rarestThemeIsRare()
 	end
 end
 
+-- An egg's own rarity follows its theme's chance: never rarer for a more
+-- common theme, super rare exactly for the themes under 5%.
+function tests.eggRarityFollowsThemeChance()
+	local order = { "Common", "Uncommon", "Rare", "Epic", "Legendary", "SuperRare" }
+	local previous = 1
+	for _, theme in EggConfig.OfferThemes do
+		local rank = table.find(order, EggConfig.EggRarity[theme])
+		assert(rank ~= nil, `no egg rarity for {theme}`)
+		assert(rank >= previous, `{theme} is less rare than a more common egg`)
+		assert((rank == #order) == EggConfig.SuperRare[theme])
+		previous = rank
+	end
+	assert(EggConfig.EggRarity.Basic == "Common")
+	assert(EggConfig.EggRarity.Sparkletime == "SuperRare")
+end
+
 function tests.rollPetMatchesThemeAndRarity()
 	for _, theme in EggConfig.OfferThemes do
 		for _, rarity in RARITIES do

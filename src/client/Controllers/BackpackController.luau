@@ -137,12 +137,14 @@ local function showEggs(profile: Types.Profile)
 	clear()
 	for order, id in ids do
 		local egg = profile.Eggs[id]
-		local color = PetStyle.Rarity[egg.Rarity] or WHITE
+		-- The egg's own rarity, not the pet's inside (Ivan 2026-10-16).
+		local eggRarity = EggConfig.EggRarity[egg.Theme] or "Common"
+		local color = PetStyle.EggRarity[eggRarity] or WHITE
 		local card, title = Widgets.Card(id, list, UDim2.new(), UDim2.new(), color)
 		card.LayoutOrder = order
 		title.Text = string.format(Strings.EggTheme, egg.Theme)
 		AssetModels.Viewport(cardHolder(card), AssetModels.Egg(egg.Theme), color)
-		footer(card, (Strings.Rarity :: any)[egg.Rarity] or egg.Rarity, color)
+		footer(card, (Strings.EggRarity :: any)[eggRarity] or eggRarity, color)
 	end
 end
 

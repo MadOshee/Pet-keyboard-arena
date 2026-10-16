@@ -9,7 +9,9 @@ return table.freeze({
 	StartingSeconds = 10,
 	CountdownSeconds = 3,
 	PlayingSeconds = 60,
-	ResultsSeconds = 5,
+	-- The dark "RED TEAM WINS!" screen after a match, then back to the hub
+	-- (Ivan 2026-10-16).
+	ResultsSeconds = 3,
 
 	-- One ready player is enough: bots fill both teams up to the team size
 	-- (MinTeamSize at least, D6).

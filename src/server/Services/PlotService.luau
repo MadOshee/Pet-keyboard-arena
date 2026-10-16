@@ -452,6 +452,10 @@ function PlotService:Init()
 	local folder = Instance.new("Folder")
 	folder.Name = "Plots"
 	folder.Parent = workspace
+	-- No bases on an arena server: the hub map is gone there (Bootstrap).
+	if MatchMode.IsArena() then
+		return
+	end
 	for index, layout in plotLayouts() do
 		table.insert(plots, buildPlot(index, layout, folder))
 	end

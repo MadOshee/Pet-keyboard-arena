@@ -82,13 +82,33 @@ local THEME_HATCH_SECONDS = {
 	6300,
 	7200,
 }
+-- The egg's own rarity comes from how often its theme comes up (Ivan
+-- 2026-10-16: show the egg's rarity, not the rarity of the pet inside). A
+-- theme gets the first rarity whose floor (percent) it reaches; under 5% it
+-- is super rare.
+local EGG_RARITY_FLOORS = {
+	{ Rarity = "Common", Percent = 10 },
+	{ Rarity = "Uncommon", Percent = 7.5 },
+	{ Rarity = "Rare", Percent = 6 },
+	{ Rarity = "Epic", Percent = 5.5 },
+	{ Rarity = "Legendary", Percent = SUPER_RARE_PERCENT },
+}
 local THEME_WEIGHTS: { [string]: number } = {}
 local HATCH_SECONDS: { [string]: number } = {}
 local SUPER_RARE: { [string]: boolean } = {}
+local EGG_RARITY: { [string]: string } = {}
 for index, theme in OFFER_THEMES do
-	THEME_WEIGHTS[theme] = THEME_PERCENTS[index]
+	local percent = THEME_PERCENTS[index]
+	THEME_WEIGHTS[theme] = percent
 	HATCH_SECONDS[theme] = THEME_HATCH_SECONDS[index]
-	SUPER_RARE[theme] = THEME_PERCENTS[index] < SUPER_RARE_PERCENT
+	SUPER_RARE[theme] = percent < SUPER_RARE_PERCENT
+	EGG_RARITY[theme] = "SuperRare"
+	for _, floor in EGG_RARITY_FLOORS do
+		if percent >= floor.Percent then
+			EGG_RARITY[theme] = floor.Rarity
+			break
+		end
+	end
 end
 
 return table.freeze({
@@ -103,6 +123,9 @@ return table.freeze({
 	ThemeWeights = table.freeze(THEME_WEIGHTS),
 	-- Themes under 5%: an orange glow on the offer screen and in Pets.
 	SuperRare = table.freeze(SUPER_RARE),
+	-- The egg's own rarity by theme (Common .. Legendary, or SuperRare),
+	-- shown under egg names; the pet inside rolls its rarity separately.
+	EggRarity = table.freeze(EGG_RARITY),
 
 	-- Base weights in PetConfig.Rarities order (Common .. Legendary).
 	BaseWeights = table.freeze({ 50, 28, 15, 6, 1 }),

@@ -250,40 +250,42 @@ local function addCard(
 	end)
 end
 
--- The picker: stored eggs (one card per theme and rarity) and inventory pets.
+-- The picker: stored eggs (one card per theme, with the egg's own rarity;
+-- the pet inside stays hidden, Ivan 2026-10-16) and inventory pets.
 local function buildPicker(data: Types.Profile)
 	list.Visible = true
 	clearList()
 	local order = 0
 
-	type EggGroup = { Id: string, Theme: string, Rarity: string, Count: number }
+	type EggGroup = { Id: string, Theme: string, Count: number }
 	local groups: { [string]: EggGroup } = {}
 	for id, egg in data.Eggs do
-		local key = egg.Theme .. "|" .. egg.Rarity
-		local group = groups[key]
+		local group = groups[egg.Theme]
 		if group then
 			group.Count += 1
 		else
-			groups[key] = { Id = id, Theme = egg.Theme, Rarity = egg.Rarity, Count = 1 }
+			groups[egg.Theme] = { Id = id, Theme = egg.Theme, Count = 1 }
 		end
 	end
 	local eggs: { EggGroup } = {}
 	for _, group in groups do
 		table.insert(eggs, group)
 	end
+	-- Rarest themes first.
+	local function themeRank(theme: string): number
+		return table.find(EggConfig.OfferThemes, theme) or 0
+	end
 	table.sort(eggs, function(a, b)
-		if a.Rarity ~= b.Rarity then
-			return rarityRank(a.Rarity) > rarityRank(b.Rarity)
-		end
-		return a.Theme < b.Theme
+		return themeRank(a.Theme) > themeRank(b.Theme)
 	end)
 	for _, group in eggs do
 		order += 1
-		local rarityName = (Strings.Rarity :: any)[group.Rarity] or group.Rarity
+		local eggRarity = EggConfig.EggRarity[group.Theme] or "Common"
+		local rarityName = (Strings.EggRarity :: any)[eggRarity] or eggRarity
 		addCard(
 			order,
 			AssetModels.Egg(group.Theme),
-			PetStyle.Rarity[group.Rarity] or WHITE,
+			PetStyle.EggRarity[eggRarity] or WHITE,
 			string.format(Strings.EggTheme, group.Theme),
 			rarityName,
 			nil,
@@ -433,7 +435,7 @@ local function render()
 		buildPicker(profile)
 	elseif state == "Egg" then
 		local egg = slot.Egg :: Types.EggInstance
-		local color = PetStyle.Rarity[egg.Rarity] or WHITE
+		local color = PetStyle.EggRarity[EggConfig.EggRarity[egg.Theme] or "Common"] or WHITE
 		showPreview(AssetModels.Egg(egg.Theme), color)
 		showName(string.format(Strings.EggTheme, egg.Theme), color)
 		placeInfo(INFO_SIDE)

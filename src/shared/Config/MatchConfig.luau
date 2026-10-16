@@ -12,13 +12,16 @@ return table.freeze({
 	-- set its Max Players to 12, publish this same file there). 0 = the
 	-- arena runs on a reserved server of the hub place, so a match holds at
 	-- most as many players as the hub's Max Players.
-	ArenaPlaceId = 0,
+	ArenaPlaceId = 86203411093378,
 
 	-- 6 v 6.
 	MaxHumans = 12,
 	-- A match starts once the oldest ticket has waited this long, or right
 	-- away when MaxHumans are queued. Missing seats are bots.
-	WaitSeconds = 15,
+	WaitSeconds = 10,
+	-- The matchmaker starts a match this much before the wait runs out,
+	-- so the teleport begins as "Match in N" reaches 0 (Ivan 2026-10-16).
+	StartLeadSeconds = 1,
 	-- A ticket that got no match in this time plays on its own server.
 	GiveUpSeconds = 45,
 	-- How long the arena waits for everyone to arrive before it starts.

@@ -1,8 +1,9 @@
 --!strict
 -- HUD built in code: phase + timer and team score bar (in a match), the
 -- LEAVE QUEUE button, small icons of the equipped pets bottom right in a
--- match (the pets themselves stay off the arena) and a banner for round
--- results and refused requests. Money shows only in the pack's bottom-left cash counter
+-- match (the pets themselves stay off the arena), the dark results screen
+-- after a match ("RED TEAM WINS!", Ivan 2026-10-16) and a banner for
+-- refused requests. Money shows only in the pack's bottom-left cash counter
 -- (PackUiController; Ivan, 2026-10-13). Joining the queue happens at the hub portal
 -- (PortalController). Uses Scale sizes so it fits phones, tablets and PC,
 -- and the UI pack look through Widgets.
@@ -10,6 +11,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local PetConfig = require(ReplicatedStorage.Shared.Config.PetConfig)
@@ -18,7 +20,6 @@ local RoundConfig = require(ReplicatedStorage.Shared.Config.RoundConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
 local TeamColors = require(ReplicatedStorage.Shared.Config.TeamColors)
 local Types = require(ReplicatedStorage.Shared.Types)
-local Money = require(ReplicatedStorage.Shared.Util.Money)
 local ClientNet = require(script.Parent.Parent.Util.ClientNet)
 local AssetModels = require(script.Parent.Parent.UI.AssetModels)
 local Widgets = require(script.Parent.Parent.UI.Widgets)
@@ -38,12 +39,23 @@ type Refs = {
 	ReadyButton: TextButton,
 	Banner: TextLabel,
 	ArenaPets: Frame,
+	Results: Frame,
+	ResultsTitle: TextLabel,
+	ResultsNote: TextLabel,
 }
 
 local refs: Refs
 local bannerToken = 0
 
 local ERROR_SECONDS = 2.5
+local RESULTS_DIM = 0.25 -- background transparency of the results screen
+local DRAW_COLOR = Color3.new(1, 1, 1)
+
+-- The result screen's state: in this match, the last winner and the note
+-- for a player who painted too little.
+local playedMatch = false
+local lastWinner: string? = nil
+local noRewardNote = ""
 local PET_ICON_HEIGHT = 0.055
 
 local function build(): Refs
@@ -112,6 +124,27 @@ local function build(): Refs
 
 	gui.Parent = player:WaitForChild("PlayerGui")
 
+	-- Over everything, top bar included: the screen goes dark and names
+	-- the winner for RoundConfig.ResultsSeconds, then the hub loads.
+	local resultsGui = Widgets.ScreenGui("Results", 50)
+	resultsGui.IgnoreGuiInset = true
+	local results = Instance.new("Frame")
+	results.Name = "Dim"
+	results.BackgroundColor3 = Color3.new(0, 0, 0)
+	results.BackgroundTransparency = RESULTS_DIM
+	results.BorderSizePixel = 0
+	results.Size = UDim2.fromScale(1, 1)
+	results.Visible = false
+	results.Active = true
+	results.Parent = resultsGui
+	local resultsTitle =
+		Widgets.Label("Winner", results, UDim2.fromScale(0.8, 0.14), UDim2.fromScale(0.5, 0.45))
+	resultsTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+	local resultsNote =
+		Widgets.Label("Note", results, UDim2.fromScale(0.7, 0.05), UDim2.fromScale(0.5, 0.56))
+	resultsNote.AnchorPoint = Vector2.new(0.5, 0.5)
+	resultsGui.Parent = player:WaitForChild("PlayerGui")
+
 	return {
 		Top = top,
 		ScoreBar = bar,
@@ -123,6 +156,9 @@ local function build(): Refs
 		ReadyButton = readyButton,
 		Banner = banner,
 		ArenaPets = arenaPets,
+		Results = results,
+		ResultsTitle = resultsTitle,
+		ResultsNote = resultsNote,
 	}
 end
 
@@ -225,26 +261,64 @@ end
 local function updateReady()
 	local ready = player:GetAttribute("Ready") == true
 	local inMatch = player:GetAttribute("Team") ~= nil
-	refs.ReadyButton.Visible = ready and not inMatch
+	-- An arena has no queue to leave: the match starts once everyone is
+	-- there (Ivan 2026-10-16).
+	local onArena = ReplicatedStorage:GetAttribute("ServerMode") == "Arena"
+	refs.ReadyButton.Visible = ready and not inMatch and not onArena
 	refs.Top.Visible = inMatch
 	refs.ScoreBar.Visible = inMatch
 end
 
-local function onWinner()
+-- The dark results screen: while the match's Results last for its
+-- players, and on an arena until the teleport home takes them.
+local function updateResults()
+	local phase = ReplicatedStorage:GetAttribute("RoundPhase")
+	if player:GetAttribute("Team") ~= nil then
+		playedMatch = true
+	elseif phase ~= "Results" then
+		playedMatch = false
+	end
 	local winner = ReplicatedStorage:GetAttribute("Winner")
 	if winner == "Red" or winner == "Blue" or winner == "Draw" then
-		showBanner(Strings.Winner[winner], RoundConfig.ResultsSeconds)
+		lastWinner = winner
+	end
+	local returning = ReplicatedStorage:GetAttribute("ReturningToHub") == true
+	local show = lastWinner ~= nil and ((phase == "Results" and playedMatch) or returning)
+	local wasShown = refs.Results.Visible
+	refs.Results.Visible = show
+	if not show then
+		if phase ~= "Results" and not returning then
+			noRewardNote = ""
+		end
+		return
+	end
+	local shown = lastWinner :: string
+	refs.ResultsTitle.Text = (Strings.TeamWins :: any)[shown] or shown
+	refs.ResultsTitle.TextColor3 = if shown == "Draw"
+		then DRAW_COLOR
+		else TeamColors.ForTeam(shown :: any)
+	refs.ResultsNote.Text = if noRewardNote ~= ""
+		then noRewardNote
+		elseif returning then Strings.ReturningToHub
+		else ""
+	if not wasShown then
+		refs.Results.BackgroundTransparency = 1
+		TweenService
+			:Create(refs.Results, TweenInfo.new(0.3), { BackgroundTransparency = RESULTS_DIM })
+			:Play()
 	end
 end
 
+-- Only the arena's own result: a result carried to the hub belongs to the
+-- egg offer (EggOfferController).
 local function onRoundResult(result: Types.RoundResultPayload)
-	local text = Strings.Outcome[result.Outcome]
-	if result.Rewarded then
-		text ..= "  " .. string.format(Strings.CoinsGained, Money.Format(result.Coins))
-	else
-		text ..= "\n" .. string.format(Strings.NoReward, RoundConfig.MinKeysForReward)
+	if ReplicatedStorage:GetAttribute("RoundPhase") ~= "Results" then
+		return
 	end
-	showBanner(text, RoundConfig.ResultsSeconds)
+	noRewardNote = if result.Rewarded
+		then ""
+		else string.format(Strings.NoReward, RoundConfig.MinKeysForReward)
+	updateResults()
 end
 
 function HudController:Init()
@@ -259,11 +333,14 @@ function HudController:Start()
 	ReplicatedStorage:GetAttributeChangedSignal("ScoreRed"):Connect(updateScore)
 	ReplicatedStorage:GetAttributeChangedSignal("ScoreBlue"):Connect(updateScore)
 	ReplicatedStorage:GetAttributeChangedSignal("ScoreTotal"):Connect(updateScore)
-	ReplicatedStorage:GetAttributeChangedSignal("Winner"):Connect(onWinner)
+	ReplicatedStorage:GetAttributeChangedSignal("Winner"):Connect(updateResults)
+	ReplicatedStorage:GetAttributeChangedSignal("RoundPhase"):Connect(updateResults)
+	ReplicatedStorage:GetAttributeChangedSignal("ReturningToHub"):Connect(updateResults)
 	player:GetAttributeChangedSignal("Team"):Connect(function()
 		updateTeam()
 		updateReady()
 		updateArenaPets()
+		updateResults()
 	end)
 	player:GetAttributeChangedSignal("EquippedPets"):Connect(updateArenaPets)
 	player:GetAttributeChangedSignal("Ready"):Connect(updateReady)
@@ -289,6 +366,7 @@ function HudController:Start()
 	updateTeam()
 	updateReady()
 	updateArenaPets()
+	updateResults()
 end
 
 return HudController

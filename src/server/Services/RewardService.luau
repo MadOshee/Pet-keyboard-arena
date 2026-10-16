@@ -16,6 +16,7 @@ local Reward = require(ReplicatedStorage.Shared.Logic.Reward)
 local Types = require(ReplicatedStorage.Shared.Types)
 local EggService = require(script.Parent.EggService)
 local GamePassService = require(script.Parent.GamePassService)
+local MatchmakingService = require(script.Parent.MatchmakingService)
 local NetService = require(script.Parent.NetService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
 local ReadyService = require(script.Parent.ReadyService)
@@ -98,6 +99,8 @@ local function rewardParticipant(
 		Rewarded = rewarded,
 	}
 	NetService:FireClient("RoundResult", player, payload)
+	-- An arena sends it on to the hub, where the player picks the egg.
+	MatchmakingService:SetRoundResult(player, payload)
 end
 
 function RewardService:Init() end

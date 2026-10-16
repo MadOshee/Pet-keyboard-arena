@@ -23,6 +23,10 @@ return table.freeze({
 	-- filling a match, or found one and the teleport is on its way.
 	Searching = "Looking for players...",
 	MatchFound = "Match found!",
+	-- On the arena while the other players are still arriving.
+	LoadingMatch = "Loading the match...",
+	-- The dark results screen on the arena after the teleport home began.
+	ReturningToHub = "Returning to the hub...",
 	ReturnFailed = "Could not take you back to the hub. Please rejoin.",
 	YourTeam = "Your team: %s",
 	TeamName = table.freeze({ Red = "RED", Blue = "BLUE" }),
@@ -40,6 +44,15 @@ return table.freeze({
 		Rare = "Rare",
 		Epic = "Epic",
 		Legendary = "Legendary",
+	}),
+	-- An egg's own rarity (EggConfig.EggRarity).
+	EggRarity = table.freeze({
+		Common = "Common",
+		Uncommon = "Uncommon",
+		Rare = "Rare",
+		Epic = "Epic",
+		Legendary = "Legendary",
+		SuperRare = "Super Rare",
 	}),
 	StatName = table.freeze({
 		Speed = "Speed",

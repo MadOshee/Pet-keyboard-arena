@@ -178,17 +178,24 @@ local function update()
 	-- In the queue only this line and LEAVE QUEUE (HudController) show.
 	local queueEndsAt = player:GetAttribute("QueueEndsAt")
 	if queued and not inMatch then
-		if player:GetAttribute("MatchFound") == true then
+		local secondsLeft = if type(queueEndsAt) == "number"
+			then math.ceil(queueEndsAt - workspace:GetServerTimeNow())
+			else 0
+		if ReplicatedStorage:GetAttribute("ServerMode") == "Arena" then
+			-- Just arrived: the match starts once everyone is here (Ivan
+			-- 2026-10-16: no second queue on the arena).
+			countdown.Text = Strings.LoadingMatch
+		elseif type(queueEndsAt) == "number" and secondsLeft > 0 then
+			-- Cross-server queue: the wait of this player's own ticket,
+			-- from the moment PvP was pressed, down to 0 (Ivan 2026-10-16).
+			countdown.Text = string.format(Strings.MatchIn, secondsLeft)
+		elseif player:GetAttribute("MatchFound") == true then
 			countdown.Text = Strings.MatchFound
 		elseif type(queueEndsAt) == "number" then
-			-- Cross-server queue: the wait of this player's own ticket.
-			local secondsLeft = math.ceil(queueEndsAt - workspace:GetServerTimeNow())
-			countdown.Text = if secondsLeft > 0
-				then string.format(Strings.MatchIn, secondsLeft)
-				else Strings.Searching
+			countdown.Text = Strings.Searching
 		elseif phase == "Starting" and type(endsAt) == "number" then
-			local secondsLeft = math.max(0, math.ceil(endsAt - workspace:GetServerTimeNow()))
-			countdown.Text = string.format(Strings.MatchIn, secondsLeft)
+			local phaseLeft = math.max(0, math.ceil(endsAt - workspace:GetServerTimeNow()))
+			countdown.Text = string.format(Strings.MatchIn, phaseLeft)
 		elseif phase == "Countdown" or phase == "Playing" or phase == "Results" then
 			-- Another match is on the arena.
 			countdown.Text = Strings.ArenaBusy
@@ -264,9 +271,10 @@ end
 
 function PortalController:Start()
 	task.spawn(function()
-		local world = workspace:WaitForChild("World")
-		local found = world:WaitForChild("Portal")
-		if found:IsA("Model") then
+		-- An arena server has no hub map.
+		local world = workspace:WaitForChild("World", 10)
+		local found = world and world:WaitForChild("Portal", 10)
+		if found and found:IsA("Model") then
 			portal = found
 			collectAnimated(found)
 		end

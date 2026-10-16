@@ -34,6 +34,21 @@ local SERVICE_ORDER: { string } = {
 	"RewardService",
 }
 
+-- An arena server (MatchMode) only needs the keyboard. The hub map is about
+-- half of all parts, and without streaming every client downloads all of it
+-- on each arrival while the match already runs: on the live game that held
+-- up replication for seconds (Ivan 2026-10-16, data ping 1.6-2.4 s).
+-- Players join only after this script has run.
+local MatchMode = require(script.Parent.Match.MatchMode)
+-- Clients read it: an arena shows no queue and no egg offer.
+ReplicatedStorage:SetAttribute("ServerMode", MatchMode.Get())
+if MatchMode.IsArena() then
+	local world = workspace:FindFirstChild("World")
+	if world then
+		world:Destroy()
+	end
+end
+
 local servicesFolder = script.Parent:FindFirstChild("Services")
 
 local entries: { Loader.Entry } = {}

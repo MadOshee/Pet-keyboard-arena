@@ -6,7 +6,7 @@
 --
 -- Ivan's layout (Figma, 2026-10-13): no window; the world blurs and dims,
 -- the winner and the round's money and XP sit on top, then the four eggs
--- with their name and main buff, the two reroll buttons and the odds. A
+-- with their name and rarity, the two reroll buttons and the odds. A
 -- reroll spins the eggs like a slot machine's reels for about 1.3 s.
 
 local Lighting = game:GetService("Lighting")
@@ -57,6 +57,8 @@ local CONTENT_ASPECT = 1.85
 local EGG_CENTERS = { 0.24, 0.413, 0.587, 0.76 }
 local EGG_WIDTH = 0.165
 local REROLL_BUTTON_SIZE = UDim2.fromScale(0.159, 0.089)
+-- Height of the price line under each reroll button.
+local PRICE_ROW_HEIGHT = 0.03
 local BLUR_SIZE = 16
 local DIM_TRANSPARENCY = 0.45
 local FADE = TweenInfo.new(0.25)
@@ -113,10 +115,12 @@ type Spin = {
 	}?,
 }
 
--- A reroll button's caption row: the word, an optional icon and the price
--- side by side ("Reroll [cash] $50", "Reroll ⬢10").
+-- A reroll button's caption: the word on the button and, under it, the
+-- price with an optional icon ("[cash] $50", "⬢10"; Ivan 2026-10-16: the
+-- cost under the button).
 type Caption = {
 	Row: Frame,
+	PriceRow: Frame,
 	Word: TextLabel,
 	Icon: ImageLabel?,
 	Price: TextLabel,
@@ -373,7 +377,7 @@ local function poppingLabel(name: string, parent: Instance, size: UDim2, positio
 	return label, scale
 end
 
--- One egg column: the egg on its reel, its name and its main buff. The
+-- One egg column: the egg on its reel, its name and its rarity. The
 -- whole column is the pick button.
 local function buildCard(parent: Instance, slot: number): Card
 	local button = Instance.new("TextButton")
@@ -452,7 +456,6 @@ end
 local function setCaptionSize(size: number)
 	for _, caption in captions do
 		setTextSize(caption.Word, size)
-		setTextSize(caption.Price, size)
 	end
 end
 
@@ -466,6 +469,10 @@ local function fitCaptions()
 		height = math.min(height, caption.Row.AbsoluteSize.Y / factor)
 	end
 	setCaptionSize(math.max(math.floor(height * 0.95 + 0.01), 8))
+	-- The prices under the buttons, as tall as their rows.
+	for _, caption in captions do
+		setTextSize(caption.Price, math.max(math.floor(caption.PriceRow.AbsoluteSize.Y * 0.95), 8))
+	end
 end
 
 local function buildCaption(
@@ -492,10 +499,23 @@ local function buildCaption(
 	layout.Parent = row
 
 	rowLabel(word, row, 1)
-	rowLabel(price, row, 3)
+
+	-- The price row under the button, outside it so a hover or press does
+	-- not move the price.
+	local priceRow = Instance.new("Frame")
+	priceRow.Name = button.Name .. "Price"
+	priceRow.BackgroundTransparency = 1
+	priceRow.AnchorPoint = Vector2.new(0.5, 0)
+	priceRow.Position = button.Position + UDim2.fromScale(0, button.Size.Y.Scale / 2 + 0.006)
+	priceRow.Size = UDim2.fromScale(button.Size.X.Scale, PRICE_ROW_HEIGHT)
+	priceRow.ZIndex = 5
+	priceRow.Parent = button.Parent
+	local priceLayout = layout:Clone()
+	priceLayout.Parent = priceRow
+	rowLabel(price, priceRow, 2)
 	if icon then
-		icon.LayoutOrder = 2
-		icon.Parent = row
+		icon.LayoutOrder = 1
+		icon.Parent = priceRow
 	end
 
 	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -507,6 +527,7 @@ local function buildCaption(
 	end)
 	local caption = {
 		Row = row,
+		PriceRow = priceRow,
 		Word = word,
 		Icon = icon,
 		Price = price,
@@ -741,7 +762,7 @@ local function build()
 	end)
 
 	-- Robux reroll next to it, the rainbow "X2 Money" button with the green
-	-- Robux price (Ivan's pictures). Until Ivan creates the product it shows
+	-- Robux price under it (Ivan's pictures). Until Ivan creates the product it shows
 	-- the planned price and only says so when clicked.
 	robuxRerollButton = Widgets.PackButton(
 		"RobuxButton",
@@ -777,7 +798,7 @@ local function build()
 	local oddsBack = Instance.new("Frame")
 	oddsBack.Name = "OddsBack"
 	oddsBack.AnchorPoint = Vector2.new(0.5, 0.5)
-	oddsBack.Position = UDim2.fromScale(0.5, 0.845)
+	oddsBack.Position = UDim2.fromScale(0.5, 0.868)
 	oddsBack.BackgroundColor3 = Color3.fromRGB(20, 24, 60)
 	oddsBack.BackgroundTransparency = 0.3
 	oddsBack.BorderSizePixel = 0
@@ -876,8 +897,9 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 			and offer.RerollCount > shownRerollCount
 		shownOfferId = offer.OfferId
 		shownRerollCount = offer.RerollCount
-		-- The egg's rarity stays a surprise (Ivan): only its theme and its
-		-- main buff show.
+		-- Under the egg's theme: the egg's own rarity (by its theme's chance,
+		-- EggConfig.EggRarity) in its color; never the rarity of the pet
+		-- inside (Ivan 2026-10-16).
 		-- A lost round offers 2 eggs instead of 4 (Ivan): the shown cards
 		-- stay centered, the rest hide.
 		local count = math.min(#offer.Eggs, #cards)
@@ -890,14 +912,11 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 				continue
 			end
 			card.Button.Position = UDim2.fromScale(0.5 + (slot - (count + 1) / 2) * step, 0.25)
-			local theme = PetConfig.Themes[egg.Theme]
 			themes[slot] = egg.Theme
 			card.Name.Text = string.format(Strings.EggTheme, egg.Theme)
-			local stat = if theme then theme.Stat else nil
-			card.Buff.Text = if stat
-				then string.format(Strings.EggMainBuff, (Strings.StatName :: any)[stat] or stat)
-				else ""
-			card.Buff.TextColor3 = if stat then PetStyle.Stat[stat] or WHITE else WHITE
+			local eggRarity = EggConfig.EggRarity[egg.Theme] or "Common"
+			card.Buff.Text = (Strings.EggRarity :: any)[eggRarity] or eggRarity
+			card.Buff.TextColor3 = PetStyle.EggRarity[eggRarity] or WHITE
 		end
 		if rerolled then
 			startSpin()
@@ -948,10 +967,19 @@ local function showResult()
 	rewardXp.Text = string.format(Strings.XPGained, shown.XP)
 end
 
+-- The offer waits for the hub (Ivan 2026-10-16): never on an arena, and
+-- not while the dark results screen names the winner.
+local function canShowOffer(): boolean
+	return ReplicatedStorage:GetAttribute("ServerMode") ~= "Arena"
+		and ReplicatedStorage:GetAttribute("RoundPhase") ~= "Results"
+end
+
 local function onProfile(profile: Types.Profile)
 	waiting = false
 	local offer = profile.PendingOffer
-	if offer then
+	if offer and not canShowOffer() then
+		setShown(false)
+	elseif offer then
 		local isNew = offer.OfferId ~= shownOfferId
 		showOffer(profile, offer)
 		if isNew and pendingResult then
@@ -1035,6 +1063,12 @@ end
 
 function EggOfferController:Start()
 	DataController.Changed:Connect(onProfile)
+	ReplicatedStorage:GetAttributeChangedSignal("RoundPhase"):Connect(function()
+		local current = DataController:Get()
+		if current then
+			onProfile(current)
+		end
+	end)
 	ClientNet.On("EggPicked", onEggPicked)
 	ClientNet.On("PetHatched", onHatched)
 	ClientNet.On("RoundResult", onRoundResult)
