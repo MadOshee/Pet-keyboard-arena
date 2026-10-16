@@ -53,6 +53,10 @@ local function press(key: BasePart)
 	local sound = key:FindFirstChild("KeySound")
 	if sound and sound:IsA("Sound") then
 		ClientSettings.Attach(sound, "Effects")
+		-- Heard only here: SoundService.RespectFilteringEnabled is on
+		-- (default.project.json). Off, every key sound this client played
+		-- for every runner went to the server and on to all clients, which
+		-- jammed the live game (Ivan 2026-10-16: "spamming remote events").
 		sound.PlaybackSpeed = random:NextNumber(0.95, 1.05)
 		sound:Play()
 	end

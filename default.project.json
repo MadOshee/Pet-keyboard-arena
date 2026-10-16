@@ -130,6 +130,12 @@
       "Weld": {
         "$path": "world/materials/Weld.rbxm"
       }
+    },
+    "SoundService": {
+      "$className": "SoundService",
+      "$properties": {
+        "RespectFilteringEnabled": true
+      }
     }
   }
 }
