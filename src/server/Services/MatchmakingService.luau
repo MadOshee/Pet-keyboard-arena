@@ -27,10 +27,12 @@ local TeleportService = game:GetService("TeleportService")
 local MatchConfig = require(ReplicatedStorage.Shared.Config.MatchConfig)
 local RoundConfig = require(ReplicatedStorage.Shared.Config.RoundConfig)
 local Strings = require(ReplicatedStorage.Shared.Config.Strings)
+local Types = require(ReplicatedStorage.Shared.Types)
 local Matchmaker = require(ReplicatedStorage.Shared.Logic.Matchmaker)
 local TeamBalancer = require(ReplicatedStorage.Shared.Logic.TeamBalancer)
 local LocalMatchSource = require(script.Parent.Parent.Match.LocalMatchSource)
 local MatchMode = require(script.Parent.Parent.Match.MatchMode)
+local NetService = require(script.Parent.NetService)
 local PartyService = require(script.Parent.PartyService)
 local PlayerDataService = require(script.Parent.PlayerDataService)
 local ReadyService = require(script.Parent.ReadyService)
@@ -58,11 +60,17 @@ local MatchmakingService = {}
 local ownTickets: { [string]: OwnTicket } = {}
 local ticketOf: { [Player]: string } = {}
 local playsHere: { [Player]: boolean } = {}
+-- When each queued player pressed PvP (unix seconds): "Match in N" counts
+-- from that moment, before their ticket is written (Ivan 2026-10-16).
+local queuedAt: { [Player]: number } = {}
 
 -- Arena state.
 local roster: Matchmaker.Roster? = nil
 local rosterRead = false
 local returning: { [Player]: number } = {} -- player -> teleport attempts
+-- Each player's round result, taken back to the hub in the teleport data so
+-- the egg offer there shows the winner and the rewards.
+local results: { [Player]: Types.RoundResultPayload } = {}
 
 local maps: { [string]: MemoryStoreSortedMap } = {}
 
@@ -170,9 +178,11 @@ end
 
 local function addTicket(group: { Player })
 	local members, power = {}, 0
+	local joinedAt = unixNow()
 	for _, player in group do
 		table.insert(members, player.UserId)
 		power += StatsService:GetTeamWeight(player)
+		joinedAt = math.min(joinedAt, queuedAt[player] or joinedAt)
 	end
 	local ticket: Matchmaker.Ticket = {
 		Id = HttpService:GenerateGUID(false),
@@ -180,7 +190,7 @@ local function addTicket(group: { Player })
 		Power = power,
 		HubPlaceId = game.PlaceId,
 		HubJobId = game.JobId,
-		JoinedAt = unixNow(),
+		JoinedAt = joinedAt,
 	}
 	local own: OwnTicket = {
 		Ticket = ticket,
@@ -190,7 +200,7 @@ local function addTicket(group: { Player })
 		TeleportedAt = 0,
 	}
 	ownTickets[ticket.Id] = own
-	local endsAt = workspace:GetServerTimeNow() + MatchConfig.WaitSeconds
+	local endsAt = joinedAt + MatchConfig.WaitSeconds
 	for _, player in group do
 		ticketOf[player] = ticket.Id
 		setQueueAttributes(player, endsAt, nil)
@@ -213,7 +223,9 @@ local function teleportToArena(id: string, assignment: Assignment)
 		if player.Parent == Players and ReadyService:IsReady(player) then
 			table.insert(going, player)
 			table.insert(userIds, player.UserId)
-			setQueueAttributes(player, nil, true)
+			-- The countdown keeps running to 0 while the teleport starts.
+			local endsAt = player:GetAttribute("QueueEndsAt")
+			setQueueAttributes(player, if type(endsAt) == "number" then endsAt else nil, true)
 		end
 	end
 	if #going == 0 then
@@ -379,7 +391,8 @@ local function matchmakerTick()
 	local tickets: { Matchmaker.Ticket } = queue :: { Matchmaker.Ticket }
 	local config = {
 		MaxHumans = maxHumans(),
-		WaitSeconds = MatchConfig.WaitSeconds,
+		-- A little early, so the teleport starts as "Match in N" reaches 0.
+		WaitSeconds = MatchConfig.WaitSeconds - MatchConfig.StartLeadSeconds,
 		MinTeamSize = RoundConfig.MinTeamSize,
 		MaxTeamSize = RoundConfig.MaxTeamSize,
 	}
@@ -439,7 +452,11 @@ local function teleportHome(players: { Player }, jobId: string, placeId: number)
 	if jobId ~= "" then
 		options.ServerInstanceId = jobId
 	end
-	options:SetTeleportData({ FromMatch = true })
+	local carried: { [string]: Types.RoundResultPayload } = {}
+	for _, player in players do
+		carried[tostring(player.UserId)] = results[player]
+	end
+	options:SetTeleportData({ FromMatch = true, Results = carried })
 	local sent = call("teleport home", function()
 		return TeleportService:TeleportAsync(placeId, players, options)
 	end)
@@ -459,6 +476,56 @@ local function isInRoster(player: Player): boolean
 end
 
 ------------------------------------------------------------------------
+-- Hub: the round result a player brought back from the arena
+------------------------------------------------------------------------
+
+local OUTCOMES = { Win = true, Lose = true, Draw = true }
+local WINNERS = { Red = true, Blue = true, Draw = true }
+
+-- Teleport data can be forged by a client, so only a well-formed result
+-- passes; it is only shown, never paid (the arena already paid it).
+local function readResult(value: any): Types.RoundResultPayload?
+	if
+		type(value) ~= "table"
+		or not OUTCOMES[value.Outcome]
+		or not WINNERS[value.Winner]
+		or type(value.KeysPainted) ~= "number"
+		or type(value.Coins) ~= "number"
+		or type(value.XP) ~= "number"
+		or type(value.Rewarded) ~= "boolean"
+	then
+		return nil
+	end
+	return {
+		Outcome = value.Outcome,
+		Winner = value.Winner,
+		KeysPainted = value.KeysPainted,
+		Coins = value.Coins,
+		XP = value.XP,
+		Rewarded = value.Rewarded,
+	}
+end
+
+-- Sends the result from the arena to the player once their data is here,
+-- so the egg offer shows who won and what they got.
+local function deliverResult(player: Player, profile: Types.Profile)
+	local ok, joinData = pcall(function()
+		return player:GetJoinData()
+	end)
+	if not ok or type(joinData) ~= "table" or joinData.SourcePlaceId ~= arenaPlaceId() then
+		return
+	end
+	local data = joinData.TeleportData
+	if type(data) ~= "table" or type(data.Results) ~= "table" then
+		return
+	end
+	local result = readResult(data.Results[tostring(player.UserId)])
+	if result and profile.PendingOffer then
+		NetService:FireClient("RoundResult", player, result)
+	end
+end
+
+------------------------------------------------------------------------
 -- Public
 ------------------------------------------------------------------------
 
@@ -468,7 +535,13 @@ function MatchmakingService:Start()
 	local mode = MatchMode.Get()
 
 	ReadyService.ReadyChanged:Connect(function(player, ready)
+		if ready and mode == "Hub" then
+			-- "Match in N" right away, before the ticket is written.
+			queuedAt[player] = unixNow()
+			setQueueAttributes(player, queuedAt[player] + MatchConfig.WaitSeconds, nil)
+		end
 		if not ready then
+			queuedAt[player] = nil
 			playsHere[player] = nil
 			local id = ticketOf[player]
 			if id and ownTickets[id] and not ownTickets[id].Teleporting then
@@ -478,7 +551,9 @@ function MatchmakingService:Start()
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		playsHere[player] = nil
+		queuedAt[player] = nil
 		returning[player] = nil
+		results[player] = nil
 		local id = ticketOf[player]
 		ticketOf[player] = nil
 		local own = id and ownTickets[id]
@@ -523,6 +598,7 @@ function MatchmakingService:Start()
 		end)
 	end
 	if mode == "Hub" then
+		PlayerDataService.ProfileLoaded:Connect(deliverResult)
 		TeleportService.TeleportInitFailed:Connect(function(player, result, message)
 			local id = ticketOf[player]
 			if id == nil then
@@ -601,6 +677,13 @@ function MatchmakingService:ArenaGroups(): { { Player } }
 		table.insert(groups, group)
 	end
 	return groups
+end
+
+-- Arena: the result to take back to the hub with this player.
+function MatchmakingService:SetRoundResult(player: Player, result: Types.RoundResultPayload)
+	if MatchMode.IsArena() then
+		results[player] = result
+	end
 end
 
 -- Arena: true once the player is on the way back to the hub.

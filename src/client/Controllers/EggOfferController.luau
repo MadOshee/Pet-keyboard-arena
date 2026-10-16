@@ -967,10 +967,19 @@ local function showResult()
 	rewardXp.Text = string.format(Strings.XPGained, shown.XP)
 end
 
+-- The offer waits for the hub (Ivan 2026-10-16): never on an arena, and
+-- not while the dark results screen names the winner.
+local function canShowOffer(): boolean
+	return ReplicatedStorage:GetAttribute("ServerMode") ~= "Arena"
+		and ReplicatedStorage:GetAttribute("RoundPhase") ~= "Results"
+end
+
 local function onProfile(profile: Types.Profile)
 	waiting = false
 	local offer = profile.PendingOffer
-	if offer then
+	if offer and not canShowOffer() then
+		setShown(false)
+	elseif offer then
 		local isNew = offer.OfferId ~= shownOfferId
 		showOffer(profile, offer)
 		if isNew and pendingResult then
@@ -1054,6 +1063,12 @@ end
 
 function EggOfferController:Start()
 	DataController.Changed:Connect(onProfile)
+	ReplicatedStorage:GetAttributeChangedSignal("RoundPhase"):Connect(function()
+		local current = DataController:Get()
+		if current then
+			onProfile(current)
+		end
+	end)
 	ClientNet.On("EggPicked", onEggPicked)
 	ClientNet.On("PetHatched", onHatched)
 	ClientNet.On("RoundResult", onRoundResult)

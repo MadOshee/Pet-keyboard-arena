@@ -40,6 +40,8 @@ local SERVICE_ORDER: { string } = {
 -- up replication for seconds (Ivan 2026-10-16, data ping 1.6-2.4 s).
 -- Players join only after this script has run.
 local MatchMode = require(script.Parent.Match.MatchMode)
+-- Clients read it: an arena shows no queue and no egg offer.
+ReplicatedStorage:SetAttribute("ServerMode", MatchMode.Get())
 if MatchMode.IsArena() then
 	local world = workspace:FindFirstChild("World")
 	if world then
