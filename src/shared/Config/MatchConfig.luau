@@ -12,7 +12,7 @@ return table.freeze({
 	-- set its Max Players to 12, publish this same file there). 0 = the
 	-- arena runs on a reserved server of the hub place, so a match holds at
 	-- most as many players as the hub's Max Players.
-	ArenaPlaceId = 0,
+	ArenaPlaceId = 86203411093378,
 
 	-- 6 v 6.
 	MaxHumans = 12,
