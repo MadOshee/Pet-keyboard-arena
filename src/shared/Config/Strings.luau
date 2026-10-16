@@ -41,6 +41,15 @@ return table.freeze({
 		Epic = "Epic",
 		Legendary = "Legendary",
 	}),
+	-- An egg's own rarity (EggConfig.EggRarity).
+	EggRarity = table.freeze({
+		Common = "Common",
+		Uncommon = "Uncommon",
+		Rare = "Rare",
+		Epic = "Epic",
+		Legendary = "Legendary",
+		SuperRare = "Super Rare",
+	}),
 	StatName = table.freeze({
 		Speed = "Speed",
 		PaintRadius = "Area",

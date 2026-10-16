@@ -57,6 +57,8 @@ local CONTENT_ASPECT = 1.85
 local EGG_CENTERS = { 0.24, 0.413, 0.587, 0.76 }
 local EGG_WIDTH = 0.165
 local REROLL_BUTTON_SIZE = UDim2.fromScale(0.159, 0.089)
+-- Height of the price line under each reroll button.
+local PRICE_ROW_HEIGHT = 0.03
 local BLUR_SIZE = 16
 local DIM_TRANSPARENCY = 0.45
 local FADE = TweenInfo.new(0.25)
@@ -113,10 +115,12 @@ type Spin = {
 	}?,
 }
 
--- A reroll button's caption row: the word, an optional icon and the price
--- side by side ("Reroll [cash] $50", "Reroll ⬢10").
+-- A reroll button's caption: the word on the button and, under it, the
+-- price with an optional icon ("[cash] $50", "⬢10"; Ivan 2026-10-16: the
+-- cost under the button).
 type Caption = {
 	Row: Frame,
+	PriceRow: Frame,
 	Word: TextLabel,
 	Icon: ImageLabel?,
 	Price: TextLabel,
@@ -452,7 +456,6 @@ end
 local function setCaptionSize(size: number)
 	for _, caption in captions do
 		setTextSize(caption.Word, size)
-		setTextSize(caption.Price, size)
 	end
 end
 
@@ -466,6 +469,10 @@ local function fitCaptions()
 		height = math.min(height, caption.Row.AbsoluteSize.Y / factor)
 	end
 	setCaptionSize(math.max(math.floor(height * 0.95 + 0.01), 8))
+	-- The prices under the buttons, as tall as their rows.
+	for _, caption in captions do
+		setTextSize(caption.Price, math.max(math.floor(caption.PriceRow.AbsoluteSize.Y * 0.95), 8))
+	end
 end
 
 local function buildCaption(
@@ -492,10 +499,23 @@ local function buildCaption(
 	layout.Parent = row
 
 	rowLabel(word, row, 1)
-	rowLabel(price, row, 3)
+
+	-- The price row under the button, outside it so a hover or press does
+	-- not move the price.
+	local priceRow = Instance.new("Frame")
+	priceRow.Name = button.Name .. "Price"
+	priceRow.BackgroundTransparency = 1
+	priceRow.AnchorPoint = Vector2.new(0.5, 0)
+	priceRow.Position = button.Position + UDim2.fromScale(0, button.Size.Y.Scale / 2 + 0.006)
+	priceRow.Size = UDim2.fromScale(button.Size.X.Scale, PRICE_ROW_HEIGHT)
+	priceRow.ZIndex = 5
+	priceRow.Parent = button.Parent
+	local priceLayout = layout:Clone()
+	priceLayout.Parent = priceRow
+	rowLabel(price, priceRow, 2)
 	if icon then
-		icon.LayoutOrder = 2
-		icon.Parent = row
+		icon.LayoutOrder = 1
+		icon.Parent = priceRow
 	end
 
 	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -507,6 +527,7 @@ local function buildCaption(
 	end)
 	local caption = {
 		Row = row,
+		PriceRow = priceRow,
 		Word = word,
 		Icon = icon,
 		Price = price,
@@ -741,7 +762,7 @@ local function build()
 	end)
 
 	-- Robux reroll next to it, the rainbow "X2 Money" button with the green
-	-- Robux price (Ivan's pictures). Until Ivan creates the product it shows
+	-- Robux price under it (Ivan's pictures). Until Ivan creates the product it shows
 	-- the planned price and only says so when clicked.
 	robuxRerollButton = Widgets.PackButton(
 		"RobuxButton",
@@ -777,7 +798,7 @@ local function build()
 	local oddsBack = Instance.new("Frame")
 	oddsBack.Name = "OddsBack"
 	oddsBack.AnchorPoint = Vector2.new(0.5, 0.5)
-	oddsBack.Position = UDim2.fromScale(0.5, 0.845)
+	oddsBack.Position = UDim2.fromScale(0.5, 0.868)
 	oddsBack.BackgroundColor3 = Color3.fromRGB(20, 24, 60)
 	oddsBack.BackgroundTransparency = 0.3
 	oddsBack.BorderSizePixel = 0
@@ -876,8 +897,9 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 			and offer.RerollCount > shownRerollCount
 		shownOfferId = offer.OfferId
 		shownRerollCount = offer.RerollCount
-		-- Under the egg's theme: its rarity in the rarity's color (Ivan
-		-- 2026-10-15, was its main buff).
+		-- Under the egg's theme: the egg's own rarity (by its theme's chance,
+		-- EggConfig.EggRarity) in its color; never the rarity of the pet
+		-- inside (Ivan 2026-10-16).
 		-- A lost round offers 2 eggs instead of 4 (Ivan): the shown cards
 		-- stay centered, the rest hide.
 		local count = math.min(#offer.Eggs, #cards)
@@ -892,8 +914,9 @@ local function showOffer(profile: Types.Profile, offer: Types.EggOffer)
 			card.Button.Position = UDim2.fromScale(0.5 + (slot - (count + 1) / 2) * step, 0.25)
 			themes[slot] = egg.Theme
 			card.Name.Text = string.format(Strings.EggTheme, egg.Theme)
-			card.Buff.Text = (Strings.Rarity :: any)[egg.Rarity] or egg.Rarity
-			card.Buff.TextColor3 = PetStyle.Rarity[egg.Rarity] or WHITE
+			local eggRarity = EggConfig.EggRarity[egg.Theme] or "Common"
+			card.Buff.Text = (Strings.EggRarity :: any)[eggRarity] or eggRarity
+			card.Buff.TextColor3 = PetStyle.EggRarity[eggRarity] or WHITE
 		end
 		if rerolled then
 			startSpin()
