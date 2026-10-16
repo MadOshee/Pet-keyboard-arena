@@ -18,7 +18,7 @@ return table.freeze({
 	MaxHumans = 12,
 	-- A match starts once the oldest ticket has waited this long, or right
 	-- away when MaxHumans are queued. Missing seats are bots.
-	WaitSeconds = 15,
+	WaitSeconds = 10,
 	-- A ticket that got no match in this time plays on its own server.
 	GiveUpSeconds = 45,
 	-- How long the arena waits for everyone to arrive before it starts.
