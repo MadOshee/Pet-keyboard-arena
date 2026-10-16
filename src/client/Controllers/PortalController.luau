@@ -264,9 +264,10 @@ end
 
 function PortalController:Start()
 	task.spawn(function()
-		local world = workspace:WaitForChild("World")
-		local found = world:WaitForChild("Portal")
-		if found:IsA("Model") then
+		-- An arena server has no hub map.
+		local world = workspace:WaitForChild("World", 10)
+		local found = world and world:WaitForChild("Portal", 10)
+		if found and found:IsA("Model") then
 			portal = found
 			collectAnimated(found)
 		end

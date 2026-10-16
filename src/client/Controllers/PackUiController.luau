@@ -416,7 +416,12 @@ local function wireShopStalls()
 		end
 	end)
 	task.spawn(function()
-		local islands = workspace:WaitForChild("World"):WaitForChild("Islands")
+		-- An arena server has no hub map.
+		local world = workspace:WaitForChild("World", 10)
+		local islands = world and world:WaitForChild("Islands", 10)
+		if islands == nil then
+			return
+		end
 		for _, descendant in islands:GetDescendants() do
 			if descendant:IsA("ClickDetector") and descendant.Name == "Shop" then
 				descendant.MouseClick:Connect(function()
