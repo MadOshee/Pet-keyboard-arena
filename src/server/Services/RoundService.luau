@@ -249,7 +249,10 @@ local function runRound(groups: { { Player } })
 	roundId += 1
 	local winner: Types.Winner = Reward.DecideWinner(score.Red, score.Blue)
 	ReplicatedStorage:SetAttribute("Winner", winner)
-	setPhase("Results", RoundConfig.ResultsSeconds)
+	setPhase(
+		"Results",
+		if MatchMode.IsArena() then RoundConfig.ArenaResultsSeconds else RoundConfig.ResultsSeconds
+	)
 	RoundService.RoundEnded:Fire({
 		RoundId = roundId,
 		Winner = winner,
@@ -257,11 +260,9 @@ local function runRound(groups: { { Player } })
 		KeysPainted = score.KeysPainted,
 	})
 	local isArena = MatchMode.IsArena()
-	if not isArena then
-		task.wait(RoundConfig.ResultsSeconds)
-	end
-	-- An arena sends everyone home at once: the dark winner screen stays
-	-- up while the teleport loads (Ivan 2026-10-17: "сразу в хаб").
+	-- An arena sends everyone home sooner: the dark winner screen stays up
+	-- while the teleport loads (Ivan 2026-10-17).
+	task.wait(if isArena then RoundConfig.ArenaResultsSeconds else RoundConfig.ResultsSeconds)
 	for player in teams do
 		player:SetAttribute("Team", nil)
 		-- Pet Speed only applies in the round.

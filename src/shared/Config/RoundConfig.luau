@@ -10,9 +10,11 @@ return table.freeze({
 	CountdownSeconds = 3,
 	PlayingSeconds = 60,
 	-- The dark "RED TEAM WINS!" screen after a match on the hub server
-	-- itself. An arena server starts the teleport home right away and keeps
-	-- the screen up while it loads (Ivan 2026-10-16, 2026-10-17).
+	-- itself (Ivan 2026-10-16).
 	ResultsSeconds = 3,
+	-- On an arena server: the winner screen this long, then the teleport
+	-- home starts and the screen stays up while it loads (Ivan 2026-10-17).
+	ArenaResultsSeconds = 2,
 
 	-- One ready player is enough: bots fill both teams up to the team size
 	-- (MinTeamSize at least, D6).

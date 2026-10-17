@@ -220,13 +220,18 @@ local function teleportToArena(id: string, assignment: Assignment)
 	end
 	own.Teleporting = true
 	own.TeleportedAt = os.clock()
+	-- The match is found early; the teleport starts at "Match in 3".
+	local leaveAt = own.Ticket.JoinedAt + MatchConfig.WaitSeconds - MatchConfig.TeleportAtSeconds
+	if leaveAt > unixNow() then
+		task.wait(leaveAt - unixNow())
+	end
 	local going: { Player } = {}
 	local userIds: { number } = {}
 	for _, player in own.Players do
 		if player.Parent == Players and ReadyService:IsReady(player) then
 			table.insert(going, player)
 			table.insert(userIds, player.UserId)
-			-- The countdown keeps running to 0 while the teleport starts.
+			-- The countdown keeps running while the teleport starts.
 			local endsAt = player:GetAttribute("QueueEndsAt")
 			setQueueAttributes(player, if type(endsAt) == "number" then endsAt else nil, true)
 		end
@@ -587,6 +592,10 @@ function MatchmakingService:Start()
 			local id = ticketOf[player]
 			if id and ownTickets[id] and not ownTickets[id].Teleporting then
 				forget(id)
+			elseif id then
+				-- Left between the match being found and the teleport.
+				ticketOf[player] = nil
+				setQueueAttributes(player, nil, nil)
 			end
 		end
 	end)
