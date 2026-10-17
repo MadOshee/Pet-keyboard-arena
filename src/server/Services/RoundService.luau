@@ -256,9 +256,12 @@ local function runRound(groups: { { Player } })
 		Teams = table.clone(teams),
 		KeysPainted = score.KeysPainted,
 	})
-	task.wait(RoundConfig.ResultsSeconds)
-
 	local isArena = MatchMode.IsArena()
+	if not isArena then
+		task.wait(RoundConfig.ResultsSeconds)
+	end
+	-- An arena sends everyone home at once: the dark winner screen stays
+	-- up while the teleport loads (Ivan 2026-10-17: "сразу в хаб").
 	for player in teams do
 		player:SetAttribute("Team", nil)
 		-- Pet Speed only applies in the round.
@@ -276,8 +279,11 @@ local function runRound(groups: { { Player } })
 		ReplicatedStorage:SetAttribute("ReturningToHub", true)
 		-- Everyone here, late arrivals too, goes back to their hub server.
 		MatchmakingService:ReturnToHub(Players:GetPlayers())
+	else
+		-- Kept on an arena: cleared in the same frame it was set, the
+		-- winner would never reach the clients' dark screen.
+		ReplicatedStorage:SetAttribute("Winner", nil)
 	end
-	ReplicatedStorage:SetAttribute("Winner", nil)
 	ArenaService:ClearBoard()
 end
 
