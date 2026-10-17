@@ -12,6 +12,9 @@
 -- Arena servers: read their roster, wait for the players (RoundService
 -- plays the match), then send everyone back to the hub server they came
 -- from, with the party kept there for them (PartyService:HoldWhileAway).
+-- Only while that hub is still open and has room (its MatchConfig.Maps.Hubs
+-- entry): a closed hub server means "Teleport Failed 771" on the player's
+-- screen, so they go to any hub server instead.
 --
 -- Anything that fails (MemoryStore, the reservation, the teleport, no
 -- match in GiveUpSeconds) falls back to a match on the player's own hub
@@ -447,7 +450,45 @@ local function hubPlaceId(): number
 	return game.PlaceId
 end
 
+------------------------------------------------------------------------
+-- Hub: "this server is open" entries, read by the arena before it sends
+-- players back here
+------------------------------------------------------------------------
+
+local function writeHubAlive()
+	local count = #Players:GetPlayers()
+	if count == 0 then
+		-- An empty hub server closes; nobody should be sent here.
+		call("remove hub", function()
+			return map(MatchConfig.Maps.Hubs):RemoveAsync(game.JobId)
+		end)
+		return
+	end
+	call("write hub", function()
+		return map(MatchConfig.Maps.Hubs):SetAsync(
+			game.JobId,
+			{ Players = count, Max = Players.MaxPlayers },
+			MatchConfig.HubAliveSeconds
+		)
+	end)
+end
+
+-- Arena: whether `count` players can go back to hub server `jobId`.
+local function hubHasRoom(jobId: string, count: number): boolean
+	local ok, value = call("read hub", function()
+		return map(MatchConfig.Maps.Hubs):GetAsync(jobId)
+	end)
+	if not ok or type(value) ~= "table" then
+		return false
+	end
+	local players, max = value.Players, value.Max
+	return type(players) == "number" and type(max) == "number" and players + count <= max
+end
+
 local function teleportHome(players: { Player }, jobId: string, placeId: number)
+	if jobId ~= "" and not hubHasRoom(jobId, #players) then
+		jobId = "" -- their hub server closed or is full: any hub server
+	end
 	local options = Instance.new("TeleportOptions")
 	if jobId ~= "" then
 		options.ServerInstanceId = jobId
@@ -598,6 +639,21 @@ function MatchmakingService:Start()
 		end)
 	end
 	if mode == "Hub" then
+		task.spawn(function()
+			while true do
+				writeHubAlive()
+				task.wait(MatchConfig.HubAliveRefreshSeconds)
+			end
+		end)
+		Players.PlayerRemoving:Connect(function()
+			-- The leaving player is still counted until the next frame.
+			task.delay(0.1, writeHubAlive)
+		end)
+		game:BindToClose(function()
+			call("remove hub", function()
+				return map(MatchConfig.Maps.Hubs):RemoveAsync(game.JobId)
+			end)
+		end)
 		PlayerDataService.ProfileLoaded:Connect(deliverResult)
 		TeleportService.TeleportInitFailed:Connect(function(player, result, message)
 			local id = ticketOf[player]

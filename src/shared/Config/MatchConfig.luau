@@ -34,6 +34,11 @@ return table.freeze({
 	AssignmentSeconds = 120,
 	RosterSeconds = 900,
 	LockSeconds = 10,
+	-- Hub servers say they are alive this often; the arena sends players
+	-- back to their own hub only while it is (else any hub server), so a
+	-- hub closed meanwhile never gives "Teleport Failed 771" (Ivan 2026-10-17).
+	HubAliveRefreshSeconds = 10,
+	HubAliveSeconds = 30,
 	TickSeconds = 1,
 	MaxMatchesPerTick = 5,
 
@@ -42,5 +47,6 @@ return table.freeze({
 		Assignments = "MatchAssignments",
 		Rosters = "MatchRosters",
 		Lock = "MatchmakerLock",
+		Hubs = "HubServers",
 	}),
 })
